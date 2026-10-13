@@ -26,7 +26,9 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
    media › Allow management of all files** (on Samsung, also reachable from *Settings › Apps ›
    Special access › All files access*). Without it, File › Open and Save As can't see your
    storage.
-3. For pen pressure, check **Preferences › Tools › Use Tablet Pressure**, and set a brush's
+3. Fonts: the Type tool lists Android's system fonts. To add your own, put `.ttf` / `.otf`
+   files in a `Fonts` folder at the top of internal storage and restart the app.
+4. For pen pressure, check **Preferences › Tools › Use Tablet Pressure**, and set a brush's
    size or opacity to follow pen pressure in Brush Settings.
 
 ## How it works
