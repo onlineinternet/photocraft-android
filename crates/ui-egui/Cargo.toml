@@ -34,7 +34,10 @@ photocraft-codecs = { workspace = true }
 photocraft-psd = { workspace = true }
 egui = { workspace = true }
 egui_extras = { version = "0.37", default-features = false, features = ["svg"] }
-eframe = { workspace = true, features = ["wgpu", "accesskit", "clipboard"] }
+# accesskit and clipboard are enabled per target below: on Android, eframe only allows accesskit
+# with GameActivity, the Android shell (apps/photocraft-android) runs on NativeActivity, and it
+# reaches Android's clipboard through its own Services.
+eframe = { workspace = true, features = ["wgpu"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
@@ -47,6 +50,9 @@ base64 = "0.23"
 # Inflating the translation catalogs, stored deflated (build.rs); already linked through photocraft-io.
 flate2 = { workspace = true }
 web-time = { workspace = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+eframe = { workspace = true, features = ["accesskit", "clipboard"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Floating panels open in their own OS windows on the desktop; the web keeps them in the page.
