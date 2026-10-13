@@ -1,0 +1,48 @@
+[package]
+name = "photocraft-android"
+description = "PhotoCraft on Android (eframe on NativeActivity, wgpu on Vulkan): an unofficial community port"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+# Open HEIC/HEIF photos (the optional photocraft-heif crate), as in the desktop and web builds.
+heif = ["photocraft-codecs/heif"]
+
+# Like the workspace lints, except `unsafe_code` is denied instead of forbidden: Android finds
+# the app through one exported `android_main` symbol (`#[unsafe(no_mangle)]`), the single item
+# that allows it (src/lib.rs). Everything else stays safe code.
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+[lib]
+name = "photocraft_android"
+path = "src/lib.rs"
+# cdylib is what Android loads (libphotocraft_android.so); rlib keeps `cargo test` working on the host.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+photocraft-doc = { workspace = true }
+photocraft-engine = { workspace = true }
+photocraft-io = { workspace = true }
+photocraft-codecs = { workspace = true }
+photocraft-format = { workspace = true }
+photocraft-raster = { workspace = true }
+photocraft-ui-egui = { workspace = true }
+eframe = { workspace = true, features = ["wgpu", "persistence"] }
+egui = { workspace = true }
+log = { workspace = true }
+
+[target.'cfg(target_os = "android")'.dependencies]
+eframe = { workspace = true, features = ["android-native-activity"] }
+# eframe takes winit's `AndroidApp` but doesn't re-export winit: the same version as Cargo.lock.
+winit = { version = "=0.30.13", default-features = false, features = ["android-native-activity"] }
+android_logger = { version = "0.15", default-features = false }
+
+[dev-dependencies]
+egui = { workspace = true, features = ["default_fonts"] }
