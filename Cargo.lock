@@ -5515,6 +5515,7 @@ dependencies = [
  "photocraft-io",
  "photocraft-raster",
  "photocraft-ui-egui",
+ "serde_json",
  "winit",
 ]
 
