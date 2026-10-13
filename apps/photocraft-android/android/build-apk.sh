@@ -10,7 +10,11 @@
 #
 # Optional: KEYSTORE / KEYSTORE_PASS (signing key; default: a debug key kept in target/android so
 # later builds install over earlier ones), VERSION_CODE (must grow for updates), PROFILE
-# (release), FEATURES (e.g. heif), MIN_SDK (28), TARGET_SDK (35), BUILD_TOOLS (newest installed).
+# (release), FEATURES (e.g. heif), MIN_SDK (28), TARGET_SDK (34), PLATFORM (the SDK platform to
+# link against, 35), BUILD_TOOLS (newest installed).
+#
+# TARGET_SDK stays at 34: Android 15 draws apps that target 35 edge to edge, under the status
+# and navigation bars, and the UI doesn't read the system bar insets yet.
 # Output: target/android/photocraft-android-arm64.apk
 set -euo pipefail
 
@@ -25,16 +29,17 @@ NDK=${ANDROID_NDK_HOME:-${ANDROID_NDK_LATEST_HOME:-}}
 
 TARGET=aarch64-linux-android
 MIN_SDK=${MIN_SDK:-28}
-TARGET_SDK=${TARGET_SDK:-35}
+TARGET_SDK=${TARGET_SDK:-34}
+PLATFORM=${PLATFORM:-35}
 PROFILE=${PROFILE:-release}
 VERSION_CODE=${VERSION_CODE:-1}
 VERSION_NAME=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/Cargo.toml" | head -n1)
 BUILD_TOOLS=${BUILD_TOOLS:-$(ls -1 "$ANDROID_HOME/build-tools" 2>/dev/null | sort -V | tail -n1)}
 BT="$ANDROID_HOME/build-tools/$BUILD_TOOLS"
-JAR="$ANDROID_HOME/platforms/android-$TARGET_SDK/android.jar"
+JAR="$ANDROID_HOME/platforms/android-$PLATFORM/android.jar"
 TC="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
 [ -x "$BT/aapt2" ] || die "no build-tools in $ANDROID_HOME/build-tools (install e.g. build-tools;35.0.0)"
-[ -f "$JAR" ] || die "no $JAR (install platforms;android-$TARGET_SDK)"
+[ -f "$JAR" ] || die "no $JAR (install platforms;android-$PLATFORM)"
 [ -x "$TC/clang" ] || die "no NDK toolchain at $TC"
 
 echo "==> Building libphotocraft_android.so ($PROFILE, $TARGET, API $MIN_SDK)"
