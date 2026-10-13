@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PhotoCraft on Android (unofficial). No Java code: Android's own NativeActivity loads
+  libphotocraft_android.so and android-activity's glue calls `android_main` (src/lib.rs).
+  Built into an APK by build-apk.sh; see README.md beside this folder.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="io.github.photocraft.unofficial"
+    android:versionCode="1"
+    android:versionName="0.8.2">
+
+    <!-- wgpu prefers Vulkan and falls back to GLES 3. -->
+    <uses-feature android:name="android.hardware.vulkan.version" android:version="0x400003" android:required="false" />
+    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+
+    <!-- Opening and saving anywhere in shared storage through plain paths (the in-app picker):
+         the user turns this on once in Settings › Apps › Special app access › All files access. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+
+    <application
+        android:label="PhotoCraft (unofficial)"
+        android:hasCode="false"
+        android:extractNativeLibs="true"
+        android:requestLegacyExternalStorage="true"
+        android:resizeableActivity="true"
+        android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <!-- configChanges: rotating, folding, resizing or a keyboard arriving must not restart
+             the activity, which would end the native app and lose unsaved work. -->
+        <activity
+            android:name="android.app.NativeActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|keyboard|keyboardHidden|navigation|uiMode|fontScale|layoutDirection|locale">
+            <meta-data android:name="android.app.lib_name" android:value="photocraft_android" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

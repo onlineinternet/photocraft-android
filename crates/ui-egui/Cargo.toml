@@ -31,7 +31,9 @@ photocraft-format = { workspace = true }
 photocraft-codecs = { workspace = true }
 egui = { workspace = true }
 egui_extras = { version = "0.36", default-features = false, features = ["svg"] }
-eframe = { workspace = true, features = ["wgpu", "accesskit"] }
+# accesskit is enabled per target below: on Android, eframe only allows it with GameActivity,
+# and the Android shell (apps/photocraft-android) runs on NativeActivity.
+eframe = { workspace = true, features = ["wgpu"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 log = { workspace = true }
@@ -40,6 +42,9 @@ unicode-bidi = "0.3"
 base64 = "0.22"
 # Inflating the translation catalogs, stored deflated (build.rs); already linked through photocraft-io.
 flate2 = { workspace = true }
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+eframe = { workspace = true, features = ["accesskit"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = { workspace = true }
