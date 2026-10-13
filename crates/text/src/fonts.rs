@@ -950,6 +950,13 @@ pub(crate) fn system_font_dirs() -> Vec<std::path::PathBuf> {
         if let Some(h) = &home {
             v.push(h.join("Library/Fonts"));
         }
+    } else if cfg!(target_os = "android") {
+        // The system fonts (Roboto, Noto, and the maker's own, such as SamsungOne), then a
+        // Fonts folder in shared storage where the user can drop their own .ttf/.otf files.
+        v.push(PathBuf::from("/system/fonts"));
+        v.push(PathBuf::from("/product/fonts"));
+        v.push(PathBuf::from("/system_ext/fonts"));
+        v.push(PathBuf::from("/storage/emulated/0/Fonts"));
     } else if cfg!(target_os = "windows") {
         let windir = std::env::var_os("WINDIR").map_or_else(|| PathBuf::from("C:\\Windows"), PathBuf::from);
         v.push(windir.join("Fonts"));
