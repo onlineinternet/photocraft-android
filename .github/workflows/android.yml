@@ -1,0 +1,77 @@
+# Builds the unofficial Android APK (apps/photocraft-android) and attaches it to the run.
+# Download it from the run's page under "Artifacts", unzip, and install the .apk on the device.
+#
+# Signing: add the repository secrets ANDROID_KEYSTORE_B64 (`base64 -w0 your.keystore`) and
+# ANDROID_KEYSTORE_PASS so every build is signed with the same key and installs over the last one.
+# Without them each run signs with a throwaway key, so a new build needs the old one uninstalled.
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [android]
+    paths:
+      - "apps/photocraft-android/**"
+      - "crates/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/android.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ANDROID_PLATFORM: "35"
+  ANDROID_BUILD_TOOLS: "35.0.0"
+  ANDROID_NDK_VERSION: "27.2.12479018"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android-arm64
+
+      - name: Android SDK platform, build-tools and NDK
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          "$sdkmanager" --install "platforms;android-${ANDROID_PLATFORM}" "build-tools;${ANDROID_BUILD_TOOLS}" "ndk;${ANDROID_NDK_VERSION}" > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/photocraft.keystore"
+            echo "KEYSTORE=$RUNNER_TEMP/photocraft.keystore" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No ANDROID_KEYSTORE_B64 secret: this APK is signed with a throwaway key, so installing a later build means uninstalling this one first."
+          fi
+
+      - name: Build the APK
+        env:
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+          VERSION_CODE: ${{ github.run_number }}
+          TARGET_SDK: ${{ env.ANDROID_PLATFORM }}
+          BUILD_TOOLS: ${{ env.ANDROID_BUILD_TOOLS }}
+        run: apps/photocraft-android/android/build-apk.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: photocraft-android-arm64
+          path: target/android/photocraft-android-arm64.apk
+          if-no-files-found: error
