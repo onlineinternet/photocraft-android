@@ -10,41 +10,138 @@
 //!   filesystem paths ([`picker`]), which needs Android's "All files access" permission;
 //! - preferences, brush presets, crash recovery and the window layout live in the app's private
 //!   storage ([`services::Dirs`]);
+//! - an edge keyboard with latched Ctrl/Shift/Alt/Space and one-tap commands ([`edge_keys`]),
+//!   and two- and three-finger taps for Undo and Redo ([`gestures`]);
+//! - the right-hand dock starts hidden on narrow screens ([`NARROW_WIDTH`]);
 //! - no OS clipboard, control server, beep or screen color picker yet.
 //!
 //! Pen pressure needs nothing extra: winit reports every Android pointer's pressure as a touch
 //! force, which the canvas reads exactly like a Windows pen (`photocraft_ui_egui::stylus`).
 
+pub mod edge_keys;
+pub mod gestures;
 pub mod picker;
 pub mod services;
 
+use photocraft_doc::Document;
 use photocraft_engine::Session;
 use photocraft_ui_egui::PhotocraftApp;
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Shared storage on Android: what the Files app calls "Internal storage".
 pub const SHARED_STORAGE: &str = "/storage/emulated/0";
 
-/// The app plus the file picker it draws on top.
+/// Narrower than this (points), the right-hand dock starts hidden: a phone, or a tablet in
+/// portrait split screen. The edge keyboard's Panels key brings it back.
+pub const NARROW_WIDTH: f32 = 1000.0;
+
+/// The active document as a touch session started: what a gesture undoes back to first.
+struct Snapshot {
+    index: usize,
+    doc: Arc<Document>,
+}
+
+/// A recognized tap, run once the app has seen the frame it ended in.
+struct PendingTap {
+    tap: gestures::Tap,
+    frame: u64,
+    snapshot: Option<Snapshot>,
+}
+
+/// The app plus the touch-screen pieces drawn on top: the file picker and the edge keyboard.
 pub struct AndroidShell {
     app: PhotocraftApp,
     picker: services::SharedPicker,
+    edge: edge_keys::EdgeKeys,
+    gate: gestures::Gate,
+    snapshot: Option<Snapshot>,
+    pending_tap: Option<PendingTap>,
+    frame: u64,
+    layout_checked: bool,
+}
+
+fn snapshot(app: &PhotocraftApp) -> Option<Snapshot> {
+    let index = app.session.active_index()?;
+    Some(Snapshot { index, doc: app.session.active()?.doc.clone() })
+}
+
+/// Has the active document changed since `snapshot`?
+fn changed_since(app: &PhotocraftApp, snapshot: &Snapshot) -> bool {
+    app.session.active_index() == Some(snapshot.index) && app.session.active().is_some_and(|d| !Arc::ptr_eq(&d.doc, &snapshot.doc))
+}
+
+/// Undo (two fingers) or redo (three). If the gesture's first finger got through as a mouse
+/// before the second landed (a dab, a deselect), that is undone first and dropped from Redo.
+fn run_tap(app: &mut PhotocraftApp, ctx: &egui::Context, tap: gestures::Tap, snapshot: Option<Snapshot>) {
+    if let Some(s) = &snapshot {
+        let mut stray = false;
+        for _ in 0..4 {
+            if !changed_since(app, s) || !app.session.undo() {
+                break;
+            }
+            stray = true;
+        }
+        if stray && let Some(d) = app.session.active_mut() {
+            d.history.clear_redo();
+        }
+    }
+    let id = match tap {
+        gestures::Tap::Two => "edit.undo",
+        gestures::Tap::Three => "edit.redo",
+    };
+    if let Err(e) = photocraft_ui_egui::menus::invoke(app, ctx, id, serde_json::json!({})) {
+        log::info!("gesture {id}: {e}");
+    }
 }
 
 impl eframe::App for AndroidShell {
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        self.frame += 1;
+        self.edge.sync(&mut self.app);
+        if !self.layout_checked {
+            self.layout_checked = true;
+            if ctx.content_rect().width() < NARROW_WIDTH {
+                self.app.ui.panels.dock = false;
+            }
+        }
+        if self.pending_tap.as_ref().is_some_and(|p| self.frame > p.frame)
+            && let Some(p) = self.pending_tap.take()
+        {
+            run_tap(&mut self.app, ctx, p.tap, p.snapshot);
+        }
+        self.edge.run_queued(&mut self.app, ctx);
         self.app.logic(ctx, frame);
     }
 
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        let now = raw_input.time.unwrap_or(0.0);
+        let filtered = self.gate.filter(std::mem::take(&mut raw_input.events), now);
+        raw_input.events = filtered.events;
+        if filtered.session_started {
+            self.snapshot = snapshot(&self.app);
+        }
+        if let Some(tap) = filtered.tap {
+            // `frame` is still the last frame's number here: wait for the one after this.
+            self.pending_tap = Some(PendingTap { tap, frame: self.frame + 1, snapshot: self.snapshot.take() });
+            ctx.request_repaint();
+        }
+        if filtered.holding {
+            ctx.request_repaint_after(std::time::Duration::from_secs_f64(gestures::HOLD_SECS));
+        }
+        self.edge.raw_input(raw_input);
         self.app.raw_input_hook(ctx, raw_input);
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         self.app.ui(ui, frame);
-        self.picker.borrow_mut().show(ui.ctx());
+        let ctx = ui.ctx().clone();
+        if !self.picker.borrow().is_open() {
+            self.edge.show(&ctx, &mut self.app);
+        }
+        self.picker.borrow_mut().show(&ctx);
     }
 }
 
@@ -82,7 +179,16 @@ pub fn create_app(cc: &eframe::CreationContext<'_>, dirs: &services::Dirs, stora
             let _ = photocraft_ui_egui::gpu_canvas::DeviceHealth::watch(&rs.device);
         }
     }
-    AndroidShell { app, picker }
+    AndroidShell {
+        app,
+        picker,
+        edge: edge_keys::EdgeKeys::default(),
+        gate: gestures::Gate::default(),
+        snapshot: None,
+        pending_tap: None,
+        frame: 0,
+        layout_checked: false,
+    }
 }
 
 /// Log every panic before the default hook runs (Android's logcat is the only console).
