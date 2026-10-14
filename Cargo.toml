@@ -2,6 +2,8 @@
 resolver = "3"
 members = ["crates/*", "apps/*", "xtask"]
 default-members = ["crates/*", "apps/photocraft", "apps/photocraft-cli", "xtask"]
+# Vendored, patched dependencies (see each one's PATCHED.md): not workspace members.
+exclude = ["third_party"]
 
 [workspace.package]
 version = "0.15.1"
@@ -176,3 +178,7 @@ opt-level = "z"
 [profile.wasm-release.package.photocraft-paint]
 opt-level = 3
 
+# The Android port's pointer hook (pen tool, tilt, barrel button, hover) on winit's Android
+# backend: third_party/winit/PATCHED.md. Other platforms build the same code as upstream winit.
+[patch.crates-io]
+winit = { path = "third_party/winit" }

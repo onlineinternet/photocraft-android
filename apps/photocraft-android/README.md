@@ -40,6 +40,12 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 - **Apply / Cancel** buttons appear at the bottom while Free Transform or a crop is waiting,
   and a tap has to move 10 points before it drags the transform box, so a tap inside it doesn't
   nudge it and a tap outside applies it.
+- **Pen and finger are told apart** (a pointer hook in the vendored winit,
+  `third_party/winit/PATCHED.md`): the S Pen paints with pressure and tilt and starts at once;
+  its side button holds Alt (Alt + tap picks a color); hovering moves the brush outline.
+- **Finger draws** (edge keyboard toggle): on, a finger paints, with **Finger pressure**
+  simulated from speed; off, one finger pans the canvas and two pinch to zoom, so only the pen
+  draws. A tap outside the edge keyboard closes it.
 - **Two-finger tap** undoes, **three-finger tap** redoes. Pinch zooms and two fingers pan.
 - On screens narrower than 1000 points (phones), the right dock starts hidden, menus that don't
   fit the menu bar move into a **»** menu at its end, and dialogs fit the screen.
@@ -57,12 +63,13 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
   (rfd has no Android backend).
 - `src/services.rs`: files, preferences, presets and crash recovery in app storage.
 - `src/edge_keys.rs`: the edge keyboard.
+- `src/pen.rs`: pen or finger, the stylus feed, finger pressure, navigating fingers.
 - `src/gestures.rs`: holds a lone finger's mouse events back for 80 ms, so a second finger
   turns them into a gesture instead of a dab; recognizes the undo/redo taps.
 - `android/AndroidManifest.xml`: a NativeActivity app with no Java code.
 - `android/build-apk.sh`: cargo builds the library; aapt2, zipalign and apksigner package it.
 
-Pen pressure arrives as winit touch force, the same path Windows pens use.
+Pen samples reach the canvas through the same stylus feed the desktop tablet code uses.
 
 ## Known gaps
 
@@ -70,9 +77,6 @@ Pen pressure arrives as winit touch force, the same path Windows pens use.
   that aren't mounted as paths don't show up).
 - The interface is the desktop layout; panels are still desktop-sized.
 - Text in non-Latin scripts may not render, since their system fonts aren't loaded.
-- Pen and finger can't be told apart yet (winit drops Android's tool type), so there's no
-  "fingers navigate, pen draws" mode, and every touch starts 80 ms late.
-- Fingers report a touch force too, so finger painting follows how hard the screen thinks you
-  pressed. Turn off *Use Tablet Pressure* if that gets in the way.
-- Pen tilt, barrel rotation and the S Pen button aren't read yet.
+- A painting finger still starts 80 ms late (waiting to see whether it's a two-finger tap).
+- No palm rejection yet beyond "Finger draws" off; no two-finger canvas rotation yet.
 - Only arm64-v8a is built.
