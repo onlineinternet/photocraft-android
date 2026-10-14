@@ -74,6 +74,13 @@ impl CanvasCallback {
         // in device pixels, so scale by the display's pixels per point.
         let grid = if p.pixel_grid && crate::pixel_grid::shows_at(p.zoom * ppp) { crate::pixel_grid::STRENGTH } else { 0.0 };
         let square = if style.checker_square > 0.0 { (style.checker_square * ppp).round().max(1.0) } else { 0.0 };
+        // Pixel art: whole-pixel checker cells, and a negative grid alpha draws the grid over
+        // empty pixels too (the shader's `abs`).
+        let (grid, square) = if p.pixel_art {
+            (-grid * crate::pixel_mode::GRID_BOOST, if square > 0.0 { crate::pixel_mode::checker_cell(scale, square) * scale } else { 0.0 })
+        } else {
+            (grid, square)
+        };
         let (l, d, g) = (style.checker_light, style.checker_dark, style.gamut_color);
         // 32-bit preview: linear-light gain 2^exposure (0 = off) and 1 / gamma.
         let (gain, inv_gamma) = match p.hdr {

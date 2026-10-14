@@ -125,6 +125,9 @@ pub struct ViewParams {
     pub shadow: bool,
     /// Draw the pixel grid at high zoom.
     pub pixel_grid: bool,
+    /// Pixel Art Mode (pixel_mode.rs): checker cells are whole document pixels and the pixel
+    /// grid covers empty pixels too, so every pixel can be told apart.
+    pub pixel_art: bool,
     /// Distinguishes views painted in the same frame (main canvas, extra windows).
     pub view_key: u64,
     /// Display transform: 0 none, 1 the document's display LUT (document → monitor profile,
