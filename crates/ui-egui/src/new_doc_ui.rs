@@ -15,6 +15,14 @@ use photocraft_engine::document_preset_cmds::DocumentSettings;
 /// A blank-document preset: (name, width px, height px, ppi).
 pub type Preset = (&'static str, u32, u32, f32);
 
+/// The New Document category whose presets start in Pixel Art Mode.
+pub const PIXEL_ART: &str = "Pixel Art";
+
+/// Whether `p` is one of the [`PIXEL_ART`] presets.
+fn is_pixel_preset(p: &Preset) -> bool {
+    CATEGORIES.iter().any(|c| c.0 == PIXEL_ART && c.1.contains(p))
+}
+
 /// Photoshop's New Document categories and their blank-document presets.
 pub const CATEGORIES: &[(&str, &[Preset])] = &[
     ("Recent", &[("Default PhotoCraft Size", 2100, 1500, 300.0), ("HDTV 1080p", 1920, 1080, 72.0)]),
@@ -44,6 +52,8 @@ pub const CATEGORIES: &[(&str, &[Preset])] = &[
         "Art & Illustration",
         &[("Poster", 5400, 7200, 300.0), ("Postcard", 1800, 1200, 300.0), ("Comic Book", 1988, 3075, 300.0), ("Square, 12 x 12", 3600, 3600, 300.0)],
     ),
+    // Not in Photoshop: tiny canvases that open in Pixel Art Mode (pixel_mode.rs).
+    (PIXEL_ART, &[("Icon 16 x 16", 16, 16, 72.0), ("Sprite 32 x 32", 32, 32, 72.0), ("Sprite 64 x 64", 64, 64, 72.0), ("Screen 320 x 180", 320, 180, 72.0)]),
     (
         "Web",
         &[
@@ -199,6 +209,13 @@ pub fn apply_preset(f: &mut Map<String, Value>, p: &Preset, units: &UnitsAndRule
     f.insert("resolution".into(), json!(ppi));
     f.insert("__preset".into(), json!(name));
     f.insert("__unit".into(), json!(if is_print(p) { "in" } else { "px" }));
+    // A pixel-art preset starts in Pixel Art Mode on a transparent canvas; other presets don't.
+    if is_pixel_preset(p) {
+        f.insert("pixelArt".into(), json!(true));
+        f.insert("background".into(), json!("transparent"));
+    } else {
+        f.remove("pixelArt");
+    }
 }
 
 /// Fields `file.new` takes (drops the dialog's `__` UI keys).
@@ -444,8 +461,8 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
     let t = Tokens::get(ui.ctx());
     let cat = get_s(f, "__category", "Recent");
     let mut create = false;
-    // Category tabs (they wrap onto a second line on a narrow screen).
-    ui.horizontal_wrapped(|ui| {
+    // Category tabs (they wrap onto more lines on a narrow screen).
+    let tabs = ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = 18.0;
         for name in CATEGORIES.iter().map(|c| c.0).chain(["Saved"]) {
             let on = cat == name;
@@ -461,6 +478,8 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
             }
         }
     });
+    // Tab lines past the second take room from the scrolling body on a phone.
+    let extra_tab_lines = (tabs.response.rect.height() - 40.0).max(0.0);
     ui.add_space(6.0);
     widgets::hairline(ui);
     ui.add_space(8.0);
@@ -474,197 +493,219 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
     // dialog's own buttons stay on screen below it.
     let narrow = ui.available_width() < 790.0;
     let layout = if narrow { egui::Layout::top_down(egui::Align::Min) } else { egui::Layout::left_to_right(egui::Align::Min) };
-    let max_h = if narrow { (ui.ctx().content_rect().height() - 240.0).max(220.0) } else { f32::INFINITY };
+    let max_h = if narrow { (ui.ctx().content_rect().height() - 300.0 - extra_tab_lines).max(220.0) } else { f32::INFINITY };
     let grid_w = 520.0_f32.min(ui.available_width());
-    egui::ScrollArea::vertical().id_salt("new-document-body").max_height(max_h).auto_shrink([false, true]).show(ui, |ui| ui.with_layout(layout, |ui| {
-        // Left: preset grid.
-        ui.vertical(|ui| {
-            ui.set_width(grid_w);
-            if cat == "Saved" {
-                create |= saved_presets(app, ui, f);
-                return;
-            }
-            ui.label(RichText::new(crate::i18n::fmt(tl!("BLANK DOCUMENT PRESETS ({n})"), &[("n", &presets.len().to_string())])).size(11.0).color(t.text_faint));
-            ui.add_space(6.0);
-            let card = vec2(164.0, 112.0);
-            // Up to 20 recent documents: scroll past three rows rather than grow the dialog.
-            egui::ScrollArea::vertical().id_salt("new-document-presets").max_height(3.0 * (card.y + 8.0)).show(ui, |ui| {
-                let per_row = (((grid_w + 8.0) / (card.x + 8.0)).floor() as usize).clamp(1, 3);
-                for row in presets.chunks(per_row) {
-                    ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 8.0;
-                        for c in row {
-                            let (r, resp) = ui.allocate_exact_size(card, Sense::click());
-                            let (w, h, _) = c.size(&units);
-                            let on = match c {
-                                Card::Builtin(p) => chosen == p.0,
-                                Card::Recent(settings) => holds(f, settings),
-                            };
-                            ui.painter().rect_filled(
-                                r,
-                                t.radius,
-                                if on {
-                                    t.row_selected
-                                } else if resp.hovered() {
-                                    t.hover
-                                } else {
-                                    t.field
-                                },
-                            );
-                            if on {
-                                ui.painter().rect_stroke(r, t.radius, Stroke::new(1.5, t.accent), StrokeKind::Inside);
-                            }
-                            page_icon(ui, Rect::from_center_size(pos2(r.center().x, r.top() + 34.0), vec2(40.0, 40.0)), w, h, &t);
-                            let title = card_title(ui.painter(), tl!(c.title()), card.x - 12.0, t.text);
-                            let elided = title.elided;
-                            ui.painter().galley(pos2(r.center().x, r.top() + 70.0 - title.size().y / 2.0), title, t.text);
-                            let size = c.size_line(&units);
-                            ui.painter().text(pos2(r.center().x, r.top() + 97.0), Align2::CENTER_CENTER, &size, egui::FontId::proportional(10.5), t.text_faint);
-                            let resp = match c {
-                                // A recent document's tooltip names everything it restores.
-                                Card::Recent(s) => {
-                                    let background = match s.background.as_str() {
-                                        "white" => tl!("White"),
-                                        "black" => tl!("Black"),
-                                        "transparent" => tl!("Transparent"),
-                                        "backgroundColor" => tl!("Background Color"),
-                                        hex => hex,
-                                    };
-                                    resp.on_hover_text(format!("{} · {size} · {}/{} · {background}", tl!(c.title()), s.mode.to_uppercase(), s.depth))
-                                }
-                                Card::Builtin(_) if elided => resp.on_hover_text(tl!(c.title())),
-                                Card::Builtin(_) => resp,
-                            };
-                            if resp.clicked() {
-                                match c {
-                                    Card::Builtin(p) => apply_preset(f, p, &units),
-                                    Card::Recent(settings) => apply_settings(f, settings),
-                                }
-                                create |= resp.double_clicked() || resp.triple_clicked();
-                            }
-                        }
-                    });
-                    ui.add_space(8.0);
+    egui::ScrollArea::vertical().id_salt("new-document-body").max_height(max_h).auto_shrink([false, true]).show(ui, |ui| {
+        ui.with_layout(layout, |ui| {
+            // Left: preset grid.
+            ui.vertical(|ui| {
+                ui.set_width(grid_w);
+                if cat == "Saved" {
+                    create |= saved_presets(app, ui, f);
+                    return;
                 }
-            });
-        });
-        ui.add_space(10.0);
-        // Right: Preset Details.
-        ui.vertical(|ui| {
-            ui.set_width(260.0);
-            ui.label(RichText::new(tl!("PRESET DETAILS")).size(11.0).color(t.text_faint));
-            ui.add_space(4.0);
-            // Keep the canonical English default in state; only the TextEdit shows a translation.
-            let raw = get_s(f, "name", "Untitled-1");
-            let mut name = if raw == "Untitled-1" { tl!("Untitled-1").to_string() } else { raw };
-            let r = ui.add(egui::TextEdit::singleline(&mut name).desired_width(250.0).font(egui::FontId::proportional(15.0)));
-            if r.changed() {
-                f.insert("name".into(), json!(name));
-            }
-            crate::field_tab::register(ui.ctx(), r.id);
-            // Photoshop opens the dialog with the name selected, so typing replaces it and Tab goes
-            // straight on to Width. (`__focused` marks that this instance has had its turn.)
-            if !f.contains_key("__focused") {
-                f.insert("__focused".into(), json!(true));
-                crate::field_tab::focus(ui.ctx(), r.id);
-            }
-            if r.gained_focus() {
-                crate::field_tab::select_all(ui.ctx(), r.id, &name);
-            }
-            ui.add_space(8.0);
-            let ppi = get_f(f, "resolution", 72.0);
-            let mut unit = get_s(f, "__unit", "px");
-            // A typed unit (`210mm` while in pixels) converts at the new document's resolution.
-            let units = widgets::FieldUnits { unit: widgets::unit_of_key(&unit), dpi: f64::from(ppi), ppi: 72.0 };
-            small_label(ui, tl!("Width"));
-            ui.horizontal(|ui| {
-                let mut w = shown_size(f, "width", 1920.0, &unit, ppi);
-                if widgets::value_field_units(ui, &mut w, 0.01..=300_000.0, 110.0, widgets::unit_decimals(&unit), units).changed() {
-                    set_size(f, "width", w, &unit, ppi);
-                }
-                let opts: Vec<(String, &str)> = UNITS.iter().map(|u| (u.0.to_string(), u.1)).collect();
-                if widgets::dropdown(ui, "nd-unit", &mut unit, &opts, 120.0) {
-                    f.insert("__unit".into(), json!(unit));
-                    f.remove("__savedPreset");
-                }
-            });
-            small_label(ui, tl!("Height"));
-            ui.horizontal(|ui| {
-                let mut h = shown_size(f, "height", 1080.0, &unit, ppi);
-                if widgets::value_field_units(ui, &mut h, 0.01..=300_000.0, 110.0, widgets::unit_decimals(&unit), units).changed() {
-                    set_size(f, "height", h, &unit, ppi);
-                }
+                ui.label(
+                    RichText::new(crate::i18n::fmt(tl!("BLANK DOCUMENT PRESETS ({n})"), &[("n", &presets.len().to_string())])).size(11.0).color(t.text_faint),
+                );
                 ui.add_space(6.0);
-                // Page orientation (≠ Type › Orientation → Hướng chữ).
-                small_label(ui, crate::i18n::tr_ctx(crate::i18n::current(), "document", "Orientation"));
-                let (w, h) = (get_f(f, "width", 1920.0), get_f(f, "height", 1080.0));
-                for (icon, portrait) in [("rectangle-vertical", true), ("rectangle-horizontal", false)] {
-                    // Tooltip strings are looked up via `icons::button` → `tl!`; enum/state is aspect swap only.
-                    if icons::button(ui, icon, 24.0, (h > w) == portrait, if portrait { "Portrait" } else { "Landscape" }).clicked() && (h > w) != portrait {
-                        swap_size(f);
+                let card = vec2(164.0, 112.0);
+                // Up to 20 recent documents: scroll past three rows rather than grow the dialog.
+                egui::ScrollArea::vertical().id_salt("new-document-presets").max_height(3.0 * (card.y + 8.0)).show(ui, |ui| {
+                    let per_row = (((grid_w + 8.0) / (card.x + 8.0)).floor() as usize).clamp(1, 3);
+                    for row in presets.chunks(per_row) {
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 8.0;
+                            for c in row {
+                                let (r, resp) = ui.allocate_exact_size(card, Sense::click());
+                                let (w, h, _) = c.size(&units);
+                                let on = match c {
+                                    Card::Builtin(p) => chosen == p.0,
+                                    Card::Recent(settings) => holds(f, settings),
+                                };
+                                ui.painter().rect_filled(
+                                    r,
+                                    t.radius,
+                                    if on {
+                                        t.row_selected
+                                    } else if resp.hovered() {
+                                        t.hover
+                                    } else {
+                                        t.field
+                                    },
+                                );
+                                if on {
+                                    ui.painter().rect_stroke(r, t.radius, Stroke::new(1.5, t.accent), StrokeKind::Inside);
+                                }
+                                page_icon(ui, Rect::from_center_size(pos2(r.center().x, r.top() + 34.0), vec2(40.0, 40.0)), w, h, &t);
+                                let title = card_title(ui.painter(), tl!(c.title()), card.x - 12.0, t.text);
+                                let elided = title.elided;
+                                ui.painter().galley(pos2(r.center().x, r.top() + 70.0 - title.size().y / 2.0), title, t.text);
+                                let size = c.size_line(&units);
+                                ui.painter().text(
+                                    pos2(r.center().x, r.top() + 97.0),
+                                    Align2::CENTER_CENTER,
+                                    &size,
+                                    egui::FontId::proportional(10.5),
+                                    t.text_faint,
+                                );
+                                let resp = match c {
+                                    // A recent document's tooltip names everything it restores.
+                                    Card::Recent(s) => {
+                                        let background = match s.background.as_str() {
+                                            "white" => tl!("White"),
+                                            "black" => tl!("Black"),
+                                            "transparent" => tl!("Transparent"),
+                                            "backgroundColor" => tl!("Background Color"),
+                                            hex => hex,
+                                        };
+                                        resp.on_hover_text(format!("{} · {size} · {}/{} · {background}", tl!(c.title()), s.mode.to_uppercase(), s.depth))
+                                    }
+                                    Card::Builtin(_) if elided => resp.on_hover_text(tl!(c.title())),
+                                    Card::Builtin(_) => resp,
+                                };
+                                if resp.clicked() {
+                                    match c {
+                                        Card::Builtin(p) => apply_preset(f, p, &units),
+                                        Card::Recent(settings) => apply_settings(f, settings),
+                                    }
+                                    create |= resp.double_clicked() || resp.triple_clicked();
+                                }
+                            }
+                        });
+                        ui.add_space(8.0);
                     }
-                }
+                });
             });
-            ui.add_space(4.0);
-            small_label(ui, tl!("Resolution"));
-            ui.horizontal(|ui| {
-                let per_cm = get_s(f, "__resUnit", "in") == "cm";
-                let mut r = if per_cm { ppi / 2.54 } else { ppi };
-                if widgets::value_field(ui, &mut r, 1.0..=30_000.0, "", 110.0).changed() {
-                    set_resolution(f, if per_cm { r * 2.54 } else { r });
+            ui.add_space(10.0);
+            // Right: Preset Details.
+            ui.vertical(|ui| {
+                ui.set_width(260.0);
+                ui.label(RichText::new(tl!("PRESET DETAILS")).size(11.0).color(t.text_faint));
+                ui.add_space(4.0);
+                // Keep the canonical English default in state; only the TextEdit shows a translation.
+                let raw = get_s(f, "name", "Untitled-1");
+                let mut name = if raw == "Untitled-1" { tl!("Untitled-1").to_string() } else { raw };
+                let r = ui.add(egui::TextEdit::singleline(&mut name).desired_width(250.0).font(egui::FontId::proportional(15.0)));
+                if r.changed() {
+                    f.insert("name".into(), json!(name));
                 }
-                let mut ru = get_s(f, "__resUnit", "in");
-                if widgets::dropdown(ui, "nd-resunit", &mut ru, &[("in".to_string(), tl!("Pixels/Inch")), ("cm".to_string(), tl!("Pixels/Centimeter"))], 120.0)
-                {
-                    f.insert("__resUnit".into(), json!(ru));
+                crate::field_tab::register(ui.ctx(), r.id);
+                // Photoshop opens the dialog with the name selected, so typing replaces it and Tab goes
+                // straight on to Width. (`__focused` marks that this instance has had its turn.)
+                if !f.contains_key("__focused") {
+                    f.insert("__focused".into(), json!(true));
+                    crate::field_tab::focus(ui.ctx(), r.id);
+                }
+                if r.gained_focus() {
+                    crate::field_tab::select_all(ui.ctx(), r.id, &name);
+                }
+                ui.add_space(8.0);
+                let ppi = get_f(f, "resolution", 72.0);
+                let mut unit = get_s(f, "__unit", "px");
+                // A typed unit (`210mm` while in pixels) converts at the new document's resolution.
+                let units = widgets::FieldUnits { unit: widgets::unit_of_key(&unit), dpi: f64::from(ppi), ppi: 72.0 };
+                small_label(ui, tl!("Width"));
+                ui.horizontal(|ui| {
+                    let mut w = shown_size(f, "width", 1920.0, &unit, ppi);
+                    if widgets::value_field_units(ui, &mut w, 0.01..=300_000.0, 110.0, widgets::unit_decimals(&unit), units).changed() {
+                        set_size(f, "width", w, &unit, ppi);
+                    }
+                    let opts: Vec<(String, &str)> = UNITS.iter().map(|u| (u.0.to_string(), u.1)).collect();
+                    if widgets::dropdown(ui, "nd-unit", &mut unit, &opts, 120.0) {
+                        f.insert("__unit".into(), json!(unit));
+                        f.remove("__savedPreset");
+                    }
+                });
+                small_label(ui, tl!("Height"));
+                ui.horizontal(|ui| {
+                    let mut h = shown_size(f, "height", 1080.0, &unit, ppi);
+                    if widgets::value_field_units(ui, &mut h, 0.01..=300_000.0, 110.0, widgets::unit_decimals(&unit), units).changed() {
+                        set_size(f, "height", h, &unit, ppi);
+                    }
+                    ui.add_space(6.0);
+                    // Page orientation (≠ Type › Orientation → Hướng chữ).
+                    small_label(ui, crate::i18n::tr_ctx(crate::i18n::current(), "document", "Orientation"));
+                    let (w, h) = (get_f(f, "width", 1920.0), get_f(f, "height", 1080.0));
+                    for (icon, portrait) in [("rectangle-vertical", true), ("rectangle-horizontal", false)] {
+                        // Tooltip strings are looked up via `icons::button` → `tl!`; enum/state is aspect swap only.
+                        if icons::button(ui, icon, 24.0, (h > w) == portrait, if portrait { "Portrait" } else { "Landscape" }).clicked() && (h > w) != portrait
+                        {
+                            swap_size(f);
+                        }
+                    }
+                });
+                ui.add_space(4.0);
+                small_label(ui, tl!("Resolution"));
+                ui.horizontal(|ui| {
+                    let per_cm = get_s(f, "__resUnit", "in") == "cm";
+                    let mut r = if per_cm { ppi / 2.54 } else { ppi };
+                    if widgets::value_field(ui, &mut r, 1.0..=30_000.0, "", 110.0).changed() {
+                        set_resolution(f, if per_cm { r * 2.54 } else { r });
+                    }
+                    let mut ru = get_s(f, "__resUnit", "in");
+                    if widgets::dropdown(
+                        ui,
+                        "nd-resunit",
+                        &mut ru,
+                        &[("in".to_string(), tl!("Pixels/Inch")), ("cm".to_string(), tl!("Pixels/Centimeter"))],
+                        120.0,
+                    ) {
+                        f.insert("__resUnit".into(), json!(ru));
+                        f.remove("__savedPreset");
+                    }
+                });
+                ui.add_space(4.0);
+                small_label(ui, tl!("Color Mode"));
+                ui.horizontal(|ui| {
+                    let mut mode = get_s(f, "mode", "rgb");
+                    if widgets::dropdown(
+                        ui,
+                        "nd-mode",
+                        &mut mode,
+                        &[
+                            ("gray".to_string(), tl!("Grayscale")),
+                            ("rgb".to_string(), tl!("RGB Color")),
+                            ("cmyk".to_string(), tl!("CMYK Color")),
+                            ("lab".to_string(), tl!("Lab Color")),
+                        ],
+                        110.0,
+                    ) {
+                        f.insert("mode".into(), json!(mode));
+                        f.remove("__savedPreset");
+                    }
+                    let mut depth = f.get("depth").and_then(Value::as_u64).unwrap_or(8);
+                    let depth_options: Vec<(u64, &str, &str)> = DEPTH_OPTIONS.iter().map(|(bits, label, tooltip)| (*bits, *label, *tooltip)).collect();
+                    if widgets::dropdown_with_tooltips(ui, "nd-depth", &mut depth, &depth_options, 120.0) {
+                        f.insert("depth".into(), json!(depth));
+                        f.remove("__savedPreset");
+                    }
+                });
+                ui.add_space(4.0);
+                small_label(ui, tl!("Background Contents"));
+                let mut bg = get_s(f, "background", "white");
+                let opts = [
+                    ("white".to_string(), tl!("White")),
+                    ("black".to_string(), tl!("Black")),
+                    ("backgroundColor".to_string(), tl!("Background Color")),
+                    ("transparent".to_string(), tl!("Transparent")),
+                ];
+                if widgets::dropdown(ui, "nd-bg", &mut bg, &opts, 240.0) {
+                    f.insert("background".into(), json!(bg));
+                    f.remove("__savedPreset");
+                    // A fresh choice of Background Color uses today's toolbox colour. Selecting a
+                    // saved preset instead restores the colour captured when it was saved.
+                    f.remove("backgroundColor");
+                }
+                ui.add_space(4.0);
+                let mut pixel_art = f.get("pixelArt").and_then(Value::as_bool).unwrap_or(false);
+                if widgets::checkbox(ui, &mut pixel_art, tl!("Pixel Art Mode")).changed() {
+                    f.insert("pixelArt".into(), json!(pixel_art));
                     f.remove("__savedPreset");
                 }
+                save_preset(app, ui, f);
             });
-            ui.add_space(4.0);
-            small_label(ui, tl!("Color Mode"));
-            ui.horizontal(|ui| {
-                let mut mode = get_s(f, "mode", "rgb");
-                if widgets::dropdown(
-                    ui,
-                    "nd-mode",
-                    &mut mode,
-                    &[
-                        ("gray".to_string(), tl!("Grayscale")),
-                        ("rgb".to_string(), tl!("RGB Color")),
-                        ("cmyk".to_string(), tl!("CMYK Color")),
-                        ("lab".to_string(), tl!("Lab Color")),
-                    ],
-                    110.0,
-                ) {
-                    f.insert("mode".into(), json!(mode));
-                    f.remove("__savedPreset");
-                }
-                let mut depth = f.get("depth").and_then(Value::as_u64).unwrap_or(8);
-                let depth_options: Vec<(u64, &str, &str)> = DEPTH_OPTIONS.iter().map(|(bits, label, tooltip)| (*bits, *label, *tooltip)).collect();
-                if widgets::dropdown_with_tooltips(ui, "nd-depth", &mut depth, &depth_options, 120.0) {
-                    f.insert("depth".into(), json!(depth));
-                    f.remove("__savedPreset");
-                }
-            });
-            ui.add_space(4.0);
-            small_label(ui, tl!("Background Contents"));
-            let mut bg = get_s(f, "background", "white");
-            let opts = [
-                ("white".to_string(), tl!("White")),
-                ("black".to_string(), tl!("Black")),
-                ("backgroundColor".to_string(), tl!("Background Color")),
-                ("transparent".to_string(), tl!("Transparent")),
-            ];
-            if widgets::dropdown(ui, "nd-bg", &mut bg, &opts, 240.0) {
-                f.insert("background".into(), json!(bg));
-                f.remove("__savedPreset");
-                // A fresh choice of Background Color uses today's toolbox colour. Selecting a
-                // saved preset instead restores the colour captured when it was saved.
-                f.remove("backgroundColor");
-            }
-            save_preset(app, ui, f);
-        });
-    }));
+        })
+    });
     create
 }
 
@@ -1341,5 +1382,22 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn pixel_art_presets_start_in_pixel_art_mode_and_others_dont() {
+        let units = UnitsAndRulers::default();
+        let mut f = crate::state::UiState::new_document_fields();
+        let pixel = CATEGORIES.iter().find(|c| c.0 == PIXEL_ART).unwrap().1;
+        assert_eq!(pixel.iter().map(|p| (p.1, p.2)).collect::<Vec<_>>(), [(16, 16), (32, 32), (64, 64), (320, 180)]);
+        apply_preset(&mut f, &pixel[1], &units);
+        let p = command_params(&f);
+        assert_eq!((p["width"].clone(), p["height"].clone(), p["pixelArt"].clone()), (json!(32), json!(32), json!(true)));
+        assert_eq!(p["background"], "transparent");
+        let mut s = photocraft_engine::Session::new();
+        s.execute("file.new", p).unwrap();
+        assert!(s.active().unwrap().doc.pixel_art);
+        apply_preset(&mut f, &CATEGORIES[1].1[0], &units);
+        assert!(command_params(&f).get("pixelArt").is_none());
     }
 }

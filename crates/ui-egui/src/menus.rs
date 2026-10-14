@@ -781,6 +781,9 @@ fn checked(app: &PhotocraftApp, id: &str) -> Option<bool> {
         let auto = app.session.prefs().interface.appearance_mode == photocraft_engine::prefs::AppearanceMode::Auto;
         return Some(if name == "system" { auto } else { !auto && crate::theme::ThemeKind::from_name(name) == Some(app.ui.theme) });
     }
+    if id == "view.pixelArtMode" {
+        return Some(crate::pixel_mode::active(app));
+    }
     if let Some(c) = crate::view_cmds::checked(app, id) {
         return Some(c);
     }
@@ -925,6 +928,7 @@ const PLACE_AFTER: &[(&str, &str)] = &[
     ("file.newFromClipboard", "file.new"),
     ("filter.render.relight", "filter.render.lightingEffects"),
     ("view.resetView", "view.flipHorizontal"),
+    ("view.pixelArtMode", "view.pixelArtPreview"),
     ("filter.other.colorToAlpha", "filter.other.offset"),
 ];
 
@@ -965,7 +969,7 @@ pub fn menu_items(app: &PhotocraftApp) -> Vec<MenuItem> {
             path: c.menu.iter().map(|s| s.to_string()).collect(),
             shortcut: c.shortcut.map(Into::into),
             enabled: is_enabled(app, c.id),
-            checked: None,
+            checked: checked(app, c.id),
             color: None,
         });
     }
@@ -1159,7 +1163,8 @@ pub fn menu_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> f32 {
             for (i, top) in TOP_MENUS.into_iter().enumerate() {
                 if app_ref.touch_ui {
                     let font = egui::TextStyle::Button.resolve(ui.style());
-                    let need = ui.painter().layout_no_wrap(crate::i18n::tr(lang, top).to_string(), font, t.text_dim).size().x + 2.0 * ui.spacing().button_padding.x;
+                    let need =
+                        ui.painter().layout_no_wrap(crate::i18n::tr(lang, top).to_string(), font, t.text_dim).size().x + 2.0 * ui.spacing().button_padding.x;
                     let more = if i + 1 < TOP_MENUS.len() { OVERFLOW_W } else { 0.0 };
                     if ui.available_width() < need + more {
                         overflow = TOP_MENUS.get(i..).map(<[&str]>::to_vec).unwrap_or_default();
