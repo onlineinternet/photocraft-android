@@ -567,6 +567,9 @@ pub struct View {
     pub(crate) display_camera: Option<(f32, [f32; 2])>,
     #[serde(skip)]
     pub(crate) zoom_transition: Option<ZoomTransition>,
+    /// The document's pixel-art flag this view was last set up for (pixel_mode.rs).
+    #[serde(default)]
+    pub pixel_art: bool,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -602,6 +605,7 @@ impl Default for View {
             zoom_anchor: None,
             display_camera: None,
             zoom_transition: None,
+            pixel_art: false,
         }
     }
 }

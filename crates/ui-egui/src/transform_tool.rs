@@ -273,7 +273,7 @@ pub fn begin(app: &mut PhotocraftApp, ctx: &egui::Context) -> Result<(), String>
         rect,
         quad: corners(rect),
         pivot: [(rect[0] + rect[2]) / 2.0, (rect[1] + rect[3]) / 2.0],
-        interpolation: "bicubic".into(),
+        interpolation: crate::pixel_mode::interpolation(app),
         warp: None,
         selection: false,
         target: None,
@@ -375,7 +375,7 @@ pub(crate) fn begin_content_aware(
         rect,
         quad: corners(rect),
         pivot: [(rect[0] + rect[2]) / 2.0, (rect[1] + rect[3]) / 2.0],
-        interpolation: "bicubic".into(),
+        interpolation: crate::pixel_mode::interpolation(app),
         warp: None,
         selection: false,
         target: None,
@@ -501,7 +501,7 @@ fn begin_lone(
         rect,
         quad: corners(rect),
         pivot: [(rect[0] + rect[2]) / 2.0, (rect[1] + rect[3]) / 2.0],
-        interpolation: "bicubic".into(),
+        interpolation: crate::pixel_mode::interpolation(app),
         warp: None,
         selection: false,
         target: Some(target),
@@ -555,7 +555,7 @@ fn begin_path(app: &mut PhotocraftApp, ctx: &egui::Context, params: serde_json::
         rect,
         quad: corners(rect),
         pivot: [(rect[0] + rect[2]) / 2.0, (rect[1] + rect[3]) / 2.0],
-        interpolation: "bicubic".into(),
+        interpolation: crate::pixel_mode::interpolation(app),
         warp: None,
         selection: false,
         target: None,
@@ -1491,7 +1491,8 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) ->
             // Clicking an empty spot commits instead of silently arming rotation (#2851).
             // Dragging the rotation zone and Option-clicking to move the pivot
             // keep their existing behavior. A tap that stayed within the touch slop counts too.
-            if matches!(ev, ToolEvent::Up { .. }) && g.is_some_and(|g| accepts_outside_click(g, [x, y], tol) || (slop > 0.0 && g.hit == Hit::Outside && !armed)) {
+            if matches!(ev, ToolEvent::Up { .. }) && g.is_some_and(|g| accepts_outside_click(g, [x, y], tol) || (slop > 0.0 && g.hit == Hit::Outside && !armed))
+            {
                 commit(app);
                 return true;
             }

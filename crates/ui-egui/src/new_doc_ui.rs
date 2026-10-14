@@ -15,6 +15,14 @@ use photocraft_engine::document_preset_cmds::DocumentSettings;
 /// A blank-document preset: (name, width px, height px, ppi).
 pub type Preset = (&'static str, u32, u32, f32);
 
+/// The New Document category whose presets start in Pixel Art Mode.
+pub const PIXEL_ART: &str = "Pixel Art";
+
+/// Whether `p` is one of the [`PIXEL_ART`] presets.
+fn is_pixel_preset(p: &Preset) -> bool {
+    CATEGORIES.iter().any(|c| c.0 == PIXEL_ART && c.1.contains(p))
+}
+
 /// Photoshop's New Document categories and their blank-document presets.
 pub const CATEGORIES: &[(&str, &[Preset])] = &[
     ("Recent", &[("Default PhotoCraft Size", 2100, 1500, 300.0), ("HDTV 1080p", 1920, 1080, 72.0)]),
@@ -46,6 +54,8 @@ pub const CATEGORIES: &[(&str, &[Preset])] = &[
         "Art & Illustration",
         &[("Poster", 5400, 7200, 300.0), ("Postcard", 1800, 1200, 300.0), ("Comic Book", 1988, 3075, 300.0), ("Square, 12 x 12", 3600, 3600, 300.0)],
     ),
+    // Not in Photoshop: tiny canvases that open in Pixel Art Mode (pixel_mode.rs).
+    (PIXEL_ART, &[("Icon 16 x 16", 16, 16, 72.0), ("Sprite 32 x 32", 32, 32, 72.0), ("Sprite 64 x 64", 64, 64, 72.0), ("Screen 320 x 180", 320, 180, 72.0)]),
     (
         "Web",
         &[
@@ -229,6 +239,13 @@ pub fn apply_preset(f: &mut Map<String, Value>, p: &Preset, units: &UnitsAndRule
     f.insert("resolution".into(), json!(ppi));
     f.insert("__preset".into(), json!(name));
     f.insert("__unit".into(), json!(unit));
+    // A pixel-art preset starts in Pixel Art Mode on a transparent canvas; other presets don't.
+    if is_pixel_preset(p) {
+        f.insert("pixelArt".into(), json!(true));
+        f.insert("background".into(), json!("transparent"));
+    } else {
+        f.remove("pixelArt");
+    }
 }
 
 /// The colour mode of the dialog's `mode` value.
@@ -532,8 +549,8 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
     ui.style_mut().interaction.selectable_labels = false;
     let cat = get_s(f, "__category", "Recent");
     let mut create = false;
-    // Category tabs (they wrap onto a second line on a narrow screen).
-    ui.horizontal_wrapped(|ui| {
+    // Category tabs (they wrap onto more lines on a narrow screen).
+    let tabs = ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = 18.0;
         for name in CATEGORIES.iter().map(|c| c.0).chain(["Saved"]) {
             let on = cat == name;
@@ -549,6 +566,8 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
             }
         }
     });
+    // Tab lines past the second take room from the scrolling body on a phone.
+    let extra_tab_lines = (tabs.response.rect.height() - 40.0).max(0.0);
     ui.add_space(6.0);
     widgets::hairline(ui);
     ui.add_space(8.0);
@@ -569,7 +588,7 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
     // dialog's own buttons stay on screen below it.
     let narrow = ui.available_width() < 790.0;
     let layout = if narrow { egui::Layout::top_down(egui::Align::Min) } else { egui::Layout::left_to_right(egui::Align::Min) };
-    let max_h = if narrow { (ui.ctx().content_rect().height() - 240.0).max(220.0) } else { f32::INFINITY };
+    let max_h = if narrow { (ui.ctx().content_rect().height() - 300.0 - extra_tab_lines).max(220.0) } else { f32::INFINITY };
     let grid_w = 520.0_f32.min(ui.available_width());
     egui::ScrollArea::vertical().id_salt("new-document-body").max_height(max_h).auto_shrink([false, true]).show(ui, |ui| ui.with_layout(layout, |ui| {
         // Left: preset grid.
@@ -828,6 +847,12 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
                 f.insert("background".into(), json!(crate::color_picker_ui::hex(start)));
                 f.remove("backgroundColor");
                 crate::color_picker_ui::request_field(f, "background", &crate::color_picker_ui::title_for(tl!("Background Contents")));
+            }
+            ui.add_space(4.0);
+            let mut pixel_art = f.get("pixelArt").and_then(Value::as_bool).unwrap_or(false);
+            if widgets::checkbox(ui, &mut pixel_art, tl!("Pixel Art Mode")).changed() {
+                f.insert("pixelArt".into(), json!(pixel_art));
+                f.remove("__savedPreset");
             }
             save_preset(app, ui, f);
         });
@@ -1731,5 +1756,22 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn pixel_art_presets_start_in_pixel_art_mode_and_others_dont() {
+        let units = UnitsAndRulers::default();
+        let mut f = crate::state::UiState::new_document_fields();
+        let pixel = CATEGORIES.iter().find(|c| c.0 == PIXEL_ART).unwrap().1;
+        assert_eq!(pixel.iter().map(|p| (p.1, p.2)).collect::<Vec<_>>(), [(16, 16), (32, 32), (64, 64), (320, 180)]);
+        apply_preset(&mut f, &pixel[1], &units);
+        let p = command_params(&f);
+        assert_eq!((p["width"].clone(), p["height"].clone(), p["pixelArt"].clone()), (json!(32), json!(32), json!(true)));
+        assert_eq!(p["background"], "transparent");
+        let mut s = photocraft_engine::Session::new();
+        s.execute("file.new", p).unwrap();
+        assert!(s.active().unwrap().doc.pixel_art);
+        apply_preset(&mut f, &CATEGORIES[1].1[0], &units);
+        assert!(command_params(&f).get("pixelArt").is_none());
     }
 }

@@ -242,6 +242,25 @@ pub struct PathWalker {
     /// Pixel-grid stepping for small aliased tips: the dab-centre offset inside a pixel (see
     /// [`PathWalker::pixel_grid`]).
     grid: Option<f64>,
+    /// Pixel-perfect stepping ([`PathWalker::pixel_perfect`]): the step held back until the next
+    /// one shows whether it is an "L" corner, and the last step let through.
+    perfect: Option<Perfect>,
+}
+
+/// [`PathWalker::pixel_perfect`] state.
+#[derive(Clone, Copy, Debug, Default)]
+struct Perfect {
+    held: Option<StrokePoint>,
+    last: Option<(f64, f64)>,
+}
+
+/// Is `mid` the corner of an "L" between `prev` and `next`: those two touch diagonally and `mid`
+/// is beside each of them (not diagonal)? Then a one-pixel line reads cleaner without it.
+pub fn is_l_corner(prev: (f64, f64), mid: (f64, f64), next: (f64, f64)) -> bool {
+    let d = |a: (f64, f64), b: (f64, f64)| ((a.0 - b.0).abs(), (a.1 - b.1).abs());
+    let diag = d(prev, next) == (1.0, 1.0);
+    let side = |a| matches!(d(a, mid), (1.0, 0.0) | (0.0, 1.0));
+    diag && side(prev) && side(next)
 }
 
 impl PathWalker {
@@ -258,7 +277,35 @@ impl PathWalker {
             speed: None,
             speed_acc: 0.0,
             grid: None,
+            perfect: None,
         }
+    }
+
+    /// Pixel-perfect strokes (with [`Self::pixel_grid`]): each pixel step is held back until the
+    /// next one arrives, and dropped when it is the corner of an "L" (see [`is_l_corner`]), as
+    /// Aseprite's pixel-perfect Pencil does. The stroke runs one step behind until it finishes.
+    pub fn pixel_perfect(mut self) -> Self {
+        self.perfect = Some(Perfect::default());
+        self
+    }
+
+    /// Emit a pixel step, through the pixel-perfect filter when it's on.
+    fn emit_pixel(&mut self, point: StrokePoint, out: &mut impl FnMut(StepInput)) {
+        let Some(mut pf) = self.perfect else {
+            self.emit(point, out);
+            return;
+        };
+        let at = |p: &StrokePoint| (p.x.floor(), p.y.floor());
+        if let Some(mid) = pf.held.take() {
+            if pf.last.is_some_and(|prev| is_l_corner(prev, at(&mid), at(&point))) {
+                // Leave the corner out; the line goes straight from `prev` to `point`.
+            } else {
+                pf.last = Some(at(&mid));
+                self.emit(mid, out);
+            }
+        }
+        pf.held = Some(point);
+        self.perfect = Some(pf);
     }
 
     /// Step pixel by pixel instead of by distance: one step per pixel along the segment's major
@@ -296,7 +343,7 @@ impl PathWalker {
             let mut q = lerp_pt(a, p, t.clamp(0.0, 1.0));
             let cn = grid_cell(an + dn * t, offset);
             (q.x, q.y) = if steep { (cn, c) } else { (c, cn) };
-            self.emit(q, out);
+            self.emit_pixel(q, out);
         }
         true
     }
@@ -330,7 +377,7 @@ impl PathWalker {
             }
         }
         if let Some(f) = self.pending_first.take() {
-            self.emit(f, out);
+            if self.grid.is_some() { self.emit_pixel(f, out) } else { self.emit(f, out) }
         }
         if len > 1e-9 {
             // Speed spacing needs the segment's duration; without timestamps (a straight ⇧-click
@@ -393,7 +440,11 @@ impl PathWalker {
 
     pub fn finish(&mut self, out: &mut impl FnMut(StepInput)) {
         if let Some(f) = self.pending_first.take() {
-            self.emit(f, out);
+            if self.grid.is_some() { self.emit_pixel(f, out) } else { self.emit(f, out) }
+        }
+        // The last held pixel-perfect step ends the stroke.
+        if let Some(held) = self.perfect.as_mut().and_then(|p| p.held.take()) {
+            self.emit(held, out);
         }
     }
 }
@@ -761,6 +812,10 @@ impl DabGenerator {
         // A small aliased tip whose dabs are at most a pixel apart steps pixel by pixel (#2139).
         if brush.aliased && brush.size * brush.spacing.max(0.01) <= 1.0 {
             walker = walker.pixel_grid(f64::from(crate::render::grid_center(0.0, 0.0, brush.size).0));
+            // Pixel-perfect only means something for a one-pixel tip.
+            if brush.pixel_perfect && brush.size <= 1.5 {
+                walker = walker.pixel_perfect();
+            }
         }
         Self {
             smoother: Smoother::new(&brush.smoothing, zoom),
@@ -856,5 +911,58 @@ mod walker_budget_tests {
         let before = steps.get();
         walker.push(StrokePoint::new(end + 0.8, 0.0, 1.0), &one, &mut count);
         assert_eq!(steps.get(), before + 1);
+    }
+}
+
+#[cfg(test)]
+mod pixel_perfect_tests {
+    use super::is_l_corner;
+    use crate::{BrushSettings, Stroke, StrokePoint};
+
+    fn pencil(pixel_perfect: bool) -> BrushSettings {
+        BrushSettings { size: 1.0, aliased: true, hardness: 1.0, spacing: 0.25, pixel_perfect, ..BrushSettings::default() }
+    }
+
+    /// The pixels a stroke through `points` stamps.
+    fn pixels(brush: BrushSettings, points: &[(f64, f64)]) -> Vec<(i64, i64)> {
+        let stroke = Stroke { brush, points: points.iter().map(|&(x, y)| StrokePoint::new(x, y, 1.0)).collect() };
+        crate::dabs(&stroke).iter().map(|d| (d.center.x.floor() as i64, d.center.y.floor() as i64)).collect()
+    }
+
+    fn has_l(px: &[(i64, i64)]) -> bool {
+        px.windows(3).any(|w| is_l_corner(f(w[0]), f(w[1]), f(w[2])))
+    }
+    fn f(p: (i64, i64)) -> (f64, f64) {
+        (p.0 as f64, p.1 as f64)
+    }
+
+    #[test]
+    fn l_corners_are_found_only_between_diagonal_neighbours() {
+        assert!(is_l_corner((0.0, 0.0), (1.0, 0.0), (1.0, 1.0)));
+        assert!(is_l_corner((0.0, 0.0), (0.0, 1.0), (1.0, 1.0)));
+        assert!(!is_l_corner((0.0, 0.0), (1.0, 0.0), (2.0, 0.0)), "a straight run");
+        assert!(!is_l_corner((0.0, 0.0), (1.0, 1.0), (2.0, 2.0)), "a diagonal run");
+        assert!(!is_l_corner((0.0, 0.0), (1.0, 0.0), (2.0, 1.0)), "a gentle slope keeps its step");
+    }
+
+    #[test]
+    fn a_pixel_perfect_curve_has_no_l_corners_and_keeps_its_ends() {
+        // A freehand zig-zag: right, down, right, down: every turn is an L corner.
+        let path = [(0.5, 0.5), (4.5, 0.5), (4.5, 3.5), (7.5, 3.5), (7.5, 6.5)];
+        let plain = pixels(pencil(false), &path);
+        assert!(has_l(&plain), "without it the corners are there: {plain:?}");
+        let perfect = pixels(pencil(true), &path);
+        assert!(!has_l(&perfect), "{perfect:?}");
+        assert_eq!(perfect.first(), plain.first(), "same start");
+        assert_eq!(perfect.last(), plain.last(), "same end");
+        assert!(perfect.len() < plain.len());
+    }
+
+    #[test]
+    fn only_one_pixel_tips_are_pixel_perfect() {
+        let path = [(0.5, 0.5), (4.5, 0.5), (4.5, 4.5)];
+        let wide = BrushSettings { size: 3.0, ..pencil(true) };
+        let plain = BrushSettings { size: 3.0, ..pencil(false) };
+        assert_eq!(pixels(wide, &path), pixels(plain, &path));
     }
 }

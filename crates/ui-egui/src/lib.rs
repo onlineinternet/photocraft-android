@@ -176,6 +176,7 @@ pub mod pattern_preview;
 pub mod perspective_crop_ui;
 pub mod perspective_ui;
 pub mod pixel_grid;
+pub mod pixel_mode;
 pub mod plugin_ui;
 pub mod point_curve;
 pub mod prefs_ui;
@@ -1550,6 +1551,7 @@ impl PhotocraftApp {
         }
         // Commands may close and reopen a preserved-ID document before the next repaint.
         canvas::retain_gpu_documents(self);
+        crate::pixel_mode::sync(self);
     }
 
     /// Record `path` as the most-recently-opened file (File › Open Recent): de-duplicated, newest

@@ -1231,7 +1231,9 @@ pub fn fit_view(view: &mut View, doc: &Document, area: Vec2, ppp: f32, aspect: f
     // Fit never magnifies past 100%: one image pixel per *physical* pixel, so the cap applies
     // after the points → device pixels conversion (a 150% display would otherwise open at 150%).
     let fit = ((area.x - 40.0) / shown_w).min((area.y - 40.0) / h) * ppp;
-    let zoom = crate::zoom_levels::clamp(fit.min(1.0), [doc.size.width, doc.size.height]);
+    // Pixel art fits on whole screen pixels per pixel, past 100 % too (pixel_mode.rs).
+    let zoom = if doc.pixel_art { crate::pixel_mode::snap_down(fit) } else { fit.min(1.0) };
+    let zoom = crate::zoom_levels::clamp(zoom, [doc.size.width, doc.size.height]);
     view.zoom = zoom;
     view.center = [w / 2.0, h / 2.0];
     view.fit_pending = false;
@@ -3604,6 +3606,10 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
     if view.fill_pending && rect.width() > 50.0 {
         fill_view(&mut view, &doc, rect.size(), ppp, aspect);
     }
+    // Pixel art shows whole screen pixels per pixel, however the zoom was set (pixel_mode.rs).
+    if doc.pixel_art {
+        view.zoom = crate::zoom_levels::clamp(crate::pixel_mode::snap(view.zoom), size);
+    }
     // Preferences › Tools › Overscroll off: clamp before anything is drawn (scrollbars.rs).
     if !app.session.prefs().tools.overscroll && crate::scrollbars::clamp_view_with_aspect(&mut view, rect.size(), ppp, aspect) {
         view.zoom_anchor = None;
@@ -3963,7 +3969,17 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
             (Some(crate::wheel_nav::Wheel::Zoom(f)), Some(p)) => {
                 // At a limit the view stays put, as in Photoshop: a notch past 12800 % neither
                 // zooms nor slides the image towards the pointer.
-                let nz = crate::zoom_levels::clamp(view.zoom * f, view.doc_size);
+                let nz = if doc.pixel_art {
+                    // Whole pixels: the gesture's own zoom adds up across frames (pixel_mode.rs).
+                    let key = egui::Id::new(("pc-pixel-pinch", idx));
+                    let mut pinch = ctx.data(|d| d.get_temp::<crate::pixel_mode::PinchZoom>(key)).unwrap_or_default();
+                    let size = view.doc_size;
+                    let nz = pinch.scale(view.zoom, f, |z| crate::zoom_levels::clamp(z, size));
+                    ctx.data_mut(|d| d.insert_temp(key, pinch));
+                    nz
+                } else {
+                    crate::zoom_levels::clamp(view.zoom * f, view.doc_size)
+                };
                 if nz != view.zoom {
                     // Over the pasteboard the anchor is the image's nearest point (#3720).
                     let at = wheel_anchor(&xf, p, view.doc_size);

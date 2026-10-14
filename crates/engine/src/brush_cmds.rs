@@ -351,6 +351,10 @@ fn pencil_brush(s: &Session, p: &Value) -> Result<BrushSettings> {
         return block_brush(brush, p);
     }
     brush.aliased = true;
+    // Pixel-perfect lines (Aseprite): a 1 px pencil drops the L-corner pixels of a freehand
+    // line. On by default in a pixel-art document.
+    let pixel_art = s.active().is_some_and(|d| d.doc.pixel_art);
+    brush.pixel_perfect = flag(p, "pixelPerfect", pixel_art);
     if num(p, "hardness").is_none() {
         brush.hardness = 1.0;
     }
@@ -1195,7 +1199,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "paint.pencil",
             "Pencil",
-            r##"{"points":[[x,y,pressure?,tiltX?,tiltY?,rotation?,timeMs?,wheel?],…],"brush":{…}?,"preset":name?,"size":0.5..5000 px?,"opacity":0..1?,"color":"#rrggbb"?=foreground,"mode":"normal|multiply|screen|…|clear (erases with this brush)"="normal","erase":bool?,"block":bool=false (a hard 16×16 screen-px square, 16/zoom doc px; size, opacity, flow, hardness and dynamics ignored: the Eraser's Block mode),"zoom":view zoom=1,"autoErase":bool=false,"seed":u64?,"target":"pixels"|"mask"|"quickMask"|{"channel":i}=Channels panel target}"##,
+            r##"{"points":[[x,y,pressure?,tiltX?,tiltY?,rotation?,timeMs?,wheel?],…],"brush":{…}?,"preset":name?,"size":0.5..5000 px?,"opacity":0..1?,"color":"#rrggbb"?=foreground,"mode":"normal|multiply|screen|…|clear (erases with this brush)"="normal","erase":bool?,"block":bool=false (a hard 16×16 screen-px square, 16/zoom doc px; size, opacity, flow, hardness and dynamics ignored: the Eraser's Block mode),"zoom":view zoom=1,"autoErase":bool=false,"pixelPerfect":bool=document is pixel art (a 1 px line drops its L-corner pixels),"seed":u64?,"target":"pixels"|"mask"|"quickMask"|{"channel":i}=Channels panel target}"##,
             has_paintable,
             pencil,
             true

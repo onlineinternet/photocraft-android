@@ -35,8 +35,8 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 
 - **Edge keyboard:** tap the `‹` tab on the right edge for one-tap shortcuts: Undo, Redo,
   Copy, Paste, Select All, Deselect, Inverse, Transform, brush Size −/+, Swap colors, New Layer,
-  and **Panels** (hide the right dock), **Hide UI** (everything but the canvas) and **Search**
-  (run any menu command by name).
+  and **Panels** (hide the right dock), **Hide UI** (everything but the canvas), **Search**
+  (run any menu command by name) and **Pixel Art** (Pixel Art Mode, below).
 - **Apply / Cancel** buttons appear at the bottom while Free Transform or a crop is waiting,
   and a tap has to move 10 points before it drags the transform box, so a tap inside it doesn't
   nudge it and a tap outside applies it.
@@ -55,6 +55,24 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
   stacked buttons with no keyboard shortcuts.
 - The font list leaves out the Noto fonts Android ships for other writing systems (Myanmar,
   Ogham, …); fonts in your own `Fonts` folder are always listed.
+
+## Pixel Art Mode
+
+View › Pixel Art Mode (or the **Pixel Art** edge key) switches the open document to pixel work
+and back at any time; it's saved with the document in `.pcraft` and is one undo step. While it's
+on:
+
+- the zoom is always a whole number of screen pixels per pixel (pinch and the wheel step through
+  those levels, and Fit on Screen picks the largest that fits, above 100 % too), so every pixel is
+  the same size and sharp;
+- turning it on shows the pixel grid, turns anti-aliasing off, picks a 1 px Pencil without
+  smoothing and brings up the Swatches panel;
+- the 1 px Pencil is **pixel-perfect**: a freehand line drops the extra pixel at each L-shaped
+  corner, like Aseprite (`paint.pencil` `"pixelPerfect"`);
+- Free Transform starts with Nearest Neighbor interpolation.
+
+File › New has a **Pixel Art** category (16×16, 32×32, 64×64, 320×180 on a transparent canvas)
+that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
 
 ## How it works
 

@@ -592,6 +592,11 @@ pub struct BrushSettings {
     /// ([`crate::grid_square`]), whatever its angle or roundness. The Eraser's Block mode.
     #[serde(skip_serializing_if = "std::ops::Not::not")]
     pub square: bool,
+    /// With a one-pixel `aliased` tip: Aseprite's pixel-perfect strokes. Where a freehand line
+    /// turns a corner, the pixel that would make an "L" is left out, so curves stay one pixel
+    /// wide ([`crate::dynamics::PathWalker::pixel_perfect`]). View › Pixel Art Mode turns it on.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub pixel_perfect: bool,
     // --- dynamics sections ---
     pub shape_dynamics: ShapeDynamics,
     pub scattering: Scattering,
@@ -642,6 +647,7 @@ impl Default for BrushSettings {
             flip_y: false,
             aliased: false,
             square: false,
+            pixel_perfect: false,
             shape_dynamics: ShapeDynamics::default(),
             scattering: Scattering::default(),
             texture: Texture::default(),

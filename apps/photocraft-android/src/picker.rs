@@ -27,7 +27,9 @@ const ROW_HEIGHT: f32 = 44.0;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Mode {
     /// Files to read; an empty list shows every file.
-    Open { extensions: Vec<String> },
+    Open {
+        extensions: Vec<String>,
+    },
     Folder,
     Save,
 }
@@ -44,10 +46,7 @@ pub fn matches_ext(name: &str, extensions: &[String]) -> bool {
     if extensions.is_empty() {
         return true;
     }
-    Path::new(name)
-        .extension()
-        .and_then(|e| e.to_str())
-        .is_some_and(|e| extensions.iter().any(|x| x.trim_start_matches('.').eq_ignore_ascii_case(e)))
+    Path::new(name).extension().and_then(|e| e.to_str()).is_some_and(|e| extensions.iter().any(|x| x.trim_start_matches('.').eq_ignore_ascii_case(e)))
 }
 
 /// The folders and matching files in `dir`, folders first, each group by name. Hidden entries

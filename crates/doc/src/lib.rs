@@ -901,6 +901,10 @@ pub struct Document {
     pub color_table: Option<ColorTable>,
     /// Duotone inks. Set while `mode` is Duotone.
     pub duotone: Option<Duotone>,
+    /// View › Pixel Art Mode: the document is pixel art. Pixels stay as they are; the shell shows
+    /// and edits it for pixel work (whole-number zoom, pixel grid, no anti-aliasing, the Pencil
+    /// pixel-perfect). Saved in `.pcraft` only.
+    pub pixel_art: bool,
     /// Window › Layer Comps, top to bottom as listed in the panel.
     pub layer_comps: Vec<LayerComp>,
     /// Id of the comp applied last (PSD `lastAppliedComp`); None = the document's own state.
@@ -981,6 +985,7 @@ impl Document {
             patterns: Vec::new(),
             color_table: None,
             duotone: None,
+            pixel_art: false,
             layer_comps: Vec::new(),
             last_applied_comp: None,
             last_document_state: None,

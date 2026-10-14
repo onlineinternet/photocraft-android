@@ -805,6 +805,8 @@ fn doc_pixels_equal(a: &Document, b: &Document) -> bool {
         patterns,
         color_table,
         duotone,
+        // Display and tool behaviour only: the pixels composite the same either way.
+        pixel_art: _,
         layer_comps: _,
         last_applied_comp: _,
         last_document_state: _,
