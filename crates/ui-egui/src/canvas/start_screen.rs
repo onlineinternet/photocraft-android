@@ -48,11 +48,13 @@ pub(super) fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
 fn render_start_actions_row(app: &mut PhotocraftApp, ui: &mut egui::Ui, avail_w: f32) {
     let t = crate::theme::Tokens::get(ui.ctx());
     let btn_w = ((avail_w - 12.0) / 2.0).clamp(0.0, 150.0);
+    // A touch screen gets finger-sized buttons.
+    let btn_h = if app.touch_ui { 52.0 } else { 32.0 };
 
     ui.horizontal(|ui| {
         // [ New file ]
         let new_label = tl!("New file");
-        let (new_rect, new_resp) = ui.allocate_exact_size(egui::vec2(btn_w, 32.0), Sense::click());
+        let (new_rect, new_resp) = ui.allocate_exact_size(egui::vec2(btn_w, btn_h), Sense::click());
         new_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, new_label));
         let new_resp = new_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
         let new_bg = if new_resp.hovered() { egui::Color32::from_rgb(41, 131, 245) } else { egui::Color32::from_rgb(26, 115, 232) };
@@ -67,7 +69,7 @@ fn render_start_actions_row(app: &mut PhotocraftApp, ui: &mut egui::Ui, avail_w:
 
         // [ Open… ]
         let open_label = tl!("Open…");
-        let (open_rect, open_resp) = ui.allocate_exact_size(egui::vec2(btn_w, 32.0), Sense::click());
+        let (open_rect, open_resp) = ui.allocate_exact_size(egui::vec2(btn_w, btn_h), Sense::click());
         open_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, open_label));
         let open_resp = open_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
         if open_resp.hovered() {
@@ -83,12 +85,14 @@ fn render_start_actions_row(app: &mut PhotocraftApp, ui: &mut egui::Ui, avail_w:
 
 fn render_start_rail(app: &mut PhotocraftApp, ui: &mut egui::Ui, rail_w: f32) {
     let t = crate::theme::Tokens::get(ui.ctx());
+    // A touch screen gets finger-sized buttons.
+    let (new_h, open_h) = if app.touch_ui { (52.0, 52.0) } else { (32.0, 30.0) };
 
     ui.add_space(8.0);
 
     // 1. [ New file ] button
     let new_label = tl!("New file");
-    let (new_rect, new_resp) = ui.allocate_exact_size(egui::vec2(rail_w.min(130.0), 32.0), Sense::click());
+    let (new_rect, new_resp) = ui.allocate_exact_size(egui::vec2(rail_w.min(130.0), new_h), Sense::click());
     new_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, new_label));
     let new_resp = new_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
     let new_bg = if new_resp.hovered() { egui::Color32::from_rgb(41, 131, 245) } else { egui::Color32::from_rgb(26, 115, 232) };
@@ -103,7 +107,7 @@ fn render_start_rail(app: &mut PhotocraftApp, ui: &mut egui::Ui, rail_w: f32) {
 
     // 2. [ Open… ] button
     let open_label = tl!("Open…");
-    let (open_rect, open_resp) = ui.allocate_exact_size(egui::vec2(rail_w.min(130.0), 30.0), Sense::click());
+    let (open_rect, open_resp) = ui.allocate_exact_size(egui::vec2(rail_w.min(130.0), open_h), Sense::click());
     open_resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, open_label));
     let open_resp = open_resp.on_hover_cursor(egui::CursorIcon::PointingHand);
     if open_resp.hovered() {
@@ -274,8 +278,12 @@ fn render_first_run_content(app: &mut PhotocraftApp, ui: &mut egui::Ui, content_
     });
 }
 
-/// Hint displayed on the start screen for opening files.
-pub(crate) fn start_screen_drop_hint(_app: &PhotocraftApp) -> std::borrow::Cow<'static, str> {
+/// Hint displayed on the start screen for opening files. Nothing is dropped onto a touch
+/// screen, so there the box just says what a tap does.
+pub(crate) fn start_screen_drop_hint(app: &PhotocraftApp) -> std::borrow::Cow<'static, str> {
+    if app.touch_ui {
+        return tl!("Open…").into();
+    }
     tl!("Drop an image or PSD anywhere to open it.").into()
 }
 
