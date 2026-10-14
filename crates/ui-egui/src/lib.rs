@@ -729,6 +729,10 @@ pub struct PhotocraftApp {
     /// `jobs_ui`). The desktop app turns it on; off (the default), everything runs inline as
     /// before, which tests and scripts rely on.
     pub background_jobs: bool,
+    /// How far (in screen points) a press has to move before Free Transform treats it as a drag.
+    /// 0 on desktops; a touch shell raises it so a finger tap, which always wanders a little,
+    /// neither nudges nor rotates the box, and a tap outside it still applies the transform.
+    pub touch_drag_slop: f32,
     /// Background job bookkeeping: opening tabs, control replies waiting on a job.
     pub jobs: jobs_ui::JobsUi,
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
@@ -852,6 +856,7 @@ impl PhotocraftApp {
             allow_close: false,
             stylus: Default::default(),
             background_jobs: false,
+            touch_drag_slop: 0.0,
             jobs: Default::default(),
             #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
             live_tokens: theme::live::LiveTokens::from_env(),
