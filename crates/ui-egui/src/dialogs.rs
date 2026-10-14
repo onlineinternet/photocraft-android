@@ -329,24 +329,26 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
             let compact = d.fields.contains_key("__compact");
             // The curve editor's graph is as wide as the dialog lets it be (#5113, #8984).
             let curves = is_curves(&fields);
+            // Never wider than the screen (a phone): every width below is capped to the room there is.
+            let room = (ctx.content_rect().width() - 32.0).max(240.0);
             if !compact {
-                ui.set_min_width(if curves { 300.0 } else { 380.0 });
+                ui.set_min_width((if curves { 300.0_f32 } else { 380.0 }).min(room));
             }
             // A resizable dialog's contents fill its resizable area (#7420), the others the window.
-            let room = if resizable.is_some() { available.x } else { (ctx.content_rect().width() - 48.0).max(380.0) };
-            let wide = crate::prefs_ui::width(&d.fields, room);
+            let fill = if resizable.is_some() { available.x } else { (ctx.content_rect().width() - 48.0).max(380.0) };
+            let wide = crate::prefs_ui::width(&d.fields, fill);
             if let Some(w) = wide {
-                ui.set_min_width(w.min(460.0));
+                ui.set_min_width(w.min(460.0).min(room));
             }
             if d.kind == DialogKind::NewDocument {
-                ui.set_min_width(800.0);
+                ui.set_min_width(800.0_f32.min(room));
             }
             // The About window: room for the contributor table, the same width on every tab.
             let about_tabs = d.kind == DialogKind::About && d.fields.get("systemInfo").and_then(Value::as_bool) != Some(true);
             if about_tabs {
-                ui.set_min_width(700.0);
+                ui.set_min_width(700.0_f32.min(room));
             }
-            ui.set_max_width(wide.unwrap_or(if d.kind == DialogKind::NewDocument {
+            ui.set_max_width(room.min(wide.unwrap_or(if d.kind == DialogKind::NewDocument {
                 800.0
             } else if about_tabs {
                 700.0
@@ -358,19 +360,19 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 available.x.max(300.0)
             } else {
                 440.0
-            }));
+            })));
             if web {
                 ui.set_max_width(available.x);
                 ui.set_min_size(available);
             } else if let Some(w) = crate::file_ui::dialog_width(&d.fields) {
-                ui.set_min_width(w);
-                ui.set_max_width(w);
+                ui.set_min_width(w.min(room));
+                ui.set_max_width(w.min(room));
             }
             // Duplicate Layer… is a fixed small grid (labels + 260 pt fields ≈ 352 pt):
             // the generic 380 pt minimum left a dead strip on its right.
             if crate::duplicate_layer_ui::owns(&d.fields) {
-                ui.set_min_width(360.0);
-                ui.set_max_width(360.0);
+                ui.set_min_width(360.0_f32.min(room));
+                ui.set_max_width(360.0_f32.min(room));
             }
             if color_picker {
                 ui.set_width(crate::color_picker_ui::CONTENT_WIDTH);

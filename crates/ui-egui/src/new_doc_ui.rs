@@ -532,8 +532,8 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
     ui.style_mut().interaction.selectable_labels = false;
     let cat = get_s(f, "__category", "Recent");
     let mut create = false;
-    // Category tabs.
-    ui.horizontal(|ui| {
+    // Category tabs (they wrap onto a second line on a narrow screen).
+    ui.horizontal_wrapped(|ui| {
         ui.spacing_mut().item_spacing.x = 18.0;
         for name in CATEGORIES.iter().map(|c| c.0).chain(["Saved"]) {
             let on = cat == name;
@@ -565,10 +565,16 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
         })
         .collect();
     let chosen = get_s(f, "__preset", "");
-    ui.horizontal_top(|ui| {
+    // Too narrow for presets and details side by side (a phone): one column that scrolls, so the
+    // dialog's own buttons stay on screen below it.
+    let narrow = ui.available_width() < 790.0;
+    let layout = if narrow { egui::Layout::top_down(egui::Align::Min) } else { egui::Layout::left_to_right(egui::Align::Min) };
+    let max_h = if narrow { (ui.ctx().content_rect().height() - 240.0).max(220.0) } else { f32::INFINITY };
+    let grid_w = 520.0_f32.min(ui.available_width());
+    egui::ScrollArea::vertical().id_salt("new-document-body").max_height(max_h).auto_shrink([false, true]).show(ui, |ui| ui.with_layout(layout, |ui| {
         // Left: preset grid.
         ui.vertical(|ui| {
-            ui.set_width(520.0);
+            ui.set_width(grid_w);
             if cat == "Saved" {
                 create |= saved_presets(app, ui, f);
                 return;
@@ -578,7 +584,8 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
             let card = vec2(164.0, 112.0);
             // Up to 20 recent documents: scroll past three rows rather than grow the dialog.
             egui::ScrollArea::vertical().id_salt("new-document-presets").max_height(3.0 * (card.y + 8.0)).show(ui, |ui| {
-                for row in presets.chunks(3) {
+                let per_row = (((grid_w + 8.0) / (card.x + 8.0)).floor() as usize).clamp(1, 3);
+                for row in presets.chunks(per_row) {
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = 8.0;
                         for c in row {
@@ -824,7 +831,7 @@ pub fn body(app: &mut crate::PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
             }
             save_preset(app, ui, f);
         });
-    });
+    }));
     create
 }
 

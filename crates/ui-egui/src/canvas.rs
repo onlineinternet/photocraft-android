@@ -2938,6 +2938,11 @@ fn tab_drag(ui: &egui::Ui, resp: &egui::Response, i: usize, r: Rect, strip: Rect
 /// Float a torn-off tab's document in its own window (`window.arrange.floatInWindow`).
 fn float_torn_off(app: &mut PhotocraftApp, ctx: &egui::Context, tear_off: Option<(usize, Option<[f32; 2]>)>) {
     let Some((doc, at)) = tear_off else { return };
+    // On a touch screen a tab dragged a little too far is a slip, not a request for a floating
+    // window (there's no room for one): it stays a tab. Window › Arrange › Float in Window still floats.
+    if app.touch_ui {
+        return;
+    }
     let params = match at {
         Some(at) => json!({"document": doc, "position": at}),
         None => json!({"document": doc}),

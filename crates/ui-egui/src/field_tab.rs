@@ -181,6 +181,22 @@ mod tests {
         assert!(h.state().ui.dialogs.len() == 1, "Tab never closed the dialog");
     }
 
+    /// On a phone-sized screen New Document fits: its Create button is on screen and creates.
+    #[test]
+    fn new_document_fits_a_phone_screen_with_create_on_it() {
+        let size = egui::vec2(420.0, 820.0);
+        let mut h = Harness::builder().with_size(size).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default()));
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        h.state_mut().ui.open_dialog(DialogKind::NewDocument, UiState::new_document_fields());
+        h.run_steps(8);
+        let create = h.get_by_label("Create");
+        let r = create.rect();
+        assert!(r.left() >= 0.0 && r.right() <= size.x && r.bottom() <= size.y, "Create is off screen at {r:?}");
+        create.click();
+        h.run_steps(4);
+        assert!(h.state().session.active().is_some(), "Create made a document at {r:?}; dialogs open: {}", h.state().ui.dialogs.len());
+    }
+
     /// New Document opens with the name selected; Tab goes Width → Height → Resolution and wraps.
     #[test]
     fn new_document_opens_on_the_name_and_tabs_to_width_then_height() {

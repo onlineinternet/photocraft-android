@@ -1,16 +1,10 @@
-//! The edge keyboard: a strip that slides in from the right edge with the keys a touch screen
-//! lacks, after Clip Studio Paint's Edge Keyboard.
+//! The edge keyboard: a strip that slides in from the right edge with one-tap buttons for the
+//! shortcuts a touch screen has no keys for, after Clip Studio Paint's Edge Keyboard.
 //!
-//! - **Ctrl, Shift, Alt** latch: tap one and it stays held while the pen works (Alt + tap picks a
-//!   color, Shift + drag draws a straight line, Ctrl + drag moves the layer), until tapped again.
-//!   They go through PhotoCraft's own Modifier Keys panel state (`ShellUi::sticky_*`) and are
-//!   added to every input event, so menus and panels see them too.
-//! - **Space** latches as a held key: the canvas pans (the Hand tool) while it is on, and with
-//!   Ctrl or Alt latched it zooms, as in Photoshop.
-//! - The rest run PhotoCraft commands directly, so they work whatever the keyboard shortcuts are.
-//!
-//! - **Enter and Esc** apply or cancel whatever is waiting for them (a transform, a crop, a
-//!   dialog).
+//! Each button runs a PhotoCraft command directly, so it works whatever the keyboard shortcuts
+//! are, and there are no virtual Ctrl/Shift/Alt keys: with a Bluetooth keyboard they aren't
+//! needed, and with the on-screen keyboard they're awkward. (PhotoCraft's own Window › Modifier
+//! Keys panel still latches them; the strip keeps its keys added to every input event.)
 //!
 //! The strip also has the panel toggles that make a phone screen usable: **Panels** hides the
 //! right-hand dock (Shift+Tab) and **Hide UI** hides the toolbar, options bar and dock (Tab).
@@ -32,30 +26,22 @@ pub enum Action {
     Command(&'static str),
 }
 
-/// The strip, top to bottom. `None` draws a gap.
+/// The strip, top to bottom, two to a row. `None` starts a new group.
 pub const BUTTONS: &[Option<(&str, Action)>] = &[
-    Some(("Ctrl", Action::Ctrl)),
-    Some(("Shift", Action::Shift)),
-    Some(("Alt", Action::Alt)),
-    Some(("Space", Action::Space)),
-    Some(("Enter", Action::Tap(Key::Enter))),
-    Some(("Esc", Action::Tap(Key::Escape))),
-    None,
     Some(("Undo", Action::Command("edit.undo"))),
     Some(("Redo", Action::Command("edit.redo"))),
+    Some(("Copy", Action::Command("edit.copy"))),
+    Some(("Paste", Action::Command("edit.paste"))),
     None,
-    Some(("Brush", Action::Command("tools.select.brush"))),
-    Some(("Eraser", Action::Command("tools.select.eraser"))),
-    Some(("Picker", Action::Command("tools.select.eyedropper"))),
-    Some(("Move", Action::Command("tools.select.move"))),
-    Some(("Lasso", Action::Command("tools.select.lasso"))),
+    Some(("Select All", Action::Command("select.all"))),
+    Some(("Deselect", Action::Command("select.deselect"))),
+    Some(("Inverse", Action::Command("select.inverse"))),
+    Some(("Transform", Action::Command("edit.freeTransform"))),
     None,
     Some(("Size −", Action::Command("tools.decreaseBrushSize"))),
     Some(("Size +", Action::Command("tools.increaseBrushSize"))),
     Some(("Swap", Action::Command("tools.swapColors"))),
-    None,
-    Some(("Transform", Action::Command("edit.freeTransform"))),
-    Some(("Deselect", Action::Command("select.deselect"))),
+    Some(("New Layer", Action::Command("layer.new.layer"))),
     None,
     Some(("Panels", Action::Command("window.toggle.dock"))),
     Some(("Hide UI", Action::Command("window.togglePanels"))),
@@ -63,7 +49,9 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
 ];
 
 /// One key on the strip: big enough for a fingertip.
-const KEY_SIZE: egui::Vec2 = egui::vec2(76.0, 42.0);
+const KEY_SIZE: egui::Vec2 = egui::vec2(96.0, 48.0);
+/// The tab that opens and closes the strip.
+const TAB_SIZE: egui::Vec2 = egui::vec2(30.0, 88.0);
 
 /// The latched keys.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -90,9 +78,9 @@ pub fn apply_modifiers(raw: &mut egui::RawInput, latched: Latched, real: &mut Mo
         match e {
             Event::ModifiersChanged(changed) => {
                 *real = *changed;
-                *changed = *changed | m;
+                *changed |= m;
             }
-            Event::Key { modifiers, .. } | Event::PointerButton { modifiers, .. } | Event::MouseWheel { modifiers, .. } => *modifiers = *modifiers | m,
+            Event::Key { modifiers, .. } | Event::PointerButton { modifiers, .. } | Event::MouseWheel { modifiers, .. } => *modifiers |= m,
             _ => {}
         }
     }
@@ -191,47 +179,44 @@ impl EdgeKeys {
         self.taps.push(key);
     }
 
-    /// Draw the tab on the right edge, and the strip when it's open.
+    /// Draw the tab on the right edge, and the strip beside it when it's open. They're separate
+    /// areas, so the strip takes the height it needs (up to the screen's) instead of the tab's.
     pub fn show(&mut self, ctx: &egui::Context, app: &mut PhotocraftApp) {
         let any_latched = self.latched != Latched::default();
+        egui::Area::new(egui::Id::new("android_edge_tab")).order(egui::Order::Foreground).anchor(egui::Align2::RIGHT_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+            // Lit while a key is latched (from the Modifier Keys panel), so it's never forgotten.
+            let tab = egui::Button::new(if self.open { "›" } else { "‹" }).min_size(TAB_SIZE).selected(any_latched && !self.open);
+            if ui.add(tab).on_hover_text("Edge keyboard").clicked() {
+                self.open = !self.open;
+            }
+        });
+        if !self.open {
+            return;
+        }
+        let max_h = (ctx.content_rect().height() - 24.0).max(200.0);
         egui::Area::new(egui::Id::new("android_edge_keys"))
             .order(egui::Order::Foreground)
-            .anchor(egui::Align2::RIGHT_CENTER, [0.0, 0.0])
+            .anchor(egui::Align2::RIGHT_CENTER, [-(TAB_SIZE.x + 6.0), 0.0])
             .show(ctx, |ui| {
-                ui.horizontal_centered(|ui| {
-                    // The tab: always there, lit while a key is latched so it's never forgotten.
-                    let tab = egui::Button::new(if self.open { "›" } else { "‹" }).min_size(egui::vec2(30.0, 88.0)).selected(any_latched && !self.open);
-                    if ui.add(tab).on_hover_text("Edge keyboard").clicked() {
-                        self.open = !self.open;
-                    }
-                    if !self.open {
-                        return;
-                    }
-                    // The strip lays out top to bottom in two columns, one block per group. (Inside
-                    // `horizontal_centered` the buttons would otherwise run off sideways.)
-                    egui::Frame::popup(ui.style()).show(ui, |ui| {
-                        ui.vertical(|ui| {
-                            let max_h = (ctx.content_rect().height() - 24.0).max(200.0);
-                            egui::ScrollArea::vertical().max_height(max_h).show(ui, |ui| {
-                                for (g, group) in BUTTONS.split(Option::is_none).enumerate() {
-                                    if g > 0 {
-                                        ui.separator();
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    egui::ScrollArea::vertical().max_height(max_h).show(ui, |ui| {
+                        for (g, group) in BUTTONS.split(Option::is_none).enumerate() {
+                            if g > 0 {
+                                ui.separator();
+                            }
+                            egui::Grid::new(("android_edge_group", g)).num_columns(2).spacing([6.0, 6.0]).show(ui, |ui| {
+                                for (i, (label, action)) in group.iter().flatten().enumerate() {
+                                    let button = egui::Button::new(*label).min_size(KEY_SIZE).selected(self.is_on(*action));
+                                    if ui.add(button).clicked() {
+                                        self.press(*action, app);
+                                        ctx.request_repaint();
                                     }
-                                    egui::Grid::new(("android_edge_group", g)).num_columns(2).spacing([4.0, 4.0]).show(ui, |ui| {
-                                        for (i, (label, action)) in group.iter().flatten().enumerate() {
-                                            let button = egui::Button::new(*label).min_size(KEY_SIZE).selected(self.is_on(*action));
-                                            if ui.add(button).clicked() {
-                                                self.press(*action, app);
-                                                ctx.request_repaint();
-                                            }
-                                            if i % 2 == 1 {
-                                                ui.end_row();
-                                            }
-                                        }
-                                    });
+                                    if i % 2 == 1 {
+                                        ui.end_row();
+                                    }
                                 }
                             });
-                        });
+                        }
                     });
                 });
             });
