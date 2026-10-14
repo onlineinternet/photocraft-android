@@ -164,7 +164,9 @@ pub fn fit_view(view: &mut View, doc: &Document, area: Vec2, ppp: f32, aspect: f
     // Fit never magnifies past 100%: one image pixel per *physical* pixel, so the cap applies
     // after the points → device pixels conversion (a 150% display would otherwise open at 150%).
     let fit = ((area.x - 40.0) / shown_w).min((area.y - 40.0) / h) * ppp;
-    let zoom = crate::zoom_levels::clamp(fit.min(1.0), [doc.size.width, doc.size.height]);
+    // Pixel art fits on whole screen pixels per pixel, past 100 % too (pixel_mode.rs).
+    let zoom = if doc.pixel_art { crate::pixel_mode::snap_down(fit) } else { fit.min(1.0) };
+    let zoom = crate::zoom_levels::clamp(zoom, [doc.size.width, doc.size.height]);
     view.zoom = zoom;
     view.center = [w / 2.0, h / 2.0];
     view.fit_pending = false;

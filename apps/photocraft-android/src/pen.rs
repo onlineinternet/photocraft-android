@@ -329,7 +329,12 @@ mod tests {
         let mut pens = Pens::default();
         let feed = StylusFeed::default();
         let mut events = vec![touch(7, TouchPhase::Start, 20.0), Event::PointerMoved(pos2(20.0, 50.0))];
-        let f = pens.filter(vec![sample(7, Phase::Down, Tool::Stylus)], &mut events, &feed, Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.0 });
+        let f = pens.filter(
+            vec![sample(7, Phase::Down, Tool::Stylus)],
+            &mut events,
+            &feed,
+            Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.0 },
+        );
         assert!(!f.barrel_alt);
         assert_eq!(events, vec![Event::PointerMoved(pos2(20.0, 50.0))], "touch out, pointer kept");
         let got = feed.drain();
@@ -337,7 +342,12 @@ mod tests {
         assert!((got[0].pressure - 0.42).abs() < 1e-6 && got[0].tilt_x > 25.0 && !got[0].eraser);
 
         let mut events = vec![touch(7, TouchPhase::End, 20.0)];
-        pens.filter(vec![sample(7, Phase::Up, Tool::Stylus)], &mut events, &feed, Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.1 });
+        pens.filter(
+            vec![sample(7, Phase::Up, Tool::Stylus)],
+            &mut events,
+            &feed,
+            Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.1 },
+        );
         assert_eq!(feed.get(), None, "lifted");
     }
 
@@ -355,10 +365,20 @@ mod tests {
     fn a_hovering_pen_moves_the_pointer_in_points() {
         let mut pens = Pens::default();
         let mut events = Vec::new();
-        pens.filter(vec![sample(1, Phase::Hover, Tool::Stylus)], &mut events, &StylusFeed::default(), Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.0 });
+        pens.filter(
+            vec![sample(1, Phase::Hover, Tool::Stylus)],
+            &mut events,
+            &StylusFeed::default(),
+            Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.0 },
+        );
         assert_eq!(events, vec![Event::PointerMoved(pos2(10.0, 20.0))]);
         let mut events = Vec::new();
-        pens.filter(vec![sample(1, Phase::HoverExit, Tool::Stylus)], &mut events, &StylusFeed::default(), Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.1 });
+        pens.filter(
+            vec![sample(1, Phase::HoverExit, Tool::Stylus)],
+            &mut events,
+            &StylusFeed::default(),
+            Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.1 },
+        );
         assert_eq!(events, vec![Event::PointerGone]);
     }
 

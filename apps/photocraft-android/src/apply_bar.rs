@@ -30,24 +30,21 @@ pub fn show(ctx: &egui::Context, app: &mut PhotocraftApp, keys: &mut EdgeKeys) {
         Pending::Crop => "Crop",
     };
     let mut apply = None;
-    egui::Area::new(egui::Id::new("android_apply_bar"))
-        .order(egui::Order::Foreground)
-        .anchor(egui::Align2::CENTER_BOTTOM, [0.0, -28.0])
-        .show(ctx, |ui| {
-            egui::Frame::popup(ui.style()).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.label(label);
-                    ui.add_space(8.0);
-                    let size = egui::vec2(120.0, 44.0);
-                    if ui.add(egui::Button::new("✕  Cancel").min_size(size)).clicked() {
-                        apply = Some(false);
-                    }
-                    if ui.add(egui::Button::new("✓  Apply").min_size(size)).clicked() {
-                        apply = Some(true);
-                    }
-                });
+    egui::Area::new(egui::Id::new("android_apply_bar")).order(egui::Order::Foreground).anchor(egui::Align2::CENTER_BOTTOM, [0.0, -28.0]).show(ctx, |ui| {
+        egui::Frame::popup(ui.style()).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(label);
+                ui.add_space(8.0);
+                let size = egui::vec2(120.0, 44.0);
+                if ui.add(egui::Button::new("✕  Cancel").min_size(size)).clicked() {
+                    apply = Some(false);
+                }
+                if ui.add(egui::Button::new("✓  Apply").min_size(size)).clicked() {
+                    apply = Some(true);
+                }
             });
         });
+    });
     match (what, apply) {
         (Pending::Transform, Some(true)) => photocraft_ui_egui::transform_tool::commit(app),
         (Pending::Transform, Some(false)) => photocraft_ui_egui::transform_tool::cancel(app),

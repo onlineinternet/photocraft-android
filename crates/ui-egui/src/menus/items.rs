@@ -44,6 +44,7 @@ const PLACE_AFTER: &[(&str, &str)] = &[
     ("view.rotateLeft", "view.flipHorizontal"),
     ("view.rotateRight", "view.rotateLeft"),
     ("view.resetView", "view.rotateRight"),
+    ("view.pixelArtMode", "view.pixelArtPreview"),
     ("filter.other.colorToAlpha", "filter.other.offset"),
 ];
 
@@ -84,7 +85,7 @@ pub fn menu_items(app: &PhotocraftApp) -> Vec<MenuItem> {
             path: c.menu.iter().map(|s| s.to_string()).collect(),
             shortcut: c.shortcut.map(Into::into),
             enabled: is_enabled(app, c.id),
-            checked: None,
+            checked: checked(app, c.id),
             color: None,
         });
     }

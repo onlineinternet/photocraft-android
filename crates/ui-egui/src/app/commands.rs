@@ -426,6 +426,7 @@ impl PhotocraftApp {
         }
         // Commands may close and reopen a preserved-ID document before the next repaint.
         canvas::retain_gpu_documents(self);
+        crate::pixel_mode::sync(self);
     }
 }
 
