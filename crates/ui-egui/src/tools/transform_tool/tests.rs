@@ -58,6 +58,43 @@ fn a_plain_click_far_outside_accepts_transform_but_a_rotation_drag_does_not() {
 }
 
 #[test]
+fn with_a_touch_slop_a_wandering_tap_neither_moves_nor_rotates_but_a_drag_does() {
+    let context = egui::Context::default();
+    let none = egui::Modifiers::NONE;
+    // A tap inside the box that wanders a little: nothing moves.
+    let mut app = app_with_square(128, photocraft_geom::Rect::new(16, 16, 112, 112));
+    app.touch_drag_slop = 10.0;
+    let slop = 10.0 * handle_tolerance(&app) / HANDLE_PX;
+    begin(&mut app, &context).unwrap();
+    let original = app.ui.transform.as_ref().unwrap().quad;
+    // Clear of the handles and the reference point in the middle.
+    let inside = [40.0, 50.0];
+    let wander = [40.0 + slop * 0.5, 50.0];
+    pointer(&mut app, ToolEvent::Down { x: inside[0], y: inside[1], pressure: 1.0 }, none);
+    pointer(&mut app, ToolEvent::Move { x: wander[0], y: wander[1], pressure: 1.0 }, none);
+    pointer(&mut app, ToolEvent::Up { x: wander[0], y: wander[1] }, none);
+    assert_eq!(app.ui.transform.as_ref().unwrap().quad, original, "a wandering tap inside leaves the box");
+
+    // The same wander outside the box applies the transform instead of rotating it.
+    let outside = [140.0, 40.0];
+    pointer(&mut app, ToolEvent::Down { x: outside[0], y: outside[1], pressure: 1.0 }, none);
+    pointer(&mut app, ToolEvent::Move { x: outside[0] + slop * 0.5, y: outside[1], pressure: 1.0 }, none);
+    pointer(&mut app, ToolEvent::Up { x: outside[0] + slop * 0.5, y: outside[1] }, none);
+    assert!(app.ui.transform.is_none(), "a wandering tap outside applies");
+
+    // A real drag still moves the box.
+    let mut app = app_with_square(128, photocraft_geom::Rect::new(16, 16, 112, 112));
+    app.touch_drag_slop = 10.0;
+    begin(&mut app, &context).unwrap();
+    let original = app.ui.transform.as_ref().unwrap().quad;
+    let far = [40.0 + slop * 2.0, 50.0];
+    pointer(&mut app, ToolEvent::Down { x: inside[0], y: inside[1], pressure: 1.0 }, none);
+    pointer(&mut app, ToolEvent::Move { x: far[0], y: far[1], pressure: 1.0 }, none);
+    pointer(&mut app, ToolEvent::Up { x: far[0], y: far[1] }, none);
+    assert_ne!(app.ui.transform.as_ref().unwrap().quad, original, "a drag past the slop moves");
+}
+
+#[test]
 fn a_click_near_rotation_handles_accepts_but_drags_and_option_pivot_do_not() {
     let t = session();
     let tol = 12.0;

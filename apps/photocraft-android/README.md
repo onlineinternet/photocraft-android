@@ -39,6 +39,9 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
   Eraser, Picker, Move, Lasso, brush size, swap colors, Transform, Deselect, and
   **Panels** (hide the right dock), **Hide UI** (everything but the canvas) and **Search** (run
   any menu command by name, handy when the menu bar doesn't fit).
+- **Apply / Cancel** buttons appear at the bottom while Free Transform or a crop is waiting,
+  and a tap has to move 10 points before it drags the transform box, so a tap inside it doesn't
+  nudge it and a tap outside applies it. The edge keyboard also has **Enter** and **Esc**.
 - **Two-finger tap** undoes, **three-finger tap** redoes. Pinch zooms and two fingers pan.
 - On screens narrower than 1000 points (phones), the right dock starts hidden.
 
