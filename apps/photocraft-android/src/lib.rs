@@ -10,8 +10,8 @@
 //!   filesystem paths ([`picker`]), which needs Android's "All files access" permission;
 //! - preferences, brush presets, crash recovery and the window layout live in the app's private
 //!   storage ([`services::Dirs`]);
-//! - an edge keyboard with latched Ctrl/Shift/Alt/Space and one-tap commands ([`edge_keys`]),
-//!   and two- and three-finger taps for Undo and Redo ([`gestures`]);
+//! - an edge keyboard with one-tap commands ([`edge_keys`]), and two- and three-finger taps for
+//!   Undo and Redo ([`gestures`]);
 //! - Apply / Cancel buttons while a transform or crop is pending ([`apply_bar`]), and a drag
 //!   threshold so a tap doesn't nudge the transform box ([`TOUCH_DRAG_SLOP`]);
 //! - the interface stays inside the area the status and navigation bars leave ([`insets`]);
@@ -49,14 +49,17 @@ pub const NARROW_WIDTH: f32 = 1000.0;
 pub const TOUCH_DRAG_SLOP: f32 = 10.0;
 
 /// The active document as a touch session started: what a gesture undoes back to first.
+#[derive(Clone)]
 struct Snapshot {
     index: usize,
     doc: Arc<Document>,
 }
 
-/// A recognized tap, run once the app has seen the frame it ended in.
+/// A gesture's effect, run once the app has seen the frame it happened in (so a stroke the gate
+/// just ended has been committed): `tap` undoes or redoes; with none, only what the gesture's
+/// first finger painted is taken back.
 struct PendingTap {
-    tap: gestures::Tap,
+    tap: Option<gestures::Tap>,
     frame: u64,
     snapshot: Option<Snapshot>,
 }
@@ -90,10 +93,10 @@ fn changed_since(app: &PhotocraftApp, snapshot: &Snapshot) -> bool {
     app.session.active_index() == Some(snapshot.index) && app.session.active().is_some_and(|d| !Arc::ptr_eq(&d.doc, &snapshot.doc))
 }
 
-/// Undo (two fingers) or redo (three). If the gesture's first finger got through as a mouse
-/// before the second landed (a dab, a deselect), that is undone first and dropped from Redo.
-fn run_tap(app: &mut PhotocraftApp, ctx: &egui::Context, tap: gestures::Tap, snapshot: Option<Snapshot>) {
-    if let Some(s) = &snapshot {
+/// Take back what a gesture's first finger did before the second landed (a dab, a deselect), and
+/// keep it out of Redo.
+fn take_back(app: &mut PhotocraftApp, snapshot: Option<&Snapshot>) {
+    if let Some(s) = snapshot {
         let mut stray = false;
         for _ in 0..4 {
             if !changed_since(app, s) || !app.session.undo() {
@@ -105,6 +108,11 @@ fn run_tap(app: &mut PhotocraftApp, ctx: &egui::Context, tap: gestures::Tap, sna
             d.history.clear_redo();
         }
     }
+}
+
+/// Undo (two fingers) or redo (three), after taking back what the gesture's first finger did.
+fn run_tap(app: &mut PhotocraftApp, ctx: &egui::Context, tap: gestures::Tap, snapshot: Option<Snapshot>) {
+    take_back(app, snapshot.as_ref());
     let id = match tap {
         gestures::Tap::Two => "edit.undo",
         gestures::Tap::Three => "edit.redo",
@@ -127,7 +135,10 @@ impl eframe::App for AndroidShell {
         if self.pending_tap.as_ref().is_some_and(|p| self.frame > p.frame)
             && let Some(p) = self.pending_tap.take()
         {
-            run_tap(&mut self.app, ctx, p.tap, p.snapshot);
+            match p.tap {
+                Some(tap) => run_tap(&mut self.app, ctx, tap, p.snapshot),
+                None => take_back(&mut self.app, p.snapshot.as_ref()),
+            }
         }
         self.edge.run_queued(&mut self.app, ctx);
         if std::mem::take(&mut self.edge.settings_changed)
@@ -155,18 +166,20 @@ impl eframe::App for AndroidShell {
         let at = pen::Moment { settings: self.edge.settings, canvas: self.app.last_canvas_rect, ppp: ctx.pixels_per_point(), now };
         let pens = self.pens.filter(samples, &mut raw_input.events, &self.app.stylus.feed, at);
         self.edge.transient_alt = pens.barrel_alt;
-        let filtered = self.gate.filter(std::mem::take(&mut raw_input.events), now, &pens.no_hold);
+        let filtered = self.gate.filter(std::mem::take(&mut raw_input.events), now);
         raw_input.events = filtered.events;
         if filtered.session_started {
             self.snapshot = snapshot(&self.app);
         }
+        // `frame` is still the last frame's number here: act in the one after this.
         if let Some(tap) = filtered.tap {
-            // `frame` is still the last frame's number here: wait for the one after this.
-            self.pending_tap = Some(PendingTap { tap, frame: self.frame + 1, snapshot: self.snapshot.take() });
+            let snapshot = self.snapshot.take();
+            self.pending_tap = Some(PendingTap { tap: Some(tap), frame: self.frame + 1, snapshot });
             ctx.request_repaint();
-        }
-        if filtered.holding {
-            ctx.request_repaint_after(std::time::Duration::from_secs_f64(gestures::HOLD_SECS));
+        } else if filtered.cancel {
+            // Keep the snapshot: a tap ending this gesture still undoes back to it first.
+            self.pending_tap = Some(PendingTap { tap: None, frame: self.frame + 1, snapshot: self.snapshot.clone() });
+            ctx.request_repaint();
         }
         self.edge.raw_input(raw_input);
         self.app.raw_input_hook(ctx, raw_input);
