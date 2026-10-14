@@ -78,6 +78,7 @@ pub(crate) fn validate_new_params(s: &Session, p: &Value) -> Result<()> {
                 continue;
             }
             "name" => (value.is_string(), "a string".into()),
+            "pixelArt" => (value.is_boolean(), "true or false".into()),
             _ => return Err(bad(cmd, format!("unknown parameter `{key}`"))),
         };
         if !valid {

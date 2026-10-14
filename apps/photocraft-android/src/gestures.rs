@@ -173,7 +173,8 @@ mod tests {
         let a = g.filter(vec![touch(1, TouchPhase::Start, 10.0, 10.0), moved(10.0), press(true)], 0.0);
         assert!(a.session_started);
         assert_eq!(pointers(&a.events), 2, "no waiting");
-        let b = g.filter(vec![touch(1, TouchPhase::Move, 14.0, 10.0), moved(14.0), touch(1, TouchPhase::End, 14.0, 10.0), press(false), Event::PointerGone], 0.5);
+        let b =
+            g.filter(vec![touch(1, TouchPhase::Move, 14.0, 10.0), moved(14.0), touch(1, TouchPhase::End, 14.0, 10.0), press(false), Event::PointerGone], 0.5);
         assert_eq!(pointers(&b.events), 3);
         assert!(!b.cancel && b.tap.is_none());
     }

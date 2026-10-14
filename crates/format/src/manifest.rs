@@ -74,6 +74,9 @@ pub struct DocM {
     /// Duotone inks.
     #[serde(default)]
     pub duotone: Option<photocraft_doc::Duotone>,
+    /// View › Pixel Art Mode.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pixel_art: bool,
     /// Window › Layer Comps.
     #[serde(default)]
     pub layer_comps: Vec<LayerCompM>,

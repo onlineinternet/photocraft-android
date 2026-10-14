@@ -21,12 +21,7 @@ pub fn insets(content: PxRect, window_px: [f32; 2], pixels_per_point: f32) -> Op
         return None;
     }
     let p = pixels_per_point;
-    Some(MarginF32 {
-        left: (l / p).max(0.0),
-        top: (t / p).max(0.0),
-        right: ((window_px[0] - r) / p).max(0.0),
-        bottom: ((window_px[1] - b) / p).max(0.0),
-    })
+    Some(MarginF32 { left: (l / p).max(0.0), top: (t / p).max(0.0), right: ((window_px[0] - r) / p).max(0.0), bottom: ((window_px[1] - b) / p).max(0.0) })
 }
 
 #[cfg(test)]

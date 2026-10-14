@@ -55,6 +55,7 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
     Some(("Panels", Action::Command("window.toggle.dock"))),
     Some(("Hide UI", Action::Command("window.togglePanels"))),
     Some(("Search", Action::Command("edit.search"))),
+    Some(("Pixel Art", Action::Command("view.pixelArtMode"))),
     None,
     Some(("Finger draws", Action::Toggle(Setting::FingerDraws))),
     Some(("Finger pressure", Action::Toggle(Setting::FingerPressure))),
@@ -217,13 +218,14 @@ impl EdgeKeys {
     /// areas, so the strip takes the height it needs (up to the screen's) instead of the tab's.
     pub fn show(&mut self, ctx: &egui::Context, app: &mut PhotocraftApp) {
         let any_latched = self.latched != Latched::default();
-        let tab_area = egui::Area::new(egui::Id::new("android_edge_tab")).order(egui::Order::Foreground).anchor(egui::Align2::RIGHT_CENTER, [0.0, 0.0]).show(ctx, |ui| {
-            // Lit while a key is latched (from the Modifier Keys panel), so it's never forgotten.
-            let tab = egui::Button::new(if self.open { "›" } else { "‹" }).min_size(TAB_SIZE).selected(any_latched && !self.open);
-            if ui.add(tab).on_hover_text("Edge keyboard").clicked() {
-                self.open = !self.open;
-            }
-        });
+        let tab_area =
+            egui::Area::new(egui::Id::new("android_edge_tab")).order(egui::Order::Foreground).anchor(egui::Align2::RIGHT_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+                // Lit while a key is latched (from the Modifier Keys panel), so it's never forgotten.
+                let tab = egui::Button::new(if self.open { "›" } else { "‹" }).min_size(TAB_SIZE).selected(any_latched && !self.open);
+                if ui.add(tab).on_hover_text("Edge keyboard").clicked() {
+                    self.open = !self.open;
+                }
+            });
         if !self.open {
             return;
         }
@@ -240,7 +242,10 @@ impl EdgeKeys {
                             }
                             egui::Grid::new(("android_edge_group", g)).num_columns(2).spacing([6.0, 6.0]).show(ui, |ui| {
                                 for (i, (label, action)) in group.iter().flatten().enumerate() {
-                                    let button = egui::Button::new(*label).min_size(KEY_SIZE).selected(self.is_on(*action));
+                                    // A command key that toggles a mode shows it the way the menu would.
+                                    let on = self.is_on(*action)
+                                        || matches!(action, Action::Command("view.pixelArtMode") if photocraft_ui_egui::pixel_mode::active(app));
+                                    let button = egui::Button::new(*label).min_size(KEY_SIZE).selected(on);
                                     if ui.add(button).clicked() {
                                         self.press(*action, app);
                                         ctx.request_repaint();
@@ -312,10 +317,14 @@ mod tests {
         keys.tap(Key::Enter);
         let mut raw = egui::RawInput::default();
         keys.raw_input(&mut raw);
-        let presses: Vec<bool> = raw.events.iter().filter_map(|e| match e {
-            Event::Key { key: Key::Enter, pressed, .. } => Some(*pressed),
-            _ => None,
-        }).collect();
+        let presses: Vec<bool> = raw
+            .events
+            .iter()
+            .filter_map(|e| match e {
+                Event::Key { key: Key::Enter, pressed, .. } => Some(*pressed),
+                _ => None,
+            })
+            .collect();
         assert_eq!(presses, [true, false]);
         let mut raw = egui::RawInput::default();
         keys.raw_input(&mut raw);

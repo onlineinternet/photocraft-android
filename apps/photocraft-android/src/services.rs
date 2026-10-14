@@ -109,7 +109,9 @@ pub fn android(dirs: &Dirs, picker: SharedPicker) -> Services {
     let prefs_save = dirs.prefs_file();
     Services {
         import: Some(Box::new(|name: &str, bytes: &[u8], max_svg_group_depth: usize| {
-            guard("Open", || photocraft_io::import_with_svg_group_depth(name, bytes, max_svg_group_depth).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string()))
+            guard("Open", || {
+                photocraft_io::import_with_svg_group_depth(name, bytes, max_svg_group_depth).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string())
+            })
         })),
         export: Some(Box::new(|doc: &Document, path: &str, settings: &photocraft_ui_egui::ExportSettings| {
             let opts = export_options(settings);

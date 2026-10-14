@@ -493,7 +493,7 @@ fn build() -> Vec<CommandSpec> {
             "New…",
             ["File"],
             Some("Cmd+N"),
-            r##"{"width":1..300000=1920,"height":1..300000=1080 (pixel counts are rounded),"mode":"rgb|gray|grayscale|cmyk|lab"="rgb","depth":8|16|32=8,"background":"white|black|backgroundColor|transparent|#rrggbb"="white","backgroundColor":[r,g,b]? (0..1; defaults to toolbox colour),"resolution":1..30000=72 (ppi),"name":str}"##,
+            r##"{"width":1..300000=1920,"height":1..300000=1080 (pixel counts are rounded),"mode":"rgb|gray|grayscale|cmyk|lab"="rgb","depth":8|16|32=8,"background":"white|black|backgroundColor|transparent|#rrggbb"="white","backgroundColor":[r,g,b]? (0..1; defaults to toolbox colour),"resolution":1..30000=72 (ppi),"name":str,"pixelArt":bool=false (View › Pixel Art Mode on)}"##,
             always,
             |s, p| {
                 use crate::document_preset_cmds::{MAX_DIMENSION, MAX_RESOLUTION, background_color, color_mode, sample_type};
@@ -529,6 +529,7 @@ fn build() -> Vec<CommandSpec> {
                     }
                 };
                 doc.resolution_dpi = res;
+                doc.pixel_art = p.get("pixelArt").and_then(Value::as_bool).unwrap_or(false);
                 let i = s.add_document(doc, None);
                 Ok(json!({ "document": i }))
             }
@@ -1480,6 +1481,7 @@ fn build() -> Vec<CommandSpec> {
     v.extend(crate::web_cmds::specs());
     v.extend(crate::automate_cmds::specs());
     v.extend(crate::print_cmds::specs());
+    v.extend(crate::pixel_art_cmds::specs());
     v.extend(crate::installed_profiles::specs());
     v.extend(crate::pick_cmds::specs());
     v.extend(crate::layer_nav_cmds::specs());
