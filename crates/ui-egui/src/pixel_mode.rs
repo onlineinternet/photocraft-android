@@ -31,6 +31,25 @@ pub fn snap_down(zoom: f32) -> f32 {
     if zoom >= 1.0 { zoom.floor().max(1.0) } else { 1.0 / (1.0 / zoom).ceil().max(1.0) }
 }
 
+/// The pixel grid in Pixel Art Mode is this much stronger than Photoshop's, since it also has to
+/// show over the checkerboard.
+pub const GRID_BOOST: f32 = 1.4;
+
+/// Checker cells in Pixel Art Mode are whole document pixels, lined up with the pixels so every
+/// empty pixel is its own square: one pixel per cell when a pixel is at least `min` (the usual
+/// checker square) on screen, else the fewest pixels, a power of two, that make a cell that big.
+/// `scale` and `min` are in the same unit (screen pixels or points per document pixel).
+pub fn checker_cell(scale: f32, min: f32) -> f32 {
+    if !(scale.is_finite() && scale > 0.0 && min.is_finite() && min > 0.0) {
+        return 1.0;
+    }
+    let mut k = 1.0;
+    while scale * k < min && k < 65536.0 {
+        k *= 2.0;
+    }
+    k
+}
+
 /// Whether the active document is pixel art.
 pub fn active(app: &PhotocraftApp) -> bool {
     app.session.active().is_some_and(|d| d.doc.pixel_art)
@@ -128,6 +147,15 @@ mod tests {
         assert_eq!(snap_down(2.9), 2.0);
         assert_eq!(snap_down(0.9), 0.5);
         assert_eq!(snap_down(0.0), 1.0);
+    }
+
+    #[test]
+    fn checker_cells_are_whole_pixels() {
+        assert_eq!(checker_cell(53.0, 21.0), 1.0, "zoomed in: one pixel per square");
+        assert_eq!(checker_cell(5.0, 21.0), 8.0);
+        assert_eq!(checker_cell(0.5, 8.0), 16.0);
+        assert_eq!(checker_cell(f32::NAN, 8.0), 1.0);
+        assert_eq!(checker_cell(1e-9, 8.0), 65536.0, "bounded");
     }
 
     #[test]

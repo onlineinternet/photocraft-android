@@ -3143,6 +3143,7 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
                     !t.bevel && !t.pro && drop_shadow
                 },
                 pixel_grid: false,
+                pixel_art: false,
                 view_key: egui::Id::new(("pc-canvas-proxy", ctx.viewport_id(), idx)).value(),
                 display: sync_display_lut(app, &shown, key, output),
                 output: output.unwrap_or(0),
@@ -3165,6 +3166,7 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
                     !t.bevel && !t.pro && drop_shadow
                 },
                 pixel_grid,
+                pixel_art: doc.pixel_art,
                 view_key: egui::Id::new(("pc-canvas", ctx.viewport_id(), idx)).value(),
                 display: sync_display_lut(app, &doc, doc.id.0, output),
                 output: output.unwrap_or(0),
@@ -3183,7 +3185,11 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
                 painter.add(egui::Shadow { offset: [0, 8], blur: 28, spread: 0, color: Color32::from_black_alpha(150) }.as_shape(img_rect, 0));
             }
             let rotated = view.rotation.abs() > 0.05;
-            let checkerboard = app.session.prefs().transparency_and_gamut.square().map(|square| (checker(app, &ctx), square));
+            let checkerboard = app.session.prefs().transparency_and_gamut.square().map(|square| {
+                // Pixel art: whole-pixel cells, lined up with the pixels (pixel_mode.rs).
+                let square = if doc.pixel_art { crate::pixel_mode::checker_cell(point_zoom, square) * point_zoom } else { square };
+                (checker(app, &ctx), square)
+            });
             let tex = ensure_texture(app, &ctx, idx, output).map(|(tex, _scale)| tex);
             paint_cpu_document(&painter, &xf, doc.bounds(), rotated, checkerboard, tex);
             for &c in &pattern {
