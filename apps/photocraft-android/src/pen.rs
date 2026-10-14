@@ -7,7 +7,6 @@
 //! - **Pen strokes the way desktop tablets work:** the pen's touch events are taken out of the
 //!   input (egui still gets its pointer events) and its samples go to the app's [`StylusFeed`]
 //!   with real pressure, tilt and the eraser end, so brushes with tilt dynamics follow the S Pen.
-//!   Pen strokes start at once, without the 80 ms a finger waits to see if it's a gesture.
 //! - **The barrel button** (the S Pen's side button) holds Alt while pressed: Alt + tap with a
 //!   painting tool picks a color, as in Photoshop.
 //! - **Hover:** a pen held over the screen moves the pointer, so the brush outline follows it.
@@ -150,8 +149,6 @@ struct FingerTrack {
 /// What [`Pens::filter`] tells the shell about a frame.
 #[derive(Debug, Default, PartialEq)]
 pub struct PenFrame {
-    /// Touch ids the gesture gate must let through at once (pens, navigating fingers).
-    pub no_hold: Vec<u64>,
     /// The barrel button is held with the pen down: add Alt.
     pub barrel_alt: bool,
 }
@@ -231,7 +228,6 @@ impl Pens {
             let tool = self.tool(id.0);
             if tool.is_pen() {
                 // The pen's samples went to the feed; its pointer events stay.
-                frame.no_hold.push(id.0);
                 continue;
             }
             let force = match phase {
@@ -244,9 +240,6 @@ impl Pens {
                         self.fingers_down.push(id.0);
                     }
                     self.fingers.insert(id.0, FingerTrack { pos, time: now, pressure: 0.6 });
-                    if self.navigating {
-                        frame.no_hold.push(id.0);
-                    }
                     self.finger_force(id.0, settings)
                 }
                 TouchPhase::Move => {
@@ -337,7 +330,7 @@ mod tests {
         let feed = StylusFeed::default();
         let mut events = vec![touch(7, TouchPhase::Start, 20.0), Event::PointerMoved(pos2(20.0, 50.0))];
         let f = pens.filter(vec![sample(7, Phase::Down, Tool::Stylus)], &mut events, &feed, Moment { settings: TouchSettings::default(), canvas: canvas(), ppp: 2.0, now: 0.0 });
-        assert_eq!(f.no_hold, vec![7]);
+        assert!(!f.barrel_alt);
         assert_eq!(events, vec![Event::PointerMoved(pos2(20.0, 50.0))], "touch out, pointer kept");
         let got = feed.drain();
         assert_eq!(got.len(), 1);
@@ -402,8 +395,8 @@ mod tests {
 
         let mut pens = Pens::default();
         let mut e = vec![touch(1, TouchPhase::Start, 50.0)];
-        let f = pens.filter(vec![sample(1, Phase::Down, Tool::Finger)], &mut e, &feed, Moment { settings: nav, canvas: canvas(), ppp: 1.0, now: 0.0 });
-        assert!(space(&e, true) && f.no_hold == vec![1]);
+        pens.filter(vec![sample(1, Phase::Down, Tool::Finger)], &mut e, &feed, Moment { settings: nav, canvas: canvas(), ppp: 1.0, now: 0.0 });
+        assert!(space(&e, true));
         let mut e = vec![touch(1, TouchPhase::End, 60.0)];
         pens.filter(Vec::new(), &mut e, &feed, Moment { settings: nav, canvas: canvas(), ppp: 1.0, now: 0.1 });
         assert!(space(&e, false), "released when the finger lifts");
