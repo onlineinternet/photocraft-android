@@ -33,17 +33,18 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 
 ## Touch features
 
-- **Edge keyboard:** tap the `‹` tab on the right edge. Ctrl, Shift, Alt and Space latch (tap
-  once to hold, again to release), so Alt + pen picks a color, Space + drag pans, Shift draws
-  straight lines. The tab lights up while a key is latched. Below them: Undo/Redo, Brush,
-  Eraser, Picker, Move, Lasso, brush size, swap colors, Transform, Deselect, and
-  **Panels** (hide the right dock), **Hide UI** (everything but the canvas) and **Search** (run
-  any menu command by name, handy when the menu bar doesn't fit).
+- **Edge keyboard:** tap the `‹` tab on the right edge for one-tap shortcuts: Undo, Redo,
+  Copy, Paste, Select All, Deselect, Inverse, Transform, brush Size −/+, Swap colors, New Layer,
+  and **Panels** (hide the right dock), **Hide UI** (everything but the canvas) and **Search**
+  (run any menu command by name).
 - **Apply / Cancel** buttons appear at the bottom while Free Transform or a crop is waiting,
   and a tap has to move 10 points before it drags the transform box, so a tap inside it doesn't
-  nudge it and a tap outside applies it. The edge keyboard also has **Enter** and **Esc**.
+  nudge it and a tap outside applies it.
 - **Two-finger tap** undoes, **three-finger tap** redoes. Pinch zooms and two fingers pan.
-- On screens narrower than 1000 points (phones), the right dock starts hidden.
+- On screens narrower than 1000 points (phones), the right dock starts hidden, menus that don't
+  fit the menu bar move into a **»** menu at its end, and dialogs fit the screen.
+- Dragging a document tab never tears it off into a floating window (a floated one goes back with
+  Window › Arrange › Consolidate All to Tabs).
 - The interface stays clear of the status and navigation bars, and the Home screen has big
   stacked buttons with no keyboard shortcuts.
 - The font list leaves out the Noto fonts Android ships for other writing systems (Myanmar,
@@ -67,7 +68,7 @@ Pen pressure arrives as winit touch force, the same path Windows pens use.
 
 - No OS clipboard, share sheet, or Android document picker yet (cloud drives and USB storage
   that aren't mounted as paths don't show up).
-- The interface is the desktop layout; on a phone the menu bar runs off the screen (use Search).
+- The interface is the desktop layout; panels are still desktop-sized.
 - Text in non-Latin scripts may not render, since their system fonts aren't loaded.
 - Pen and finger can't be told apart yet (winit drops Android's tool type), so there's no
   "fingers navigate, pen draws" mode, and every touch starts 80 ms late.
