@@ -24,6 +24,15 @@ pub enum Action {
     Tap(Key),
     /// Run a PhotoCraft command id.
     Command(&'static str),
+    /// Flip one of the touch settings.
+    Toggle(Setting),
+}
+
+/// The touch settings the strip can flip ([`crate::pen::TouchSettings`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Setting {
+    FingerDraws,
+    FingerPressure,
 }
 
 /// The strip, top to bottom, two to a row. `None` starts a new group.
@@ -46,12 +55,20 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
     Some(("Panels", Action::Command("window.toggle.dock"))),
     Some(("Hide UI", Action::Command("window.togglePanels"))),
     Some(("Search", Action::Command("edit.search"))),
+    None,
+    Some(("Finger draws", Action::Toggle(Setting::FingerDraws))),
+    Some(("Finger pressure", Action::Toggle(Setting::FingerPressure))),
 ];
 
 /// One key on the strip: big enough for a fingertip.
 const KEY_SIZE: egui::Vec2 = egui::vec2(96.0, 48.0);
 /// The tab that opens and closes the strip.
 const TAB_SIZE: egui::Vec2 = egui::vec2(30.0, 88.0);
+
+/// Does a press at `p` close the open strip (anywhere but the tab and the strip itself)?
+pub fn closes_strip(p: egui::Pos2, tab: egui::Rect, strip: egui::Rect) -> bool {
+    !tab.contains(p) && !strip.contains(p)
+}
 
 /// The latched keys.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -110,6 +127,11 @@ pub struct EdgeKeys {
     /// The hardware keyboard's own modifiers, and whether any key was latched last frame.
     real: Modifiers,
     was_latched: bool,
+    /// How fingers behave; `settings_changed` until the shell saves them.
+    pub settings: crate::pen::TouchSettings,
+    pub settings_changed: bool,
+    /// Alt held for this frame only (the S Pen's barrel button).
+    pub transient_alt: bool,
 }
 
 impl EdgeKeys {
@@ -125,7 +147,9 @@ impl EdgeKeys {
                 raw.events.push(Event::Key { key, physical_key: Some(key), pressed, repeat: false, modifiers: m });
             }
         }
-        apply_modifiers(raw, self.latched, &mut self.real, &mut self.was_latched);
+        let mut keys = self.latched;
+        keys.alt |= self.transient_alt;
+        apply_modifiers(raw, keys, &mut self.real, &mut self.was_latched);
     }
 
     /// Keep PhotoCraft's Modifier Keys panel in step with the latched keys, both ways: latching a
@@ -160,6 +184,14 @@ impl EdgeKeys {
             }
             Action::Tap(key) => self.taps.push(key),
             Action::Command(id) => self.queued.push(id),
+            Action::Toggle(setting) => {
+                let s = &mut self.settings;
+                match setting {
+                    Setting::FingerDraws => s.finger_draws = !s.finger_draws,
+                    Setting::FingerPressure => s.finger_pressure = !s.finger_pressure,
+                }
+                self.settings_changed = true;
+            }
         }
         self.push_to_app(app);
     }
@@ -170,6 +202,8 @@ impl EdgeKeys {
             Action::Shift => self.latched.shift,
             Action::Alt => self.latched.alt,
             Action::Space => self.latched.space,
+            Action::Toggle(Setting::FingerDraws) => self.settings.finger_draws,
+            Action::Toggle(Setting::FingerPressure) => self.settings.finger_pressure,
             Action::Tap(_) | Action::Command(_) => false,
         }
     }
@@ -183,7 +217,7 @@ impl EdgeKeys {
     /// areas, so the strip takes the height it needs (up to the screen's) instead of the tab's.
     pub fn show(&mut self, ctx: &egui::Context, app: &mut PhotocraftApp) {
         let any_latched = self.latched != Latched::default();
-        egui::Area::new(egui::Id::new("android_edge_tab")).order(egui::Order::Foreground).anchor(egui::Align2::RIGHT_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+        let tab_area = egui::Area::new(egui::Id::new("android_edge_tab")).order(egui::Order::Foreground).anchor(egui::Align2::RIGHT_CENTER, [0.0, 0.0]).show(ctx, |ui| {
             // Lit while a key is latched (from the Modifier Keys panel), so it's never forgotten.
             let tab = egui::Button::new(if self.open { "›" } else { "‹" }).min_size(TAB_SIZE).selected(any_latched && !self.open);
             if ui.add(tab).on_hover_text("Edge keyboard").clicked() {
@@ -194,7 +228,7 @@ impl EdgeKeys {
             return;
         }
         let max_h = (ctx.content_rect().height() - 24.0).max(200.0);
-        egui::Area::new(egui::Id::new("android_edge_keys"))
+        let strip = egui::Area::new(egui::Id::new("android_edge_keys"))
             .order(egui::Order::Foreground)
             .anchor(egui::Align2::RIGHT_CENTER, [-(TAB_SIZE.x + 6.0), 0.0])
             .show(ctx, |ui| {
@@ -220,6 +254,13 @@ impl EdgeKeys {
                     });
                 });
             });
+        // A tap anywhere else closes the strip, as a popup would.
+        let pressed_at = ctx.input(|i| if i.pointer.any_pressed() { i.pointer.press_origin() } else { None });
+        if let Some(p) = pressed_at
+            && closes_strip(p, tab_area.response.rect, strip.response.rect)
+        {
+            self.open = false;
+        }
     }
 }
 
@@ -279,6 +320,24 @@ mod tests {
         let mut raw = egui::RawInput::default();
         keys.raw_input(&mut raw);
         assert!(raw.events.is_empty());
+    }
+
+    #[test]
+    fn a_press_outside_the_tab_and_strip_closes_it() {
+        let tab = egui::Rect::from_min_size(egui::pos2(390.0, 300.0), egui::vec2(30.0, 88.0));
+        let strip = egui::Rect::from_min_size(egui::pos2(180.0, 100.0), egui::vec2(200.0, 500.0));
+        assert!(closes_strip(egui::pos2(50.0, 300.0), tab, strip));
+        assert!(!closes_strip(egui::pos2(400.0, 320.0), tab, strip), "the tab toggles it itself");
+        assert!(!closes_strip(egui::pos2(250.0, 300.0), tab, strip), "a key");
+    }
+
+    #[test]
+    fn the_touch_toggles_flip_their_setting() {
+        let mut keys = EdgeKeys::default();
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), photocraft_ui_egui::Services::default());
+        keys.press(Action::Toggle(Setting::FingerDraws), &mut app);
+        assert!(!keys.settings.finger_draws && keys.settings_changed);
+        assert!(!keys.is_on(Action::Toggle(Setting::FingerDraws)));
     }
 
     #[test]

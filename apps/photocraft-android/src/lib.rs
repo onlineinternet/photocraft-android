@@ -18,13 +18,15 @@
 //! - the right-hand dock starts hidden on narrow screens ([`NARROW_WIDTH`]);
 //! - no OS clipboard, control server, beep or screen color picker yet.
 //!
-//! Pen pressure needs nothing extra: winit reports every Android pointer's pressure as a touch
-//! force, which the canvas reads exactly like a Windows pen (`photocraft_ui_egui::stylus`).
+//! Pen and finger are told apart ([`pen`]) through a pointer hook in the vendored winit
+//! (`third_party/winit/PATCHED.md`): the pen feeds the stylus with pressure and tilt like a
+//! desktop tablet, fingers draw with simulated pressure or only navigate.
 
 pub mod apply_bar;
 pub mod edge_keys;
 pub mod gestures;
 pub mod insets;
+pub mod pen;
 pub mod picker;
 pub mod services;
 
@@ -71,6 +73,11 @@ pub struct AndroidShell {
     layout_checked: bool,
     /// The activity's visible area, for the safe-area insets (`None` off Android).
     content_rect: Option<insets::ContentRectFn>,
+    /// Pen and finger samples from winit's pointer hook, and what the shell makes of them.
+    pen_queue: pen::Queue,
+    pens: pen::Pens,
+    /// Where the touch settings are saved.
+    touch_file: PathBuf,
 }
 
 fn snapshot(app: &PhotocraftApp) -> Option<Snapshot> {
@@ -123,6 +130,11 @@ impl eframe::App for AndroidShell {
             run_tap(&mut self.app, ctx, p.tap, p.snapshot);
         }
         self.edge.run_queued(&mut self.app, ctx);
+        if std::mem::take(&mut self.edge.settings_changed)
+            && let Err(e) = photocraft_format::atomic_write(&self.touch_file, self.edge.settings.to_json().as_bytes())
+        {
+            log::warn!("couldn't save the touch settings: {e}");
+        }
         self.app.logic(ctx, frame);
     }
 
@@ -138,7 +150,12 @@ impl eframe::App for AndroidShell {
             }
         }
         let now = raw_input.time.unwrap_or(0.0);
-        let filtered = self.gate.filter(std::mem::take(&mut raw_input.events), now);
+        // Pen or finger: the pen's samples go to the stylus feed, fingers draw or navigate.
+        let samples = std::mem::take(&mut *self.pen_queue.lock().unwrap_or_else(std::sync::PoisonError::into_inner));
+        let at = pen::Moment { settings: self.edge.settings, canvas: self.app.last_canvas_rect, ppp: ctx.pixels_per_point(), now };
+        let pens = self.pens.filter(samples, &mut raw_input.events, &self.app.stylus.feed, at);
+        self.edge.transient_alt = pens.barrel_alt;
+        let filtered = self.gate.filter(std::mem::take(&mut raw_input.events), now, &pens.no_hold);
         raw_input.events = filtered.events;
         if filtered.session_started {
             self.snapshot = snapshot(&self.app);
@@ -188,7 +205,13 @@ pub fn native_options(dirs: &services::Dirs) -> eframe::NativeOptions {
 }
 
 /// Build the app once eframe has a window and a GPU device.
-pub fn create_app(cc: &eframe::CreationContext<'_>, dirs: &services::Dirs, storage: PathBuf, content_rect: Option<insets::ContentRectFn>) -> AndroidShell {
+pub fn create_app(
+    cc: &eframe::CreationContext<'_>,
+    dirs: &services::Dirs,
+    storage: PathBuf,
+    content_rect: Option<insets::ContentRectFn>,
+    pen_queue: pen::Queue,
+) -> AndroidShell {
     let picker: services::SharedPicker = Rc::new(RefCell::new(picker::Host::new(storage)));
     let mut app = PhotocraftApp::new(Session::new(), services::android(dirs, picker.clone()));
     // Long commands and file opens run as background jobs with progress and Cancel.
@@ -209,16 +232,23 @@ pub fn create_app(cc: &eframe::CreationContext<'_>, dirs: &services::Dirs, stora
             let _ = photocraft_ui_egui::gpu_canvas::DeviceHealth::watch(&rs.device);
         }
     }
+    let mut edge = edge_keys::EdgeKeys::default();
+    if let Ok(text) = std::fs::read_to_string(dirs.touch_file()) {
+        edge.settings = pen::TouchSettings::from_json(&text);
+    }
     AndroidShell {
         app,
         picker,
-        edge: edge_keys::EdgeKeys::default(),
+        edge,
         gate: gestures::Gate::default(),
         snapshot: None,
         pending_tap: None,
         frame: 0,
         layout_checked: false,
         content_rect,
+        pen_queue,
+        pens: pen::Pens::default(),
+        touch_file: dirs.touch_file(),
     }
 }
 
@@ -232,12 +262,18 @@ fn install_panic_hook() {
 }
 
 /// Run the app: on Android with the activity's [`AndroidApp`](winit::platform::android::activity::AndroidApp).
-pub fn run(options: eframe::NativeOptions, dirs: services::Dirs, storage: PathBuf, content_rect: Option<insets::ContentRectFn>) -> eframe::Result {
+pub fn run(
+    options: eframe::NativeOptions,
+    dirs: services::Dirs,
+    storage: PathBuf,
+    content_rect: Option<insets::ContentRectFn>,
+    pen_queue: pen::Queue,
+) -> eframe::Result {
     install_panic_hook();
     if let Err(e) = std::fs::create_dir_all(&dirs.data) {
         log::warn!("couldn't create {}: {e}", dirs.data.display());
     }
-    eframe::run_native("PhotoCraft", options, Box::new(move |cc| Ok(Box::new(create_app(cc, &dirs, storage, content_rect)))))
+    eframe::run_native("PhotoCraft", options, Box::new(move |cc| Ok(Box::new(create_app(cc, &dirs, storage, content_rect, pen_queue)))))
 }
 
 /// The entry point Android's NativeActivity calls (through android-activity's glue) on its own
@@ -256,7 +292,41 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
         Some([r.left, r.top, r.right, r.bottom])
     });
     options.android_app = Some(app);
-    if let Err(e) = run(options, dirs, PathBuf::from(SHARED_STORAGE), Some(content_rect)) {
+    // Pen or finger, tilt, barrel button, hover: from the vendored winit's pointer hook.
+    let pen_queue = pen::Queue::default();
+    let hook_queue = pen_queue.clone();
+    winit::platform::android::pointer::set_pointer_hook(move |s| pen::push(&hook_queue, pen_sample_from_winit(s)));
+    if let Err(e) = run(options, dirs, PathBuf::from(SHARED_STORAGE), Some(content_rect), pen_queue) {
         log::error!("PhotoCraft couldn't start: {e}");
+    }
+}
+
+/// winit's pointer sample as the shell's own type.
+#[cfg(target_os = "android")]
+fn pen_sample_from_winit(s: &winit::platform::android::pointer::PointerSample) -> pen::Sample {
+    use winit::platform::android::pointer::{Phase as P, Tool as T};
+    pen::Sample {
+        id: s.id,
+        phase: match s.phase {
+            P::Down => pen::Phase::Down,
+            P::Move => pen::Phase::Move,
+            P::Up => pen::Phase::Up,
+            P::Cancel => pen::Phase::Cancel,
+            P::Hover => pen::Phase::Hover,
+            P::HoverExit => pen::Phase::HoverExit,
+        },
+        tool: match s.tool {
+            T::Finger => pen::Tool::Finger,
+            T::Stylus => pen::Tool::Stylus,
+            T::Eraser => pen::Tool::Eraser,
+            T::Mouse => pen::Tool::Mouse,
+            T::Unknown => pen::Tool::Unknown,
+        },
+        x: s.x,
+        y: s.y,
+        pressure: s.pressure,
+        tilt: s.tilt,
+        orientation: s.orientation,
+        barrel_button: s.barrel_button,
     }
 }
