@@ -69,6 +69,8 @@ pub struct TransformPreview {
     /// drawn instead of the bare pixels (transform_fx.rs, #3653).
     styled: Option<crate::transform_fx::StyledPreview>,
     gesture: Option<Gesture>,
+    /// The press in `gesture` has moved past [`PhotocraftApp::touch_drag_slop`]: it's a drag.
+    drag_armed: bool,
     /// Warp-mode drag in progress.
     warp_drag: Option<WarpDrag>,
     /// Armed split tool. None while the buttons are off and control points drag as usual.
@@ -254,6 +256,7 @@ pub fn begin(app: &mut PhotocraftApp, ctx: &egui::Context) -> Result<(), String>
         follow: Some(Follow { revision, hidden: lifted.is_none() }),
         committing: None,
         gesture: None,
+        drag_armed: false,
         warp_drag: None,
         split_tool: None,
         split_pointer: None,
@@ -354,6 +357,7 @@ pub(crate) fn begin_content_aware(
         follow: Some(Follow { revision, hidden: false }),
         committing: None,
         gesture: None,
+        drag_armed: false,
         warp_drag: None,
         split_tool: None,
         split_pointer: None,
@@ -480,6 +484,7 @@ fn begin_lone(
         follow: None,
         committing: None,
         gesture: None,
+        drag_armed: false,
         warp_drag: None,
         split_tool: None,
         split_pointer: None,
@@ -530,6 +535,7 @@ fn begin_path(app: &mut PhotocraftApp, ctx: &egui::Context, params: serde_json::
         opacity: 1.0,
         styled: None,
         gesture: None,
+        drag_armed: false,
         warp_drag: None,
         split_tool: None,
         split_pointer: None,
@@ -618,6 +624,7 @@ pub fn begin_selection(app: &mut PhotocraftApp, ctx: &egui::Context) -> Result<(
         follow: None,
         committing: None,
         gesture: None,
+        drag_armed: false,
         warp_drag: None,
         split_tool: None,
         split_pointer: None,
@@ -1447,6 +1454,8 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) ->
         warp_pointer(app, ev, tol, mods);
         return true;
     }
+    // The slop in document units, as the handle tolerance converts its screen size.
+    let slop = f64::from(app.touch_drag_slop) * tol / HANDLE_PX;
     let Some(pv) = app.transform_preview.as_mut() else { return false };
     match ev {
         ToolEvent::Down { x, y, .. } => {
@@ -1464,17 +1473,30 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) ->
             // accept the transform. A drag outside remains inert in that mode, in Skew, and in
             // Content-Aware Scale, which only scales and moves.
             pv.gesture = (mode_allows(t.mode, h) || h == Hit::Outside).then_some(Gesture { hit: h, start: [x, y], quad0: t.quad, pivot0: t.pivot });
+            pv.drag_armed = false;
         }
         ToolEvent::Move { x, y, .. } | ToolEvent::Up { x, y } => {
             let g = pv.gesture;
+            // A press becomes a drag once it has moved past the touch slop (always, without one).
+            if let Some(g) = g
+                && !pv.drag_armed
+                && (x - g.start[0]).hypot(y - g.start[1]) > slop
+            {
+                pv.drag_armed = true;
+            }
+            let armed = pv.drag_armed;
             if matches!(ev, ToolEvent::Up { .. }) {
                 pv.gesture = None;
             }
             // Clicking an empty spot commits instead of silently arming rotation (#2851).
             // Dragging the rotation zone and Option-clicking to move the pivot
-            // keep their existing behavior.
-            if matches!(ev, ToolEvent::Up { .. }) && g.is_some_and(|g| accepts_outside_click(g, [x, y], tol)) {
+            // keep their existing behavior. A tap that stayed within the touch slop counts too.
+            if matches!(ev, ToolEvent::Up { .. }) && g.is_some_and(|g| accepts_outside_click(g, [x, y], tol) || (slop > 0.0 && g.hit == Hit::Outside && !armed)) {
                 commit(app);
+                return true;
+            }
+            // Within the slop nothing moves yet: a finger tap leaves the box where it was.
+            if slop > 0.0 && !armed {
                 return true;
             }
             let type_layer = moves_type(app, &t);
@@ -3329,6 +3351,43 @@ mod tests {
         pointer(&mut app, ToolEvent::Up { x: end[0], y: end[1] }, none);
         assert!(app.ui.transform.is_some(), "rotation stays active after an outside drag");
         assert_ne!(app.ui.transform.as_ref().unwrap().quad, original);
+    }
+
+    #[test]
+    fn with_a_touch_slop_a_wandering_tap_neither_moves_nor_rotates_but_a_drag_does() {
+        let context = egui::Context::default();
+        let none = egui::Modifiers::NONE;
+        // A tap inside the box that wanders a little: nothing moves.
+        let mut app = app_with_square(128, photocraft_geom::Rect::new(16, 16, 112, 112));
+        app.touch_drag_slop = 10.0;
+        let slop = 10.0 * handle_tolerance(&app) / HANDLE_PX;
+        begin(&mut app, &context).unwrap();
+        let original = app.ui.transform.as_ref().unwrap().quad;
+        // Clear of the handles and the reference point in the middle.
+        let inside = [40.0, 50.0];
+        let wander = [40.0 + slop * 0.5, 50.0];
+        pointer(&mut app, ToolEvent::Down { x: inside[0], y: inside[1], pressure: 1.0 }, none);
+        pointer(&mut app, ToolEvent::Move { x: wander[0], y: wander[1], pressure: 1.0 }, none);
+        pointer(&mut app, ToolEvent::Up { x: wander[0], y: wander[1] }, none);
+        assert_eq!(app.ui.transform.as_ref().unwrap().quad, original, "a wandering tap inside leaves the box");
+
+        // The same wander outside the box applies the transform instead of rotating it.
+        let outside = [140.0, 40.0];
+        pointer(&mut app, ToolEvent::Down { x: outside[0], y: outside[1], pressure: 1.0 }, none);
+        pointer(&mut app, ToolEvent::Move { x: outside[0] + slop * 0.5, y: outside[1], pressure: 1.0 }, none);
+        pointer(&mut app, ToolEvent::Up { x: outside[0] + slop * 0.5, y: outside[1] }, none);
+        assert!(app.ui.transform.is_none(), "a wandering tap outside applies");
+
+        // A real drag still moves the box.
+        let mut app = app_with_square(128, photocraft_geom::Rect::new(16, 16, 112, 112));
+        app.touch_drag_slop = 10.0;
+        begin(&mut app, &context).unwrap();
+        let original = app.ui.transform.as_ref().unwrap().quad;
+        let far = [40.0 + slop * 2.0, 50.0];
+        pointer(&mut app, ToolEvent::Down { x: inside[0], y: inside[1], pressure: 1.0 }, none);
+        pointer(&mut app, ToolEvent::Move { x: far[0], y: far[1], pressure: 1.0 }, none);
+        pointer(&mut app, ToolEvent::Up { x: far[0], y: far[1] }, none);
+        assert_ne!(app.ui.transform.as_ref().unwrap().quad, original, "a drag past the slop moves");
     }
 
     #[test]

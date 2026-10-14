@@ -12,12 +12,15 @@
 //!   storage ([`services::Dirs`]);
 //! - an edge keyboard with latched Ctrl/Shift/Alt/Space and one-tap commands ([`edge_keys`]),
 //!   and two- and three-finger taps for Undo and Redo ([`gestures`]);
+//! - Apply / Cancel buttons while a transform or crop is pending ([`apply_bar`]), and a drag
+//!   threshold so a tap doesn't nudge the transform box ([`TOUCH_DRAG_SLOP`]);
 //! - the right-hand dock starts hidden on narrow screens ([`NARROW_WIDTH`]);
 //! - no OS clipboard, control server, beep or screen color picker yet.
 //!
 //! Pen pressure needs nothing extra: winit reports every Android pointer's pressure as a touch
 //! force, which the canvas reads exactly like a Windows pen (`photocraft_ui_egui::stylus`).
 
+pub mod apply_bar;
 pub mod edge_keys;
 pub mod gestures;
 pub mod picker;
@@ -37,6 +40,9 @@ pub const SHARED_STORAGE: &str = "/storage/emulated/0";
 /// Narrower than this (points), the right-hand dock starts hidden: a phone, or a tablet in
 /// portrait split screen. The edge keyboard's Panels key brings it back.
 pub const NARROW_WIDTH: f32 = 1000.0;
+
+/// How far a press moves (points) before Free Transform takes it for a drag.
+pub const TOUCH_DRAG_SLOP: f32 = 10.0;
 
 /// The active document as a touch session started: what a gesture undoes back to first.
 struct Snapshot {
@@ -139,6 +145,7 @@ impl eframe::App for AndroidShell {
         self.app.ui(ui, frame);
         let ctx = ui.ctx().clone();
         if !self.picker.borrow().is_open() {
+            apply_bar::show(&ctx, &mut self.app, &mut self.edge);
             self.edge.show(&ctx, &mut self.app);
         }
         self.picker.borrow_mut().show(&ctx);
@@ -167,6 +174,8 @@ pub fn create_app(cc: &eframe::CreationContext<'_>, dirs: &services::Dirs, stora
     let mut app = PhotocraftApp::new(Session::new(), services::android(dirs, picker.clone()));
     // Long commands and file opens run as background jobs with progress and Cancel.
     app.background_jobs = true;
+    // A finger tap wanders a few points: not enough to nudge or rotate a Free Transform box.
+    app.touch_drag_slop = TOUCH_DRAG_SLOP;
     if let Some(rs) = cc.wgpu_render_state.clone() {
         let info = rs.adapter.get_info();
         log::info!("photocraft-android: wgpu {:?} on {} ({:?})", info.backend, info.name, info.device_type);
