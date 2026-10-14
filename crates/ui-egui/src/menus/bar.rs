@@ -4,6 +4,9 @@ use super::render::{alt_click, render_level, render_level_rows};
 use super::search::help_search;
 use super::{PhotocraftApp, TOP_MENUS, Value, json};
 
+/// Width of the » title that holds the menus a narrow touch screen has no room for.
+const OVERFLOW_W: f32 = 40.0;
+
 /// Draws the menu bar; returns the inner edge of the menu titles, facing the rest of the title bar
 /// (the right edge of the last title, or its left edge in a right-to-left UI, where File is at the
 /// right). The bar itself fills the row.
@@ -42,7 +45,20 @@ pub fn menu_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> f32 {
             ui.spacing_mut().button_padding = egui::vec2(6.0, 3.0);
             nav.bar_bottom = Some(ui.max_rect().bottom());
             let mut buttons = Vec::with_capacity(TOP_MENUS.len());
+            // On a touch screen too narrow for every title (a phone), the titles that don't fit
+            // move into a » menu at the end of the bar, so Window and Help stay reachable.
+            let mut overflow: Vec<&str> = Vec::new();
             for (k, top) in TOP_MENUS.iter().enumerate() {
+                if app_ref.touch_ui {
+                    let font = egui::TextStyle::Button.resolve(ui.style());
+                    let text = top_labels.get(k).cloned().unwrap_or_default();
+                    let need = ui.painter().layout_no_wrap(text, font, t.text_dim).size().x + 2.0 * ui.spacing().button_padding.x;
+                    let more = if k + 1 < TOP_MENUS.len() { OVERFLOW_W } else { 0.0 };
+                    if ui.available_width() < need + more {
+                        overflow = TOP_MENUS.get(k..).map(<[&str]>::to_vec).unwrap_or_default();
+                        break;
+                    }
+                }
                 // egui's menu_button toggles on release; these titles open on the press (one
                 // gesture can press, drag to an item and release), so each drives its popup.
                 // The title the keyboard is on (Alt / F10) is lit like a hovered one.
@@ -105,6 +121,35 @@ pub fn menu_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> f32 {
                         }
                     });
                 buttons.push(title);
+            }
+            if !overflow.is_empty() {
+                let more = ui.add(egui::Button::new(egui::RichText::new("»").color(t.text_dim)).min_size(egui::vec2(OVERFLOW_W, 0.0)));
+                let bar = egui::containers::menu::MenuConfig::find(ui);
+                let config = egui::containers::menu::MenuConfig::new().close_behavior(bar.close_behavior).style(bar.style.clone());
+                egui::Popup::menu(&more)
+                    .align(crate::direction::below())
+                    .close_behavior(config.close_behavior)
+                    .style(config.style.clone())
+                    .info(egui::UiStackInfo::new(egui::UiKind::Menu).with_tag_value(egui::containers::menu::MenuConfig::MENU_CONFIG_TAG, config))
+                    .show(|ui| {
+                        let items = &built
+                            .get_or_init(|| {
+                                let state = crate::native_menu::state_hash(app_ref, None);
+                                let input = crate::native_menu::had_input(ui.ctx());
+                                let items = kept.take().and_then(|c| c.reuse(state, input)).unwrap_or_else(|| menu_items(app_ref));
+                                ItemCache { state, items }
+                            })
+                            .items;
+                        ui.set_min_width(160.0);
+                        for top in &overflow {
+                            ui.menu_button(crate::i18n::tr(lang, top), |ui| {
+                                let mine: Vec<&MenuItem> = items.iter().filter(|i| i.path.first().map(String::as_str) == Some(*top)).collect();
+                                ui.set_min_width(200.0);
+                                render_level(ui, &mine, 1, &mut clicked, &mut nav);
+                            });
+                        }
+                    });
+                buttons.push(more);
             }
             edge = if rtl { buttons.iter().map(|b| b.rect.left()).fold(edge, f32::min) } else { buttons.iter().map(|b| b.rect.right()).fold(edge, f32::max) };
             if let (Some(first), Some(last)) = (buttons.first(), buttons.last()) {
