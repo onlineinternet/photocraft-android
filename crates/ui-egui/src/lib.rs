@@ -751,6 +751,9 @@ pub struct PhotocraftApp {
     /// 0 on desktops; a touch shell raises it so a finger tap, which always wanders a little,
     /// neither nudges nor rotates the box, and a tap outside it still applies the transform.
     pub touch_drag_slop: f32,
+    /// A touch screen is the main input (the Android shell): the Home screen shows no keyboard
+    /// shortcuts or drag-and-drop hints, stacks its buttons and makes them finger-sized.
+    pub touch_ui: bool,
     /// Background job bookkeeping: opening tabs, control replies waiting on a job.
     pub jobs: jobs_ui::JobsUi,
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
