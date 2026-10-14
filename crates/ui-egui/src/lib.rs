@@ -747,6 +747,10 @@ pub struct PhotocraftApp {
     /// After #4472 (astigmata).
     pub min_frame_ms: Option<f64>,
     last_frame_start_ms: f64,
+    /// How far (in screen points) a press has to move before Free Transform treats it as a drag.
+    /// 0 on desktops; a touch shell raises it so a finger tap, which always wanders a little,
+    /// neither nudges nor rotates the box, and a tap outside it still applies the transform.
+    pub touch_drag_slop: f32,
     /// Background job bookkeeping: opening tabs, control replies waiting on a job.
     pub jobs: jobs_ui::JobsUi,
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]

@@ -9,6 +9,9 @@
 //!   Ctrl or Alt latched it zooms, as in Photoshop.
 //! - The rest run PhotoCraft commands directly, so they work whatever the keyboard shortcuts are.
 //!
+//! - **Enter and Esc** apply or cancel whatever is waiting for them (a transform, a crop, a
+//!   dialog).
+//!
 //! The strip also has the panel toggles that make a phone screen usable: **Panels** hides the
 //! right-hand dock (Shift+Tab) and **Hide UI** hides the toolbar, options bar and dock (Tab).
 
@@ -23,6 +26,8 @@ pub enum Action {
     Shift,
     Alt,
     Space,
+    /// Press and release a key.
+    Tap(Key),
     /// Run a PhotoCraft command id.
     Command(&'static str),
 }
@@ -33,6 +38,8 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
     Some(("Shift", Action::Shift)),
     Some(("Alt", Action::Alt)),
     Some(("Space", Action::Space)),
+    Some(("Enter", Action::Tap(Key::Enter))),
+    Some(("Esc", Action::Tap(Key::Escape))),
     None,
     Some(("Undo", Action::Command("edit.undo"))),
     Some(("Redo", Action::Command("edit.redo"))),
@@ -107,6 +114,8 @@ pub struct EdgeKeys {
     space_changed: bool,
     /// A command tapped this frame, run once the frame is drawn.
     queued: Vec<&'static str>,
+    /// Keys to press and release with the next frame's input.
+    taps: Vec<Key>,
     /// The hardware keyboard's own modifiers, and whether any key was latched last frame.
     real: Modifiers,
     was_latched: bool,
@@ -118,6 +127,12 @@ impl EdgeKeys {
         if self.space_changed {
             self.space_changed = false;
             raw.events.push(space(self.latched.space, self.latched.modifiers()));
+        }
+        let m = self.latched.modifiers();
+        for key in self.taps.drain(..) {
+            for pressed in [true, false] {
+                raw.events.push(Event::Key { key, physical_key: Some(key), pressed, repeat: false, modifiers: m });
+            }
         }
         apply_modifiers(raw, self.latched, &mut self.real, &mut self.was_latched);
     }
@@ -152,6 +167,7 @@ impl EdgeKeys {
                 self.latched.space = !self.latched.space;
                 self.space_changed = true;
             }
+            Action::Tap(key) => self.taps.push(key),
             Action::Command(id) => self.queued.push(id),
         }
         self.push_to_app(app);
@@ -163,8 +179,13 @@ impl EdgeKeys {
             Action::Shift => self.latched.shift,
             Action::Alt => self.latched.alt,
             Action::Space => self.latched.space,
-            Action::Command(_) => false,
+            Action::Tap(_) | Action::Command(_) => false,
         }
+    }
+
+    /// Press and release `key` with the next frame's input.
+    pub fn tap(&mut self, key: Key) {
+        self.taps.push(key);
     }
 
     /// Draw the tab on the right edge, and the strip when it's open.
@@ -250,6 +271,22 @@ mod tests {
         let mut raw = egui::RawInput::default();
         keys.raw_input(&mut raw);
         assert!(raw.events.is_empty(), "held, not repeated");
+    }
+
+    #[test]
+    fn a_tapped_key_goes_down_and_up_in_the_next_frame_only() {
+        let mut keys = EdgeKeys::default();
+        keys.tap(Key::Enter);
+        let mut raw = egui::RawInput::default();
+        keys.raw_input(&mut raw);
+        let presses: Vec<bool> = raw.events.iter().filter_map(|e| match e {
+            Event::Key { key: Key::Enter, pressed, .. } => Some(*pressed),
+            _ => None,
+        }).collect();
+        assert_eq!(presses, [true, false]);
+        let mut raw = egui::RawInput::default();
+        keys.raw_input(&mut raw);
+        assert!(raw.events.is_empty());
     }
 
     #[test]

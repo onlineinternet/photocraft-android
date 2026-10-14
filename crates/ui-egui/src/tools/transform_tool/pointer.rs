@@ -220,6 +220,8 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) ->
         return true;
     }
     let show_pivot = app.ui.tool_options.transform_reference_point;
+    // The slop in document units, as the handle tolerance converts its screen size.
+    let slop = f64::from(app.touch_drag_slop) * tol / HANDLE_PX;
     let Some(pv) = app.transform_preview.as_mut() else { return false };
     match ev {
         ToolEvent::Down { x, y, .. } => {
@@ -237,9 +239,18 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) ->
             // accept the transform. A drag outside remains inert in that mode, in Skew, and in
             // Content-Aware Scale, which only scales and moves.
             pv.gesture = (mode_allows(t.mode, h) || h == Hit::Outside).then_some(Gesture { hit: h, start: [x, y], quad0: t.quad, pivot0: t.pivot });
+            pv.drag_armed = false;
         }
         ToolEvent::Move { x, y, .. } | ToolEvent::Up { x, y } => {
             let g = pv.gesture;
+            // A press becomes a drag once it has moved past the touch slop (always, without one).
+            if let Some(g) = g
+                && !pv.drag_armed
+                && (x - g.start[0]).hypot(y - g.start[1]) > slop
+            {
+                pv.drag_armed = true;
+            }
+            let armed = pv.drag_armed;
             if matches!(ev, ToolEvent::Up { .. }) {
                 pv.gesture = None;
             }
@@ -249,10 +260,11 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) ->
             // reference application, that takes a second click (#8208). Dragging the rotation
             // zone and Option-clicking to move the pivot keep their existing behavior.
             // The press decides: a click that starts on the image and jitters past the edge
-            // before the release is still a click on the image.
+            // before the release is still a click on the image. A finger tap outside the box that
+            // stayed within the touch slop counts as such a click too.
             if matches!(ev, ToolEvent::Up { .. })
                 && let Some(g) = g
-                && accepts_outside_click(g, [x, y], tol)
+                && (accepts_outside_click(g, [x, y], tol) || (slop > 0.0 && g.hit == Hit::Outside && !armed))
             {
                 if on_pasteboard(app, g.start) || on_other_layer(app, &t, g.start) {
                     commit(app);
@@ -261,6 +273,10 @@ pub fn pointer(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers) ->
                     s.quad = g.quad0;
                     s.pivot = g.pivot0;
                 }
+                return true;
+            }
+            // Within the slop nothing moves yet: a finger tap leaves the box where it was.
+            if slop > 0.0 && !armed {
                 return true;
             }
             let type_layer = moves_type(app, &t);

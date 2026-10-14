@@ -118,6 +118,8 @@ pub struct TransformPreview {
     /// drawn instead of the bare pixels (transform_fx.rs, #3653).
     styled: Option<crate::transform_fx::StyledPreview>,
     gesture: Option<Gesture>,
+    /// The press in `gesture` has moved past [`PhotocraftApp::touch_drag_slop`]: it's a drag.
+    drag_armed: bool,
     /// Warp-mode drag in progress.
     warp_drag: Option<WarpDrag>,
     /// Armed split tool. None while the buttons are off and control points drag as usual.
