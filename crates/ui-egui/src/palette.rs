@@ -131,12 +131,13 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
             app.ui.palette_open = false;
         }
     });
-    let width = 560.0;
+    // Narrower on a phone, so the whole field and every row stay on screen.
+    let width = 560.0_f32.min(screen.width() - 32.0).max(240.0);
     let mut run: Option<String> = None;
     egui::Area::new(egui::Id::new("palette"))
         .order(egui::Order::Tooltip)
         .pivot(Align2::CENTER_TOP)
-        .fixed_pos(egui::pos2(screen.center().x, screen.top() + 110.0))
+        .fixed_pos(egui::pos2(screen.center().x, screen.top() + 110.0_f32.min(screen.height() * 0.1)))
         .show(ctx, |ui| {
             egui::Frame::NONE
                 .fill(t.card)
