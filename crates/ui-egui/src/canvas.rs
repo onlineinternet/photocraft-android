@@ -3308,14 +3308,22 @@ fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         if cfg!(target_arch = "wasm32") || !show_recent { Vec::new() } else { app.ui.recent_files.iter().take(HOME_RECENT).cloned().collect() };
     let recent_h = if recent.is_empty() { 0.0 } else { 34.0 + recent.len() as f32 * HOME_RECENT_ROW };
     // A tiling window manager can give the canvas less room than the card wants: shrink the card
-    // to fit, and stack the buttons when they don't fit side by side.
-    let new_label = crate::shortcuts::command_label(app, "New document…", "file.new");
-    let open_label = crate::shortcuts::command_label(app, "Open…", "file.open");
+    // to fit, and stack the buttons when they don't fit side by side. A touch screen always stacks them.
+    let touch = app.touch_ui;
+    // Keyboard shortcuts mean nothing without a keyboard.
+    let (new_label, open_label) = if touch {
+        // The same catalogue entries `command_label` looks up.
+        let (new, open) = ("New document…", "Open…");
+        (tl!(new).to_string(), tl!(open).to_string())
+    } else {
+        (crate::shortcuts::command_label(app, "New document…", "file.new"), crate::shortcuts::command_label(app, "Open…", "file.open"))
+    };
     let card_width = HOME_CARD_WIDTH.min(area.width());
     let button_width = HOME_BUTTON_WIDTH.max(crate::widgets::button_width(ui, &[&new_label, &open_label]));
-    let side_by_side = 2.0 * button_width + HOME_BUTTON_GAP <= card_width;
+    let side_by_side = !touch && 2.0 * button_width + HOME_BUTTON_GAP <= card_width;
+    let button_h = if touch { 52.0 } else { 34.0 };
     // Stacked buttons take one more row.
-    let stacked_h = if side_by_side { 0.0 } else { 44.0 };
+    let stacked_h = if side_by_side { 0.0 } else { button_h + 10.0 };
     let card = Rect::from_center_size(area.center(), egui::vec2(card_width, 330.0 + recent_h + stacked_h));
     ui.scope_builder(egui::UiBuilder::new().max_rect(card), |ui| {
         ui.vertical_centered(|ui| {
@@ -3340,6 +3348,11 @@ fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                     new_clicked = crate::widgets::primary_button(ui, &new_label, button_width).clicked();
                     open_clicked = crate::widgets::secondary_button(ui, &open_label, button_width).clicked();
                 });
+            } else if touch {
+                let w = card.width().min(320.0);
+                ui.spacing_mut().item_spacing.y = 12.0;
+                new_clicked = crate::widgets::tall_button(ui, &new_label, w, button_h, true).clicked();
+                open_clicked = crate::widgets::tall_button(ui, &open_label, w, button_h, false).clicked();
             } else {
                 new_clicked = crate::widgets::primary_button(ui, &new_label, button_width).clicked();
                 ui.add_space(HOME_BUTTON_GAP);
@@ -3352,15 +3365,18 @@ fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             if open_clicked {
                 let _ = app.open_dialog_file();
             }
-            ui.add_space(22.0);
-            ui.horizontal(|ui| {
-                let msg = start_screen_drop_hint(app);
-                let g = ui.painter().layout_no_wrap(msg.to_string(), egui::FontId::proportional(12.5), t.text_faint);
-                ui.add_space(((card.width() - g.size().x - 24.0) / 2.0).max(0.0));
-                let (r, _) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), Sense::hover());
-                crate::icons::paint(ui, r, "image", 15.0, t.text_faint);
-                ui.label(egui::RichText::new(msg).color(t.text_faint));
-            });
+            // Nothing is dropped onto a touch screen.
+            if !touch {
+                ui.add_space(22.0);
+                ui.horizontal(|ui| {
+                    let msg = start_screen_drop_hint(app);
+                    let g = ui.painter().layout_no_wrap(msg.to_string(), egui::FontId::proportional(12.5), t.text_faint);
+                    ui.add_space(((card.width() - g.size().x - 24.0) / 2.0).max(0.0));
+                    let (r, _) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), Sense::hover());
+                    crate::icons::paint(ui, r, "image", 15.0, t.text_faint);
+                    ui.label(egui::RichText::new(msg).color(t.text_faint));
+                });
+            }
             if !recent.is_empty() {
                 ui.add_space(22.0);
                 home_recent(app, ui, &recent);
@@ -3392,7 +3408,7 @@ const HOME_RECENT_ROW: f32 = 30.0;
 /// and Clear Recent Files (#2691).
 fn home_recent(app: &mut PhotocraftApp, ui: &mut egui::Ui, recent: &[String]) {
     let t = crate::theme::Tokens::get(ui.ctx());
-    let width = 380.0;
+    let width = ui.available_width().min(380.0);
     ui.horizontal(|ui| {
         // Line the heading up with the file icons.
         ui.add_space(((ui.available_width() - width) / 2.0).max(0.0) + 8.0);

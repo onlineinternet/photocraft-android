@@ -262,6 +262,11 @@ impl FontDb {
             for d in system_font_dirs() {
                 collect_font_files(&d, 0, &mut files);
             }
+            // Android ships a Noto font for every script it can show; listing them all buries the
+            // fonts people pick. Keep the Latin ones and anything the user added themselves.
+            if cfg!(target_os = "android") {
+                files.retain(|p| !is_android_script_font(p));
+            }
             #[cfg(target_os = "linux")]
             files.extend(fontconfig_font_paths());
             // Core Text knows every font macOS offers, also those activated from outside the
@@ -832,6 +837,21 @@ pub fn guess_from_postscript(ps: &str) -> ResolvedFont {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
+/// A font Android ships for one non-Latin script (`/system/fonts/NotoSansMro-Regular.ttf`):
+/// a Noto family other than the general Sans, Serif and Mono ones, the symbols and the emoji.
+/// Fonts the user put in their own Fonts folder are never treated as one.
+pub(crate) fn is_android_script_font(path: &std::path::Path) -> bool {
+    const KEEP: &[&str] = &[
+        "NotoSans-", "NotoSans[", "NotoSansDisplay", "NotoSansMono", "NotoSansSymbols", "NotoSerif-", "NotoSerif[", "NotoSerifDisplay", "NotoColorEmoji",
+        "NotoEmoji",
+    ];
+    if !["/system", "/product", "/system_ext"].iter().any(|d| path.starts_with(d)) {
+        return false;
+    }
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else { return false };
+    name.starts_with("Noto") && !KEEP.iter().any(|k| name.starts_with(k))
+}
+
 pub(crate) fn collect_font_files(dir: &std::path::Path, depth: u32, out: &mut Vec<std::path::PathBuf>) {
     let Ok(rd) = std::fs::read_dir(dir) else {
         return;
@@ -1156,3 +1176,21 @@ mod tests {
 #[cfg(test)]
 #[path = "font_names_tests.rs"]
 mod font_names_tests;
+
+#[cfg(test)]
+mod android_font_tests {
+    use super::is_android_script_font as script;
+    use std::path::Path;
+
+    #[test]
+    fn android_script_fonts_are_left_out_but_latin_and_user_fonts_stay() {
+        assert!(script(Path::new("/system/fonts/NotoSansMro-Regular.ttf")));
+        assert!(script(Path::new("/system/fonts/NotoSerifMyanmar-Bold.otf")));
+        assert!(!script(Path::new("/system/fonts/NotoSans-Regular.ttf")));
+        assert!(!script(Path::new("/system/fonts/NotoSerif-Italic.ttf")));
+        assert!(!script(Path::new("/system/fonts/NotoSansMono-Regular.ttf")));
+        assert!(!script(Path::new("/system/fonts/NotoColorEmoji.ttf")));
+        assert!(!script(Path::new("/system/fonts/Roboto-Regular.ttf")));
+        assert!(!script(Path::new("/storage/emulated/0/Fonts/NotoSansMro-Regular.ttf")), "the user's own");
+    }
+}

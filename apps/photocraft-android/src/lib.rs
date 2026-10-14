@@ -14,6 +14,7 @@
 //!   and two- and three-finger taps for Undo and Redo ([`gestures`]);
 //! - Apply / Cancel buttons while a transform or crop is pending ([`apply_bar`]), and a drag
 //!   threshold so a tap doesn't nudge the transform box ([`TOUCH_DRAG_SLOP`]);
+//! - the interface stays inside the area the status and navigation bars leave ([`insets`]);
 //! - the right-hand dock starts hidden on narrow screens ([`NARROW_WIDTH`]);
 //! - no OS clipboard, control server, beep or screen color picker yet.
 //!
@@ -23,6 +24,7 @@
 pub mod apply_bar;
 pub mod edge_keys;
 pub mod gestures;
+pub mod insets;
 pub mod picker;
 pub mod services;
 
@@ -67,6 +69,8 @@ pub struct AndroidShell {
     pending_tap: Option<PendingTap>,
     frame: u64,
     layout_checked: bool,
+    /// The activity's visible area, for the safe-area insets (`None` off Android).
+    content_rect: Option<insets::ContentRectFn>,
 }
 
 fn snapshot(app: &PhotocraftApp) -> Option<Snapshot> {
@@ -123,6 +127,16 @@ impl eframe::App for AndroidShell {
     }
 
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        // Keep the interface out from under the status and navigation bars.
+        if let Some(read) = &self.content_rect
+            && let Some(content) = read()
+            && let Some(screen) = raw_input.screen_rect.or_else(|| Some(ctx.viewport_rect()))
+        {
+            let ppp = ctx.pixels_per_point();
+            if let Some(m) = insets::insets(content, [screen.width() * ppp, screen.height() * ppp], ppp) {
+                raw_input.safe_area_insets = Some(egui::SafeAreaInsets(m));
+            }
+        }
         let now = raw_input.time.unwrap_or(0.0);
         let filtered = self.gate.filter(std::mem::take(&mut raw_input.events), now);
         raw_input.events = filtered.events;
@@ -142,8 +156,13 @@ impl eframe::App for AndroidShell {
     }
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
-        self.app.ui(ui, frame);
         let ctx = ui.ctx().clone();
+        // The bars' strips get the panel color; the app lays out in what's left.
+        let visible = ctx.content_rect();
+        ui.painter().rect_filled(ctx.viewport_rect(), 0.0, ui.visuals().panel_fill);
+        let mut inner = ui.new_child(egui::UiBuilder::new().max_rect(visible));
+        inner.set_clip_rect(visible);
+        self.app.ui(&mut inner, frame);
         if !self.picker.borrow().is_open() {
             apply_bar::show(&ctx, &mut self.app, &mut self.edge);
             self.edge.show(&ctx, &mut self.app);
@@ -169,13 +188,15 @@ pub fn native_options(dirs: &services::Dirs) -> eframe::NativeOptions {
 }
 
 /// Build the app once eframe has a window and a GPU device.
-pub fn create_app(cc: &eframe::CreationContext<'_>, dirs: &services::Dirs, storage: PathBuf) -> AndroidShell {
+pub fn create_app(cc: &eframe::CreationContext<'_>, dirs: &services::Dirs, storage: PathBuf, content_rect: Option<insets::ContentRectFn>) -> AndroidShell {
     let picker: services::SharedPicker = Rc::new(RefCell::new(picker::Host::new(storage)));
     let mut app = PhotocraftApp::new(Session::new(), services::android(dirs, picker.clone()));
     // Long commands and file opens run as background jobs with progress and Cancel.
     app.background_jobs = true;
     // A finger tap wanders a few points: not enough to nudge or rotate a Free Transform box.
     app.touch_drag_slop = TOUCH_DRAG_SLOP;
+    // Touch first: no keyboard shortcuts on the Home screen's buttons, finger-sized controls.
+    app.touch_ui = true;
     if let Some(rs) = cc.wgpu_render_state.clone() {
         let info = rs.adapter.get_info();
         log::info!("photocraft-android: wgpu {:?} on {} ({:?})", info.backend, info.name, info.device_type);
@@ -197,6 +218,7 @@ pub fn create_app(cc: &eframe::CreationContext<'_>, dirs: &services::Dirs, stora
         pending_tap: None,
         frame: 0,
         layout_checked: false,
+        content_rect,
     }
 }
 
@@ -210,12 +232,12 @@ fn install_panic_hook() {
 }
 
 /// Run the app: on Android with the activity's [`AndroidApp`](winit::platform::android::activity::AndroidApp).
-pub fn run(options: eframe::NativeOptions, dirs: services::Dirs, storage: PathBuf) -> eframe::Result {
+pub fn run(options: eframe::NativeOptions, dirs: services::Dirs, storage: PathBuf, content_rect: Option<insets::ContentRectFn>) -> eframe::Result {
     install_panic_hook();
     if let Err(e) = std::fs::create_dir_all(&dirs.data) {
         log::warn!("couldn't create {}: {e}", dirs.data.display());
     }
-    eframe::run_native("PhotoCraft", options, Box::new(move |cc| Ok(Box::new(create_app(cc, &dirs, storage)))))
+    eframe::run_native("PhotoCraft", options, Box::new(move |cc| Ok(Box::new(create_app(cc, &dirs, storage, content_rect)))))
 }
 
 /// The entry point Android's NativeActivity calls (through android-activity's glue) on its own
@@ -228,8 +250,13 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
     let data = app.internal_data_path().unwrap_or_else(|| PathBuf::from("/data/local/tmp/photocraft"));
     let dirs = services::Dirs { data };
     let mut options = native_options(&dirs);
+    let activity = app.clone();
+    let content_rect: insets::ContentRectFn = Box::new(move || {
+        let r = activity.content_rect();
+        Some([r.left, r.top, r.right, r.bottom])
+    });
     options.android_app = Some(app);
-    if let Err(e) = run(options, dirs, PathBuf::from(SHARED_STORAGE)) {
+    if let Err(e) = run(options, dirs, PathBuf::from(SHARED_STORAGE), Some(content_rect)) {
         log::error!("PhotoCraft couldn't start: {e}");
     }
 }

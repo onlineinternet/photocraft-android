@@ -1370,6 +1370,13 @@ pub fn secondary_button(ui: &mut Ui, label: &str, min_width: f32) -> Response {
     button_impl(ui, label, min_width, t.field, t.text, false)
 }
 
+/// A [`primary_button`] (or, with `primary` false, a [`secondary_button`]) `height` points tall:
+/// a finger-sized button on a touch screen.
+pub fn tall_button(ui: &mut Ui, label: &str, min_width: f32, height: f32, primary: bool) -> Response {
+    let t = Tokens::get(ui.ctx());
+    if primary { button_impl_h(ui, label, min_width, Some(height), t.primary_bg, t.primary_text, true) } else { button_impl_h(ui, label, min_width, Some(height), t.field, t.text, false) }
+}
+
 /// A [`secondary_button`] `height` points tall, for slim bars such as the status bar (#2823).
 pub fn compact_button(ui: &mut Ui, label: &str, height: f32) -> Response {
     let t = Tokens::get(ui.ctx());

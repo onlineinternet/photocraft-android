@@ -44,6 +44,10 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
   nudge it and a tap outside applies it. The edge keyboard also has **Enter** and **Esc**.
 - **Two-finger tap** undoes, **three-finger tap** redoes. Pinch zooms and two fingers pan.
 - On screens narrower than 1000 points (phones), the right dock starts hidden.
+- The interface stays clear of the status and navigation bars, and the Home screen has big
+  stacked buttons with no keyboard shortcuts.
+- The font list leaves out the Noto fonts Android ships for other writing systems (Myanmar,
+  Ogham, …); fonts in your own `Fonts` folder are always listed.
 
 ## How it works
 
@@ -64,6 +68,7 @@ Pen pressure arrives as winit touch force, the same path Windows pens use.
 - No OS clipboard, share sheet, or Android document picker yet (cloud drives and USB storage
   that aren't mounted as paths don't show up).
 - The interface is the desktop layout; on a phone the menu bar runs off the screen (use Search).
+- Text in non-Latin scripts may not render, since their system fonts aren't loaded.
 - Pen and finger can't be told apart yet (winit drops Android's tool type), so there's no
   "fingers navigate, pen draws" mode, and every touch starts 80 ms late.
 - Fingers report a touch force too, so finger painting follows how hard the screen thinks you
