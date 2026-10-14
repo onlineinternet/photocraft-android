@@ -185,7 +185,9 @@ mod tests {
     #[test]
     fn new_document_fits_a_phone_screen_with_create_on_it() {
         let size = egui::vec2(420.0, 820.0);
-        let mut h = Harness::builder().with_size(size).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default()));
+        let mut h = Harness::builder()
+            .with_size(size)
+            .build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default()));
         PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
         h.state_mut().ui.open_dialog(DialogKind::NewDocument, UiState::new_document_fields());
         h.run_steps(8);

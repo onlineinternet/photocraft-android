@@ -642,8 +642,18 @@ fn update_canvas_navigation(app: &mut PhotocraftApp, view: &mut View, input: Can
             (Some(crate::wheel_nav::Wheel::Zoom(f)), Some(p)) => {
                 // At a limit the view stays put, as in Photoshop: a notch past 12800 % neither
                 // zooms nor slides the image towards the pointer.
-                let nz = crate::zoom_levels::clamp(view.zoom * f, view.doc_size);
-                if nz != view.zoom * f {
+                let nz = if view.pixel_art {
+                    // Whole pixels: the gesture's own zoom adds up across frames (pixel_mode.rs).
+                    let key = egui::Id::new(("pc-pixel-pinch", input.idx));
+                    let mut pinch = input.ctx.data(|d| d.get_temp::<crate::pixel_mode::PinchZoom>(key)).unwrap_or_default();
+                    let size = view.doc_size;
+                    let nz = pinch.scale(view.zoom, f, |z| crate::zoom_levels::clamp(z, size));
+                    input.ctx.data_mut(|d| d.insert_temp(key, pinch));
+                    nz
+                } else {
+                    crate::zoom_levels::clamp(view.zoom * f, view.doc_size)
+                };
+                if !view.pixel_art && nz != view.zoom * f {
                     crate::wheel_nav::settle(input.ctx, input.wheel_owner);
                 }
                 if nz != view.zoom {
@@ -1874,6 +1884,10 @@ fn sync_view_to_document(app: &PhotocraftApp, ctx: &egui::Context, view: &mut Vi
     }
     if view.fill_pending && rect.width() > 50.0 {
         fill_view(view, doc, rect.size(), ppp, aspect);
+    }
+    // Pixel art shows whole screen pixels per pixel, however the zoom was set (pixel_mode.rs).
+    if doc.pixel_art {
+        view.zoom = crate::zoom_levels::clamp(crate::pixel_mode::snap(view.zoom), size);
     }
     // Preferences › Tools › Overscroll off: clamp before anything is drawn (scrollbars.rs).
     if !app.session.prefs().tools.overscroll && crate::scrollbars::clamp_view_with_aspect(view, rect.size(), ppp, aspect) {

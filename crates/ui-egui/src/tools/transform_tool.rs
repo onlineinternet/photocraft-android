@@ -331,8 +331,12 @@ pub(crate) fn corners(r: [f64; 4]) -> [[f64; 2]; 4] {
 }
 
 /// The transform choices supported by the options bar, using its remembered choice or the general default.
+/// Pixel art always starts with Nearest Neighbor (pixel_mode.rs).
 pub(crate) fn default_interpolation(app: &PhotocraftApp) -> &'static str {
     use photocraft_engine::prefs::Interpolation;
+    if crate::pixel_mode::active(app) {
+        return "nearest";
+    }
     match app.ui.tool_options.transform_interpolation.unwrap_or(app.session.prefs().general.image_interpolation) {
         Interpolation::Nearest => "nearest",
         Interpolation::Bilinear => "bilinear",

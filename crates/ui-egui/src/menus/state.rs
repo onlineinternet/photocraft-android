@@ -128,6 +128,9 @@ pub(super) fn checked(app: &PhotocraftApp, id: &str) -> Option<bool> {
         let auto = app.session.prefs().interface.appearance_mode == photocraft_engine::prefs::AppearanceMode::Auto;
         return Some(if name == "system" { auto } else { !auto && crate::theme::ThemeKind::from_name(name) == Some(app.ui.theme) });
     }
+    if id == "view.pixelArtMode" {
+        return Some(crate::pixel_mode::active(app));
+    }
     if let Some(c) = crate::view_cmds::checked(app, id) {
         return Some(c);
     }

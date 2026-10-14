@@ -903,3 +903,20 @@ mod dialog {
         }
     }
 }
+
+#[test]
+fn pixel_art_presets_start_in_pixel_art_mode_and_others_dont() {
+    let units = UnitsAndRulers::default();
+    let mut f = crate::state::UiState::new_document_fields();
+    let pixel = CATEGORIES.iter().find(|c| c.0 == PIXEL_ART).unwrap().1;
+    assert_eq!(pixel.iter().map(|p| (p.1, p.2)).collect::<Vec<_>>(), [(16, 16), (32, 32), (64, 64), (320, 180)]);
+    apply_preset(&mut f, &pixel[1], &units);
+    let p = command_params(&f);
+    assert_eq!((p["width"].clone(), p["height"].clone(), p["pixelArt"].clone()), (json!(32), json!(32), json!(true)));
+    assert_eq!(p["background"], "transparent");
+    let mut s = photocraft_engine::Session::new();
+    s.execute("file.new", p).unwrap();
+    assert!(s.active().unwrap().doc.pixel_art);
+    apply_preset(&mut f, &CATEGORIES[1].1[0], &units);
+    assert!(command_params(&f).get("pixelArt").is_none());
+}

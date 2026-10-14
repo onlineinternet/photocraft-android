@@ -60,6 +60,7 @@ pub mod theme;
 pub use titlebar::{Caption, CaptionFamily, CaptionIcon, CaptionIcons, CaptionStyle, RenderIconFn};
 pub(crate) mod tool_memory;
 pub mod updates_ui;
+pub mod pixel_mode;
 pub mod widgets;
 pub mod work_area;
 
