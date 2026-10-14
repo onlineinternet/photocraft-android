@@ -67,7 +67,9 @@ impl Gate {
     }
 
     /// Pass one frame's input events through the gate at time `now` (seconds).
-    pub fn filter(&mut self, events: Vec<Event>, now: f64) -> Filtered {
+    /// `no_hold`: touches whose pointer events go through at once (a navigating finger, which
+    /// can't paint, so nothing has to wait for a second finger).
+    pub fn filter(&mut self, events: Vec<Event>, now: f64, no_hold: &[u64]) -> Filtered {
         let mut f = Filtered::default();
         if self.hold_since.is_some_and(|t| now - t >= HOLD_SECS) {
             self.flush(&mut f.events);
@@ -85,7 +87,7 @@ impl Gate {
                                 self.moved = false;
                                 self.multi = false;
                                 self.held.clear();
-                                self.hold_since = Some(now);
+                                self.hold_since = (!no_hold.contains(&id)).then_some(now);
                                 f.session_started = true;
                             }
                             self.down.insert(id, (pos, 0.0));
@@ -165,48 +167,48 @@ mod tests {
     #[test]
     fn a_two_finger_tap_is_undo_and_never_reaches_the_canvas_as_a_press() {
         let mut g = Gate::default();
-        let a = g.filter(vec![touch(1, TouchPhase::Start, 10.0, 10.0), moved(10.0), press(true)], 0.0);
+        let a = g.filter(vec![touch(1, TouchPhase::Start, 10.0, 10.0), moved(10.0), press(true)], 0.0, &[]);
         assert!(a.session_started && a.holding);
         assert_eq!(pointers(&a.events), 0, "held");
-        let b = g.filter(vec![touch(2, TouchPhase::Start, 60.0, 10.0)], 0.03);
+        let b = g.filter(vec![touch(2, TouchPhase::Start, 60.0, 10.0)], 0.03, &[]);
         assert_eq!(pointers(&b.events), 0);
-        let c = g.filter(vec![touch(1, TouchPhase::End, 11.0, 10.0), touch(2, TouchPhase::End, 61.0, 10.0), press(false), Event::PointerGone], 0.15);
+        let c = g.filter(vec![touch(1, TouchPhase::End, 11.0, 10.0), touch(2, TouchPhase::End, 61.0, 10.0), press(false), Event::PointerGone], 0.15, &[]);
         assert_eq!(c.tap, Some(Tap::Two));
         assert_eq!(pointers(&c.events), 0, "the release and PointerGone are dropped too");
         assert_eq!(c.events.len(), 2, "touch events still go through");
         // The next single touch is a mouse again.
-        let d = g.filter(vec![touch(3, TouchPhase::Start, 5.0, 5.0), press(true)], 1.0);
-        let e = g.filter(vec![], 1.0 + HOLD_SECS);
+        let d = g.filter(vec![touch(3, TouchPhase::Start, 5.0, 5.0), press(true)], 1.0, &[]);
+        let e = g.filter(vec![], 1.0 + HOLD_SECS, &[]);
         assert_eq!(pointers(&d.events) + pointers(&e.events), 1);
     }
 
     #[test]
     fn three_fingers_redo_and_a_moving_pair_is_no_tap() {
         let mut g = Gate::default();
-        g.filter(vec![touch(1, TouchPhase::Start, 0.0, 0.0), touch(2, TouchPhase::Start, 50.0, 0.0), touch(3, TouchPhase::Start, 100.0, 0.0)], 0.0);
-        let r = g.filter(vec![touch(1, TouchPhase::End, 0.0, 0.0), touch(2, TouchPhase::End, 50.0, 0.0), touch(3, TouchPhase::End, 100.0, 0.0)], 0.2);
+        g.filter(vec![touch(1, TouchPhase::Start, 0.0, 0.0), touch(2, TouchPhase::Start, 50.0, 0.0), touch(3, TouchPhase::Start, 100.0, 0.0)], 0.0, &[]);
+        let r = g.filter(vec![touch(1, TouchPhase::End, 0.0, 0.0), touch(2, TouchPhase::End, 50.0, 0.0), touch(3, TouchPhase::End, 100.0, 0.0)], 0.2, &[]);
         assert_eq!(r.tap, Some(Tap::Three));
 
         let mut g = Gate::default();
-        g.filter(vec![touch(1, TouchPhase::Start, 0.0, 0.0), touch(2, TouchPhase::Start, 50.0, 0.0)], 0.0);
-        g.filter(vec![touch(1, TouchPhase::Move, 0.0, 80.0), touch(2, TouchPhase::Move, 50.0, 80.0)], 0.1);
-        let r = g.filter(vec![touch(1, TouchPhase::End, 0.0, 80.0), touch(2, TouchPhase::End, 50.0, 80.0)], 0.2);
+        g.filter(vec![touch(1, TouchPhase::Start, 0.0, 0.0), touch(2, TouchPhase::Start, 50.0, 0.0)], 0.0, &[]);
+        g.filter(vec![touch(1, TouchPhase::Move, 0.0, 80.0), touch(2, TouchPhase::Move, 50.0, 80.0)], 0.1, &[]);
+        let r = g.filter(vec![touch(1, TouchPhase::End, 0.0, 80.0), touch(2, TouchPhase::End, 50.0, 80.0)], 0.2, &[]);
         assert_eq!(r.tap, None, "a two-finger pan");
 
         let mut g = Gate::default();
-        g.filter(vec![touch(1, TouchPhase::Start, 0.0, 0.0), touch(2, TouchPhase::Start, 50.0, 0.0)], 0.0);
-        let r = g.filter(vec![touch(1, TouchPhase::End, 0.0, 0.0), touch(2, TouchPhase::End, 50.0, 0.0)], 0.9);
+        g.filter(vec![touch(1, TouchPhase::Start, 0.0, 0.0), touch(2, TouchPhase::Start, 50.0, 0.0)], 0.0, &[]);
+        let r = g.filter(vec![touch(1, TouchPhase::End, 0.0, 0.0), touch(2, TouchPhase::End, 50.0, 0.0)], 0.9, &[]);
         assert_eq!(r.tap, None, "a long press is no tap");
     }
 
     #[test]
     fn a_lone_stroke_goes_through_in_order_once_the_hold_ends() {
         let mut g = Gate::default();
-        let a = g.filter(vec![touch(1, TouchPhase::Start, 10.0, 10.0), moved(10.0), press(true)], 0.0);
+        let a = g.filter(vec![touch(1, TouchPhase::Start, 10.0, 10.0), moved(10.0), press(true)], 0.0, &[]);
         assert_eq!(pointers(&a.events), 0);
-        let b = g.filter(vec![touch(1, TouchPhase::Move, 12.0, 10.0), moved(12.0)], 0.03);
+        let b = g.filter(vec![touch(1, TouchPhase::Move, 12.0, 10.0), moved(12.0)], 0.03, &[]);
         assert_eq!(pointers(&b.events), 0);
-        let c = g.filter(vec![touch(1, TouchPhase::Move, 14.0, 10.0), moved(14.0)], HOLD_SECS + 0.01);
+        let c = g.filter(vec![touch(1, TouchPhase::Move, 14.0, 10.0), moved(14.0)], HOLD_SECS + 0.01, &[]);
         assert!(!c.holding);
         let got: Vec<_> = c.events.iter().filter(|e| is_pointer(e)).cloned().collect();
         assert_eq!(got, vec![moved(10.0), press(true), moved(12.0), moved(14.0)]);
@@ -215,17 +217,25 @@ mod tests {
     #[test]
     fn a_quick_single_tap_is_released_at_once() {
         let mut g = Gate::default();
-        g.filter(vec![touch(1, TouchPhase::Start, 10.0, 10.0), moved(10.0), press(true)], 0.0);
-        let r = g.filter(vec![touch(1, TouchPhase::End, 10.0, 10.0), press(false), Event::PointerGone], 0.04);
+        g.filter(vec![touch(1, TouchPhase::Start, 10.0, 10.0), moved(10.0), press(true)], 0.0, &[]);
+        let r = g.filter(vec![touch(1, TouchPhase::End, 10.0, 10.0), press(false), Event::PointerGone], 0.04, &[]);
         assert_eq!(r.tap, None);
         assert_eq!(pointers(&r.events), 4, "move, press, release, gone");
         assert!(!r.holding);
     }
 
     #[test]
+    fn a_touch_that_needs_no_hold_goes_through_at_once() {
+        let mut g = Gate::default();
+        let r = g.filter(vec![touch(4, TouchPhase::Start, 10.0, 10.0), moved(10.0), press(true)], 0.0, &[4]);
+        assert!(!r.holding);
+        assert_eq!(pointers(&r.events), 2);
+    }
+
+    #[test]
     fn mouse_input_without_touches_is_untouched() {
         let mut g = Gate::default();
-        let r = g.filter(vec![moved(1.0), press(true), press(false)], 0.0);
+        let r = g.filter(vec![moved(1.0), press(true), press(false)], 0.0, &[]);
         assert_eq!(pointers(&r.events), 3);
         assert!(!r.holding);
     }

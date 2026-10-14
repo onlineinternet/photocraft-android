@@ -37,6 +37,10 @@ impl Dirs {
     pub fn ui_state_file(&self) -> PathBuf {
         self.data.join("ui.ron")
     }
+    /// The Android shell's own touch settings ([`crate::pen::TouchSettings`]).
+    pub fn touch_file(&self) -> PathBuf {
+        self.data.join("touch.json")
+    }
 }
 
 /// Run `f`; a panic inside it becomes an `Err` naming `what` (the desktop's crash guard).
