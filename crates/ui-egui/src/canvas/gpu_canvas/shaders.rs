@@ -204,8 +204,9 @@ fn fs_tile(in: VOut) -> @location(0) vec4<f32> {
         col = vec4(shown * col.a, col.a);
     }
     var rgb = col.rgb + checker(d) * (1.0 - col.a);
-    // The pixel grid is drawn over pixels with content, not over empty checker.
-    let grid = view.c.z * col.a;
+    // The pixel grid is drawn over pixels with content, not over empty checker; in Pixel Art
+    // Mode (negative alpha) over every pixel.
+    let grid = select(view.c.z * col.a, -view.c.z, view.c.z < 0.0);
     if (grid > 0.0) {
         let e = fract(d) * scale;
         if (e.x < 1.0 || e.y < 1.0) {

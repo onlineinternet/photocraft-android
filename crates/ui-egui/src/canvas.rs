@@ -423,6 +423,7 @@ fn paint_canvas(
                 !t.bevel && !t.pro && drop_shadow
             },
             pixel_grid: false,
+            pixel_art: false,
             view_key: egui::Id::unique(("pc-canvas-proxy", ctx.viewport_id(), idx)).value(),
             display: sync_display_lut(app, &shown, key, output),
             output: output.unwrap_or(0),
@@ -468,6 +469,7 @@ fn paint_canvas(
                 !t.bevel && !t.pro && drop_shadow
             },
             pixel_grid,
+            pixel_art: doc.pixel_art,
             view_key: egui::Id::unique(("pc-canvas", ctx.viewport_id(), idx)).value(),
             display: sync_display_lut(app, doc, doc.id.0, output),
             output: output.unwrap_or(0),
@@ -499,7 +501,11 @@ fn paint_canvas(
             painter.add(egui::Shadow { offset: [0, 8], blur: 28, spread: 0, color: Color32::from_black_alpha(150) }.as_shape(shadow_rect, 0));
         }
         let rotated = view.rotation.abs() > 0.05;
-        let checkerboard = app.session.prefs().transparency_and_gamut.square().map(|square| (checker(app, ctx), square));
+        let checkerboard = app.session.prefs().transparency_and_gamut.square().map(|square| {
+            // Pixel art: whole-pixel cells, lined up with the pixels (pixel_mode.rs).
+            let square = if doc.pixel_art { crate::pixel_mode::checker_cell(point_zoom, square) * point_zoom } else { square };
+            (checker(app, ctx), square)
+        });
         // Repeated-quad coverage is not proven identical on all Pattern Preview adapters.
         // Retain its legacy checker submissions, including the central document's.
         let opaque = !app.ui.view.pattern_preview && app.canvases.get(&cache_key(doc.id, output)).is_some_and(|c| c.texture_opaque) && tex.is_some();
