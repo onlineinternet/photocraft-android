@@ -76,6 +76,9 @@ pub struct ViewParams {
     pub shadow: bool,
     /// Draw the pixel grid at high zoom.
     pub pixel_grid: bool,
+    /// Pixel Art Mode (pixel_mode.rs): checker cells are whole document pixels and the pixel
+    /// grid covers empty pixels too, so every pixel can be told apart.
+    pub pixel_art: bool,
     /// Distinguishes views painted in the same frame (main canvas, extra windows).
     pub view_key: u64,
     /// Display transform: 0 none, 1 the document's display LUT (document → monitor profile,
@@ -2219,6 +2222,13 @@ impl CanvasCallback {
         // in device pixels, so scale by the display's pixels per point.
         let grid = if p.pixel_grid && crate::pixel_grid::shows_at(p.zoom * ppp) { crate::pixel_grid::STRENGTH } else { 0.0 };
         let square = if style.checker_square > 0.0 { (style.checker_square * ppp).round().max(1.0) } else { 0.0 };
+        // Pixel art: whole-pixel checker cells, and a negative grid alpha draws the grid over
+        // empty pixels too (the shader's `abs`).
+        let (grid, square) = if p.pixel_art {
+            (-grid * crate::pixel_mode::GRID_BOOST, if square > 0.0 { crate::pixel_mode::checker_cell(scale, square) * scale } else { 0.0 })
+        } else {
+            (grid, square)
+        };
         let (l, d, g) = (style.checker_light, style.checker_dark, style.gamut_color);
         // 32-bit preview: linear-light gain 2^exposure (0 = off) and 1 / gamma.
         let (gain, inv_gamma) = match p.hdr {
@@ -2555,8 +2565,9 @@ fn fs_tile(in: VOut) -> @location(0) vec4<f32> {
         col = vec4(shown * col.a, col.a);
     }
     var rgb = col.rgb + checker(d) * (1.0 - col.a);
-    // The pixel grid is drawn over pixels with content, not over empty checker.
-    let grid = view.c.z * col.a;
+    // The pixel grid is drawn over pixels with content, not over empty checker; in Pixel Art
+    // Mode (negative alpha) over every pixel.
+    let grid = select(view.c.z * col.a, -view.c.z, view.c.z < 0.0);
     if (grid > 0.0) {
         let e = fract(d) * scale;
         if (e.x < 1.0 || e.y < 1.0) {

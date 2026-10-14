@@ -62,6 +62,8 @@ View › Pixel Art Mode (or the **Pixel Art** edge key) switches the open docume
 and back at any time; it's saved with the document in `.pcraft` and is one undo step. While it's
 on:
 
+- every empty pixel is one checker square, lined up with the pixels, and the pixel grid covers
+  every pixel (empty ones too), so you can always tell where each pixel is;
 - the zoom is always a whole number of screen pixels per pixel (pinch and the wheel step through
   those levels, and Fit on Screen picks the largest that fits, above 100 % too), so every pixel is
   the same size and sharp;
@@ -90,6 +92,9 @@ that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
 Pen samples reach the canvas through the same stylus feed the desktop tablet code uses.
 
 ## Known gaps
+
+The plan and open work are in [TODO.md](TODO.md).
+
 
 - No OS clipboard, share sheet, or Android document picker yet (cloud drives and USB storage
   that aren't mounted as paths don't show up).
