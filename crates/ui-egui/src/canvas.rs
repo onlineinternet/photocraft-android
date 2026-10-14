@@ -2460,9 +2460,21 @@ fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     // File › Open Recent, newest first (on the web there are no paths to reopen).
     let recent: Vec<String> = if cfg!(target_arch = "wasm32") { Vec::new() } else { app.ui.recent_files.iter().take(HOME_RECENT).cloned().collect() };
     let recent_h = if recent.is_empty() { 0.0 } else { 34.0 + recent.len() as f32 * HOME_RECENT_ROW };
-    let card = Rect::from_center_size(area.center(), egui::vec2(460.0, 330.0 + recent_h));
-    let new_label = crate::shortcuts::command_label(app, "New document…", "file.new");
-    let open_label = crate::shortcuts::command_label(app, "Open…", "file.open");
+    // A touch screen, or a window too narrow for the two buttons side by side, stacks them.
+    let touch = app.touch_ui;
+    let width = (area.width() - 24.0).clamp(240.0, 460.0);
+    let stacked = touch || width < 2.0 * 190.0 + 12.0;
+    let button_h = if touch { 52.0 } else { 34.0 };
+    let extra_h = if stacked { button_h + 12.0 } else { 0.0 };
+    let card = Rect::from_center_size(area.center(), egui::vec2(width, 330.0 + recent_h + extra_h));
+    // Keyboard shortcuts mean nothing without a keyboard.
+    let (new_label, open_label) = if touch {
+        // The same catalogue entries `command_label` looks up.
+        let (new, open) = ("New document…", "Open…");
+        (tl!(new).to_string(), tl!(open).to_string())
+    } else {
+        (crate::shortcuts::command_label(app, "New document…", "file.new"), crate::shortcuts::command_label(app, "Open…", "file.open"))
+    };
     ui.scope_builder(egui::UiBuilder::new().max_rect(card), |ui| {
         ui.vertical_centered(|ui| {
             ui.horizontal(|ui| {
@@ -2478,26 +2490,41 @@ fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             ui.add_space(6.0);
             ui.label(egui::RichText::new(tl!("Create a new document or open an existing file.")).color(t.text_dim).size(14.0));
             ui.add_space(22.0);
-            ui.horizontal(|ui| {
-                ui.add_space(((card.width() - 2.0 * 190.0 - 12.0) / 2.0).max(0.0));
-                ui.spacing_mut().item_spacing.x = 12.0;
-                if crate::widgets::primary_button(ui, &new_label, 190.0).clicked() {
-                    let fields = app.new_document_fields();
-                    app.ui.open_dialog(crate::state::DialogKind::NewDocument, fields);
-                }
-                if crate::widgets::secondary_button(ui, &open_label, 190.0).clicked() {
-                    let _ = app.open_dialog_file();
-                }
-            });
-            ui.add_space(22.0);
-            ui.horizontal(|ui| {
-                let msg = start_screen_drop_hint(app);
-                let g = ui.painter().layout_no_wrap(msg.to_string(), egui::FontId::proportional(12.5), t.text_faint);
-                ui.add_space(((card.width() - g.size().x - 24.0) / 2.0).max(0.0));
-                let (r, _) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), Sense::hover());
-                crate::icons::paint(ui, r, "image", 15.0, t.text_faint);
-                ui.label(egui::RichText::new(msg).color(t.text_faint));
-            });
+            let (new_clicked, open_clicked) = if stacked {
+                let w = card.width().min(320.0);
+                ui.spacing_mut().item_spacing.y = 12.0;
+                let n = crate::widgets::tall_button(ui, &new_label, w, button_h, true).clicked();
+                let o = crate::widgets::tall_button(ui, &open_label, w, button_h, false).clicked();
+                (n, o)
+            } else {
+                ui.horizontal(|ui| {
+                    ui.add_space(((card.width() - 2.0 * 190.0 - 12.0) / 2.0).max(0.0));
+                    ui.spacing_mut().item_spacing.x = 12.0;
+                    let n = crate::widgets::primary_button(ui, &new_label, 190.0).clicked();
+                    let o = crate::widgets::secondary_button(ui, &open_label, 190.0).clicked();
+                    (n, o)
+                })
+                .inner
+            };
+            if new_clicked {
+                let fields = app.new_document_fields();
+                app.ui.open_dialog(crate::state::DialogKind::NewDocument, fields);
+            }
+            if open_clicked {
+                let _ = app.open_dialog_file();
+            }
+            // Nothing is dropped onto a touch screen.
+            if !touch {
+                ui.add_space(22.0);
+                ui.horizontal(|ui| {
+                    let msg = start_screen_drop_hint(app);
+                    let g = ui.painter().layout_no_wrap(msg.to_string(), egui::FontId::proportional(12.5), t.text_faint);
+                    ui.add_space(((card.width() - g.size().x - 24.0) / 2.0).max(0.0));
+                    let (r, _) = ui.allocate_exact_size(egui::vec2(18.0, 18.0), Sense::hover());
+                    crate::icons::paint(ui, r, "image", 15.0, t.text_faint);
+                    ui.label(egui::RichText::new(msg).color(t.text_faint));
+                });
+            }
             if !recent.is_empty() {
                 ui.add_space(22.0);
                 home_recent(app, ui, &recent);
@@ -2529,7 +2556,7 @@ const HOME_RECENT_ROW: f32 = 30.0;
 /// and Clear Recent Files (#2691).
 fn home_recent(app: &mut PhotocraftApp, ui: &mut egui::Ui, recent: &[String]) {
     let t = crate::theme::Tokens::get(ui.ctx());
-    let width = 380.0;
+    let width = ui.available_width().min(380.0);
     ui.horizontal(|ui| {
         // Line the heading up with the file icons.
         ui.add_space(((ui.available_width() - width) / 2.0).max(0.0) + 8.0);

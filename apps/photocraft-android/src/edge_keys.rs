@@ -62,6 +62,9 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
     Some(("Search", Action::Command("edit.search"))),
 ];
 
+/// One key on the strip: big enough for a fingertip.
+const KEY_SIZE: egui::Vec2 = egui::vec2(76.0, 42.0);
+
 /// The latched keys.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Latched {
@@ -197,33 +200,37 @@ impl EdgeKeys {
             .show(ctx, |ui| {
                 ui.horizontal_centered(|ui| {
                     // The tab: always there, lit while a key is latched so it's never forgotten.
-                    let tab = egui::Button::new(if self.open { "›" } else { "‹" }).min_size(egui::vec2(22.0, 72.0)).selected(any_latched && !self.open);
+                    let tab = egui::Button::new(if self.open { "›" } else { "‹" }).min_size(egui::vec2(30.0, 88.0)).selected(any_latched && !self.open);
                     if ui.add(tab).on_hover_text("Edge keyboard").clicked() {
                         self.open = !self.open;
                     }
                     if !self.open {
                         return;
                     }
+                    // The strip lays out top to bottom in two columns, one block per group. (Inside
+                    // `horizontal_centered` the buttons would otherwise run off sideways.)
                     egui::Frame::popup(ui.style()).show(ui, |ui| {
-                        let max_h = (ctx.content_rect().height() - 24.0).max(200.0);
-                        egui::ScrollArea::vertical().max_height(max_h).show(ui, |ui| {
-                            ui.set_width(84.0);
-                            ui.spacing_mut().item_spacing.y = 4.0;
-                            for b in BUTTONS {
-                                match b {
-                                    None => {
-                                        ui.add_space(4.0);
+                        ui.vertical(|ui| {
+                            let max_h = (ctx.content_rect().height() - 24.0).max(200.0);
+                            egui::ScrollArea::vertical().max_height(max_h).show(ui, |ui| {
+                                for (g, group) in BUTTONS.split(Option::is_none).enumerate() {
+                                    if g > 0 {
                                         ui.separator();
                                     }
-                                    Some((label, action)) => {
-                                        let button = egui::Button::new(*label).min_size(egui::vec2(84.0, 40.0)).selected(self.is_on(*action));
-                                        if ui.add(button).clicked() {
-                                            self.press(*action, app);
-                                            ctx.request_repaint();
+                                    egui::Grid::new(("android_edge_group", g)).num_columns(2).spacing([4.0, 4.0]).show(ui, |ui| {
+                                        for (i, (label, action)) in group.iter().flatten().enumerate() {
+                                            let button = egui::Button::new(*label).min_size(KEY_SIZE).selected(self.is_on(*action));
+                                            if ui.add(button).clicked() {
+                                                self.press(*action, app);
+                                                ctx.request_repaint();
+                                            }
+                                            if i % 2 == 1 {
+                                                ui.end_row();
+                                            }
                                         }
-                                    }
+                                    });
                                 }
-                            }
+                            });
                         });
                     });
                 });
