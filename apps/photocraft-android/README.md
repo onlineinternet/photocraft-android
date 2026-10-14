@@ -64,8 +64,8 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 - `src/services.rs`: files, preferences, presets and crash recovery in app storage.
 - `src/edge_keys.rs`: the edge keyboard.
 - `src/pen.rs`: pen or finger, the stylus feed, finger pressure, navigating fingers.
-- `src/gestures.rs`: holds a lone finger's mouse events back for 80 ms, so a second finger
-  turns them into a gesture instead of a dab; recognizes the undo/redo taps.
+- `src/gestures.rs`: lets a finger paint at once; if a second finger lands within 0.3 s, ends
+  the stroke and takes it back (the gesture's accident); recognizes the undo/redo taps.
 - `android/AndroidManifest.xml`: a NativeActivity app with no Java code.
 - `android/build-apk.sh`: cargo builds the library; aapt2, zipalign and apksigner package it.
 
@@ -77,6 +77,7 @@ Pen samples reach the canvas through the same stylus feed the desktop tablet cod
   that aren't mounted as paths don't show up).
 - The interface is the desktop layout; panels are still desktop-sized.
 - Text in non-Latin scripts may not render, since their system fonts aren't loaded.
-- A painting finger still starts 80 ms late (waiting to see whether it's a two-finger tap).
+- Starting a two-finger gesture can flash the first finger's dab for a frame before it's taken
+  back.
 - No palm rejection yet beyond "Finger draws" off; no two-finger canvas rotation yet.
 - Only arm64-v8a is built.
