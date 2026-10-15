@@ -22,10 +22,11 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 ## Install and first run
 
 1. Copy the APK to the device and open it (allow installing from that app when asked).
-2. Grant file access: open File › Open and tap **Allow access**, which goes straight to
-   PhotoCraft's "All files access" switch; turn it on and come back, and the list fills in. By
-   hand it's *Settings › Apps › ⋮ › Special access › All files access* (it isn't on the app's
-   Permissions page). Without it, File › Open and Save As can't see your storage.
+2. Files: File › Open and Save As use Android's own pickers (thumbnails, recent files, Google
+   Drive, USB storage), which need no permission. Only the built-in folder browser (Choose
+   Folder, and the fallback when Android's picker can't open) needs "All files access": tap
+   **Allow access** in it, or turn it on at *Settings › Apps › ⋮ › Special access › All files
+   access* (it isn't on the app's Permissions page).
 3. Fonts: the Type tool lists Android's system fonts. To add your own, put `.ttf` / `.otf`
    files in a `Fonts` folder at the top of internal storage and restart the app.
 4. For pen pressure, check **Preferences › Tools › Use Tablet Pressure**, and set a brush's
@@ -86,17 +87,22 @@ that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
 ## How it works
 
 - `src/lib.rs`: the entry point (`android_main`) and the shell around `PhotocraftApp`.
-- `src/picker.rs`: Open / Choose Folder / Save As, drawn with egui over filesystem paths
-  (rfd has no Android backend).
-- `src/android_system.rs`: the few Android calls made through JNI (All files access check and
-  its settings page).
+- `src/picker.rs`: sends Open and Save As to Android's pickers and turns their answers into the
+  app's; draws the built-in folder browser (egui over filesystem paths, rfd has no Android
+  backend) for Choose Folder and as the fallback. A file saved through Android's picker is a
+  `content://` URI, carried as `<uri>/<name>` so its extension still picks the format.
+- `src/android_system.rs`: the Android calls made through JNI (the pickers, writing a picked
+  file, the All files access check and its settings page).
+- `android/java/.../PhotoCraftActivity.java`: the one Java class, Android's NativeActivity plus
+  receiving the pickers' answers (which a NativeActivity can't do on its own).
 - `src/services.rs`: files, preferences, presets and crash recovery in app storage.
 - `src/edge_keys.rs`: the edge keyboard.
 - `src/pen.rs`: pen or finger, the stylus feed, finger pressure, navigating fingers.
 - `src/gestures.rs`: lets a finger paint at once; if a second finger lands within 0.3 s, ends
   the stroke and takes it back (the gesture's accident); recognizes the undo/redo taps.
-- `android/AndroidManifest.xml`: a NativeActivity app with no Java code.
-- `android/build-apk.sh`: cargo builds the library; aapt2, zipalign and apksigner package it.
+- `android/AndroidManifest.xml`: the app, launching PhotoCraftActivity.
+- `android/build-apk.sh`: cargo builds the library, javac and d8 the Java class; aapt2,
+  zipalign and apksigner package it.
 
 Pen samples reach the canvas through the same stylus feed the desktop tablet code uses.
 
@@ -105,8 +111,8 @@ Pen samples reach the canvas through the same stylus feed the desktop tablet cod
 The plan and open work are in [TODO.md](TODO.md).
 
 
-- No OS clipboard, share sheet, or Android document picker yet (cloud drives and USB storage
-  that aren't mounted as paths don't show up).
+- No OS clipboard or share sheet yet. A file opened through Android's picker has no path, so
+  File › Save asks where to save it the first time, and Open Recent can't reopen it.
 - The interface is the desktop layout; panels are still desktop-sized.
 - Text in non-Latin scripts may not render, since their system fonts aren't loaded.
 - Starting a two-finger gesture can flash the first finger's dab for a frame before it's taken

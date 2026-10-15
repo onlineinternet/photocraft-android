@@ -1,15 +1,18 @@
-//! The few Android system calls the shell makes through JNI, with no Java code of its own:
+//! The Android system calls the shell makes through JNI:
 //!
 //! - whether the app has "All files access" (`Environment.isExternalStorageManager()`), and
 //! - opening Android's settings page where the user turns it on, straight at this app's switch
 //!   (`Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION`), so nobody has to dig for it under
-//!   Special app access.
+//!   Special app access;
+//! - Android's own document, photo and "save to" pickers, through the app's one Java class
+//!   (`android/java/.../PhotoCraftActivity.java`), which receives their answers; the shell polls
+//!   for them with [`take_picked`] and writes saves with [`write_uri`].
 //!
 //! The Java VM comes from `android-activity`, which sets up the same `jni` crate's VM singleton
 //! before `android_main` runs. The activity object is registered by `android_main` ([`init`]).
 //! On other platforms (host tests) nothing is registered and every call reports that it can't run.
 
-use jni::objects::{JObject, JValue};
+use jni::objects::{JByteArray, JObject, JObjectArray, JString, JValue};
 use jni::{Env, JavaVM, jni_sig, jni_str};
 use std::sync::OnceLock;
 
@@ -86,6 +89,138 @@ pub fn open_all_files_settings() -> Result<(), String> {
     })
 }
 
+/// What one of Android's pickers answered.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Picked {
+    /// Files chosen to open, with their names; `error` names one that couldn't be read.
+    Open {
+        files: Vec<(String, Vec<u8>)>,
+        error: Option<String>,
+    },
+    /// Where to save: a `content://` URI, and the name the file got.
+    Save {
+        uri: String,
+        name: String,
+    },
+    Cancel,
+}
+
+/// Android's document picker for files to open, filtered to `mime_types` (all files if empty).
+pub fn open_document(multiple: bool, mime_types: &[&str]) -> Result<(), String> {
+    with_activity(|env, activity| {
+        let empty = env.new_string("")?;
+        let n = i32::try_from(mime_types.len()).unwrap_or(0);
+        let mimes = env.new_object_array(n, jni_str!("java/lang/String"), &empty)?;
+        for (i, m) in mime_types.iter().take(usize::try_from(n).unwrap_or(0)).enumerate() {
+            let m = env.new_string(m)?;
+            mimes.set_element(env, i, &m)?;
+        }
+        env.call_method(
+            activity,
+            jni_str!("openDocument"),
+            jni_sig!("(Z[Ljava/lang/String;)V"),
+            &[JValue::Bool(jni::sys::jboolean::from(multiple)), JValue::Object(&mimes)],
+        )?;
+        Ok(())
+    })
+}
+
+/// Android's photo picker (the document picker for images before Android 13).
+pub fn pick_photos(multiple: bool) -> Result<(), String> {
+    with_activity(|env, activity| {
+        env.call_method(activity, jni_str!("pickPhotos"), jni_sig!("(Z)V"), &[JValue::Bool(jni::sys::jboolean::from(multiple))])?;
+        Ok(())
+    })
+}
+
+/// Android's "save to" picker, suggesting `name`.
+pub fn create_document(name: &str, mime_type: &str) -> Result<(), String> {
+    with_activity(|env, activity| {
+        let name = env.new_string(name)?;
+        let mime = env.new_string(mime_type)?;
+        env.call_method(
+            activity,
+            jni_str!("createDocument"),
+            jni_sig!("(Ljava/lang/String;Ljava/lang/String;)V"),
+            &[JValue::Object(&name), JValue::Object(&mime)],
+        )?;
+        Ok(())
+    })
+}
+
+fn string_at(env: &mut Env, array: &JObjectArray, i: usize) -> jni::errors::Result<Option<String>> {
+    let o = array.get_element(env, i)?;
+    if o.is_null() {
+        return Ok(None);
+    }
+    let s = env.cast_local::<JString>(o)?;
+    Ok(Some(s.try_to_string(env)?))
+}
+
+/// The pickers' answer, once it has arrived (each answer is taken once).
+pub fn take_picked() -> Option<Picked> {
+    let r = with_activity(|env, activity| -> jni::errors::Result<Option<Picked>> {
+        let o = env.call_method(activity, jni_str!("takeAnswer"), jni_sig!("()[Ljava/lang/Object;"), &[])?.l()?;
+        if o.is_null() {
+            return Ok(None);
+        }
+        let a = env.cast_local::<JObjectArray>(o)?;
+        let kind = string_at(env, &a, 0)?.unwrap_or_default();
+        Ok(Some(match kind.as_str() {
+            "save" => match (string_at(env, &a, 1)?, string_at(env, &a, 2)?) {
+                (Some(uri), name) => Picked::Save { uri, name: name.unwrap_or_else(|| "Untitled".into()) },
+                (None, _) => Picked::Cancel,
+            },
+            "open" => {
+                let names = a.get_element(env, 1)?;
+                let names = env.cast_local::<JObjectArray>(names)?;
+                let datas = a.get_element(env, 2)?;
+                let datas = env.cast_local::<JObjectArray>(datas)?;
+                let error = string_at(env, &a, 3)?;
+                let n = if names.is_null() || datas.is_null() { 0 } else { names.len(env)?.min(datas.len(env)?) };
+                let mut files = Vec::with_capacity(n.min(256));
+                for i in 0..n {
+                    let name = string_at(env, &names, i)?.unwrap_or_else(|| "Untitled".into());
+                    let bytes = datas.get_element(env, i)?;
+                    let bytes = env.cast_local::<JByteArray>(bytes)?;
+                    if !bytes.is_null() {
+                        files.push((name, env.convert_byte_array(&bytes)?));
+                    }
+                }
+                Picked::Open { files, error }
+            }
+            _ => Picked::Cancel,
+        }))
+    });
+    match r {
+        Ok(p) => p,
+        Err(e) => {
+            log::warn!("reading the picker's answer: {e}");
+            None
+        }
+    }
+}
+
+/// Write `bytes` to a `content://` URI the save picker answered.
+pub fn write_uri(uri: &str, bytes: &[u8]) -> Result<(), String> {
+    let r = with_activity(|env, activity| {
+        let uri = env.new_string(uri)?;
+        let data = env.byte_array_from_slice(bytes)?;
+        let err = env
+            .call_method(activity, jni_str!("writeUri"), jni_sig!("(Ljava/lang/String;[B)Ljava/lang/String;"), &[JValue::Object(&uri), JValue::Object(&data)])?
+            .l()?;
+        if err.is_null() {
+            return Ok(None);
+        }
+        let err = env.cast_local::<JString>(err)?;
+        Ok(Some(err.try_to_string(env)?))
+    })?;
+    match r {
+        None => Ok(()),
+        Some(e) => Err(format!("couldn't save: {e}")),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -94,6 +229,11 @@ mod tests {
     fn off_android_the_calls_report_they_cant_run() {
         assert_eq!(has_all_files_access(), None);
         assert!(open_all_files_settings().is_err());
+        assert!(open_document(true, &["image/png"]).is_err());
+        assert!(pick_photos(false).is_err());
+        assert!(create_document("a.png", "image/png").is_err());
+        assert_eq!(take_picked(), None);
+        assert!(write_uri("content://x", b"data").is_err());
         init(std::ptr::null_mut());
         assert_eq!(has_all_files_access(), None, "a null activity is never registered");
     }
