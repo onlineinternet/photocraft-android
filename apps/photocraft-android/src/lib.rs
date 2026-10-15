@@ -22,6 +22,7 @@
 //! (`third_party/winit/PATCHED.md`): the pen feeds the stylus with pressure and tilt like a
 //! desktop tablet, fingers draw with simulated pressure or only navigate.
 
+pub mod android_system;
 pub mod apply_bar;
 pub mod edge_keys;
 pub mod gestures;
@@ -146,6 +147,7 @@ impl eframe::App for AndroidShell {
         {
             log::warn!("couldn't save the touch settings: {e}");
         }
+        self.app.touch_rotate = self.edge.settings.touch_rotate;
         self.app.logic(ctx, frame);
     }
 
@@ -299,6 +301,8 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
     let data = app.internal_data_path().unwrap_or_else(|| PathBuf::from("/data/local/tmp/photocraft"));
     let dirs = services::Dirs { data };
     let mut options = native_options(&dirs);
+    // For the All files access settings shortcut in the file picker.
+    android_system::init(app.activity_as_ptr());
     let activity = app.clone();
     let content_rect: insets::ContentRectFn = Box::new(move || {
         let r = activity.content_rect();

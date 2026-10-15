@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 pub const OPEN_EXTS: &[&str] = &[
     "pcraft", "pdn", "ora", "kra", "krz", "psd", "psb", "psdt", "png", "jpg", "jpeg", "tif", "tiff", "webp", "gif", "bmp", "tga", "ico", "qoi", "exr", "hdr",
     "pbm", "pgm", "ppm", "pam", "pfm", "pcx", "dds", "xpm", "fits", "fit", "fts", "dpx", "heic", "heif", "hif", "dng", "cr2", "cr3", "nef", "nrw", "arw",
-    "pef", "orf", "rw2", "raf", "abr", "grd", "svg", "svgz", "aco", "ase", "kys", "af", "afdesign", "afphoto", "afpub",
+    "pef", "orf", "rw2", "raf", "abr", "grd", "svg", "svgz", "aco", "ase", "gpl", "pal", "hex", "kys", "af", "afdesign", "afphoto", "afpub",
 ];
 
 /// Shortcuts along the top of the picker, relative to shared storage.
@@ -109,17 +109,65 @@ impl Picker {
     }
 }
 
+/// Where to find the switch by hand, for when the button can't open it.
+const ACCESS_PATH: &str = "Settings › Apps › ⋮ › Special access › All files access › PhotoCraft (unofficial)";
+
+/// "All files access", asked about at most once a second while a picker is open, so the list
+/// fills in by itself when the user comes back from Settings with it turned on.
+pub struct Access {
+    /// Asks Android; `None` when it can't be asked (off Android).
+    pub check: fn() -> Option<bool>,
+    /// Opens the settings page with the switch.
+    pub open_settings: fn() -> Result<(), String>,
+    granted: Option<bool>,
+    checked_at: Option<f64>,
+    /// Why the settings page didn't open.
+    error: Option<String>,
+}
+
+impl Default for Access {
+    fn default() -> Self {
+        Self::new(crate::android_system::has_all_files_access, crate::android_system::open_all_files_settings)
+    }
+}
+
+impl Access {
+    pub fn new(check: fn() -> Option<bool>, open_settings: fn() -> Result<(), String>) -> Self {
+        Self { check, open_settings, granted: None, checked_at: None, error: None }
+    }
+
+    /// Re-ask at time `now` (seconds) if a second has passed. True when access was just granted.
+    pub fn refresh(&mut self, now: f64) -> bool {
+        if self.checked_at.is_some_and(|t| now - t < 1.0 && now >= t) {
+            return false;
+        }
+        self.checked_at = Some(now);
+        let was = self.granted;
+        self.granted = (self.check)();
+        if self.granted == Some(true) {
+            self.error = None;
+        }
+        was == Some(false) && self.granted == Some(true)
+    }
+
+    /// Known to be missing (so the picker offers the button).
+    pub fn missing(&self) -> bool {
+        self.granted == Some(false)
+    }
+}
+
 /// The shell's dialog state: at most one picker at a time, plus where the next one starts.
 pub struct Host {
     /// Shared storage (`/storage/emulated/0`).
     storage: PathBuf,
     last_dir: Option<PathBuf>,
     active: Option<Picker>,
+    pub access: Access,
 }
 
 impl Host {
     pub fn new(storage: PathBuf) -> Self {
-        Self { storage, last_dir: None, active: None }
+        Self { storage, last_dir: None, active: None, access: Access::default() }
     }
 
     pub fn is_open(&self) -> bool {
@@ -162,6 +210,16 @@ impl Host {
         let width = (screen.width() * 0.92).min(760.0);
         let height = (screen.height() * 0.82).min(900.0);
         let storage = self.storage.clone();
+        let now = ctx.input(|i| i.time);
+        if self.access.refresh(now) {
+            // Back from Settings with access: show what was hidden.
+            let dir = picker.dir.clone();
+            picker.go(dir);
+        }
+        if self.access.missing() {
+            ctx.request_repaint_after(std::time::Duration::from_secs(1));
+        }
+        let access = &mut self.access;
 
         let modal = egui::Modal::new(egui::Id::new("android_file_picker")).show(ctx, |ui| {
             ui.set_width(width);
@@ -172,6 +230,19 @@ impl Host {
             };
             ui.heading(title);
             ui.add_space(4.0);
+            if access.missing() {
+                // Without All files access the lists come up empty: say so, and offer the switch.
+                ui.horizontal_wrapped(|ui| {
+                    ui.label("PhotoCraft can't see your files until you allow \"All files access\".");
+                    if ui.add(egui::Button::new("Allow access").min_size(egui::vec2(0.0, 40.0))).clicked() {
+                        access.error = (access.open_settings)().err().map(|e| format!("Couldn't open Settings ({e}). Turn it on at {ACCESS_PATH}."));
+                    }
+                });
+                if let Some(e) = &access.error {
+                    ui.colored_label(ui.visuals().warn_fg_color, e);
+                }
+                ui.add_space(4.0);
+            }
 
             // Places, then the current folder with an Up button.
             ui.horizontal_wrapped(|ui| {
@@ -199,7 +270,7 @@ impl Host {
                 Err(e) => {
                     ui.add_space(8.0);
                     ui.colored_label(ui.visuals().warn_fg_color, format!("Can't read this folder: {e}"));
-                    ui.label("PhotoCraft needs \"All files access\" to open and save in your storage: Settings › Apps › PhotoCraft (unofficial) › Permissions, or Settings › Apps › Special app access › All files access.");
+                    ui.label(format!("PhotoCraft needs \"All files access\" to open and save in your storage: {ACCESS_PATH}."));
                     ui.add_space(list_height.min(120.0));
                 }
                 Ok(entries) => {
@@ -208,12 +279,13 @@ impl Host {
                             ui.add_space(8.0);
                             ui.label("Nothing to show here.");
                             if picker.dir.starts_with(&storage) {
-                                ui.label("If your files should be here, allow \"All files access\": Settings › Apps › PhotoCraft (unofficial) › Permissions.");
+                                ui.label(format!("If your files should be here, allow \"All files access\": {ACCESS_PATH}."));
                             }
                         }
                         for entry in entries {
                             let label = if entry.is_dir { format!("📁  {}", entry.name) } else { format!("🖼  {}", entry.name) };
-                            let row = ui.add_sized([ui.available_width(), ROW_HEIGHT], egui::Button::new(label).frame(false).wrap_mode(egui::TextWrapMode::Truncate));
+                            let row =
+                                ui.add_sized([ui.available_width(), ROW_HEIGHT], egui::Button::new(label).frame(false).wrap_mode(egui::TextWrapMode::Truncate));
                             if row.clicked() {
                                 tapped = Some(entry.clone());
                             }
@@ -246,7 +318,10 @@ impl Host {
                     }
                 });
                 if let Some(target) = &picker.confirm_overwrite {
-                    ui.colored_label(ui.visuals().warn_fg_color, format!("{} already exists. Tap Replace to save over it.", target.file_name().unwrap_or_default().to_string_lossy()));
+                    ui.colored_label(
+                        ui.visuals().warn_fg_color,
+                        format!("{} already exists. Tap Replace to save over it.", target.file_name().unwrap_or_default().to_string_lossy()),
+                    );
                 }
             }
 
@@ -356,5 +431,28 @@ mod tests {
         assert_eq!(save_start("Untitled-1.psd", Path::new("/fallback")), (PathBuf::from("/fallback"), "Untitled-1.psd".to_string()));
         assert_eq!(save_start("/no/such/dir/x.png", Path::new("/fallback")), (PathBuf::from("/fallback"), "x.png".to_string()));
         std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    static GRANTED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    fn check() -> Option<bool> {
+        Some(GRANTED.load(std::sync::atomic::Ordering::SeqCst))
+    }
+
+    #[test]
+    fn access_is_rechecked_each_second_and_reports_when_granted() {
+        let mut a = Access::new(check, || Ok(()));
+        assert!(!a.missing(), "unknown until asked");
+        assert!(!a.refresh(0.0));
+        assert!(a.missing());
+        GRANTED.store(true, std::sync::atomic::Ordering::SeqCst);
+        assert!(!a.refresh(0.5), "not asked again within a second");
+        assert!(a.missing());
+        assert!(a.refresh(1.2), "granted while away in Settings");
+        assert!(!a.missing());
+        assert!(!a.refresh(2.5), "only the change is reported");
+        // Off Android nothing can be asked, so no button.
+        let mut off = Access::new(|| None, || Err("not running on Android".into()));
+        off.refresh(0.0);
+        assert!(!off.missing());
     }
 }

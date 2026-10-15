@@ -9,6 +9,7 @@
 //! panel order). Like the other preset commands they change the preferences document, not a
 //! document's history.
 
+use crate::palette_text::TextFormat;
 use photocraft_psd::aco::{AcoColor, AcoSwatch};
 use photocraft_psd::ase::{AseColor, AseEntry, AseFile, AseKind, AseSwatch};
 use serde_json::{Value, json};
@@ -371,6 +372,8 @@ pub enum Format {
     Aco,
     Act,
     Ase,
+    /// The plain-text palettes of pixel-art tools and Lospec (palette_text.rs).
+    Text(crate::palette_text::TextFormat),
 }
 
 impl Format {
@@ -379,6 +382,9 @@ impl Format {
             "aco" => Some(Format::Aco),
             "act" => Some(Format::Act),
             "ase" => Some(Format::Ase),
+            "gpl" => Some(Format::Text(TextFormat::Gpl)),
+            "pal" => Some(Format::Text(TextFormat::Pal)),
+            "hex" => Some(Format::Text(TextFormat::Hex)),
             _ => None,
         }
     }
@@ -387,6 +393,9 @@ impl Format {
             Format::Aco => "aco",
             Format::Act => "act",
             Format::Ase => "ase",
+            Format::Text(TextFormat::Gpl) => "gpl",
+            Format::Text(TextFormat::Pal) => "pal",
+            Format::Text(TextFormat::Hex) => "hex",
         }
     }
 }
@@ -554,6 +563,19 @@ pub fn read_file(bytes: &[u8], format: Format, group: &str) -> std::result::Resu
                 warnings.push(format!("{skipped} swatches in an unknown colour model were skipped"));
             }
         }
+        Format::Text(f) => {
+            let p = crate::palette_text::parse(bytes, f)?;
+            if p.skipped > 0 {
+                warnings.push(format!("{} lines that aren't colours were skipped", p.skipped));
+            }
+            let items = p
+                .colors
+                .iter()
+                .enumerate()
+                .map(|(i, (name, c))| Swatch { name: fallback(i, name), color: SwatchColor::Rgb(c.map(|v| f32::from(v) / 255.0)), kind: SwatchKind::Process })
+                .collect();
+            out.push(Group::new(group, items));
+        }
     }
     if total(&out) == 0 {
         return Err("the file holds no swatches".into());
@@ -563,7 +585,8 @@ pub fn read_file(bytes: &[u8], format: Format, group: &str) -> std::result::Resu
 
 /// Encode groups as a swatch file; returns the bytes, the number of swatches written and
 /// warnings about what the format cannot hold.
-pub fn write_file(groups: &[Group<Swatch>], format: Format) -> std::result::Result<(Vec<u8>, usize, Vec<String>), String> {
+/// `conv` turns non-RGB swatches into RGB for the text formats, which hold only sRGB.
+pub fn write_file(groups: &[Group<Swatch>], format: Format, conv: &SwatchConv) -> std::result::Result<(Vec<u8>, usize, Vec<String>), String> {
     let mut warnings = Vec::new();
     match format {
         Format::Aco => {
@@ -630,6 +653,20 @@ pub fn write_file(groups: &[Group<Swatch>], format: Format) -> std::result::Resu
             let bytes = photocraft_psd::ase::write(&AseFile { entries }).map_err(|e| e.to_string())?;
             Ok((bytes, n, warnings))
         }
+        Format::Text(f) => {
+            let byte = |v: f32| (unit(v) * 255.0).round() as u8;
+            let colors: Vec<crate::palette_text::Entry> =
+                groups.iter().flat_map(|g| g.items.iter()).map(|s| (s.name.clone(), conv.rgb(&s.color).map(byte))).collect();
+            if groups.len() > 1 {
+                warnings.push(format!(".{} files have no groups; the swatches were saved as one list", format.id()));
+            }
+            if groups.iter().flat_map(|g| g.items.iter()).any(|s| !matches!(s.color, SwatchColor::Rgb(_))) {
+                warnings.push(format!(".{} files hold only RGB; other colours were converted", format.id()));
+            }
+            let name = groups.first().map_or("Swatches", |g| g.name.as_str());
+            let n = colors.len();
+            Ok((crate::palette_text::write(&colors, name, f).into_bytes(), n, warnings))
+        }
     }
 }
 
@@ -641,12 +678,14 @@ fn import(s: &mut Session, p: &Value) -> Result<Value> {
     // lengths an .aco header only counts when its sections fill the file exactly.
     let act_len = bytes.len() == photocraft_psd::act::PALETTE_LEN || bytes.len() == photocraft_psd::act::PALETTE_LEN + photocraft_psd::act::TRAILER_LEN;
     let format = match str_param(p, "format") {
-        Some(f) => Format::parse(f).ok_or_else(|| bad(CMD, format!("unknown format `{f}` (aco|act|ase)")))?,
+        Some(f) => Format::parse(f).ok_or_else(|| bad(CMD, format!("unknown format `{f}` (aco|act|ase|gpl|pal|hex)")))?,
         None if ext_format(str_param(p, "path")) == Some(Format::Act) => Format::Act,
         None if bytes.starts_with(photocraft_psd::ase::SIGNATURE) => Format::Ase,
         None if matches!(bytes.get(..2), Some([0, 1] | [0, 2])) && (!act_len || photocraft_psd::aco::sections_len(&bytes) == Some(bytes.len())) => Format::Aco,
         None if act_len => Format::Act,
-        None => ext_format(str_param(p, "path")).ok_or_else(|| bad(CMD, "not an .aco, .act or .ase swatch file"))?,
+        None => ext_format(str_param(p, "path"))
+            .or_else(|| crate::palette_text::sniff(&bytes).map(Format::Text))
+            .ok_or_else(|| bad(CMD, "not a swatch file (.aco, .act, .ase, .gpl, .pal or .hex)"))?,
     };
     let mode = str_param(p, "mode").unwrap_or("append");
     let replace = match mode {
@@ -704,7 +743,7 @@ fn export(s: &mut Session, p: &Value) -> Result<Value> {
     const CMD: &str = "swatches.export";
     let path = str_param(p, "path");
     let format = match str_param(p, "format") {
-        Some(f) => Format::parse(f).ok_or_else(|| bad(CMD, format!("unknown format `{f}` (aco|act|ase)")))?,
+        Some(f) => Format::parse(f).ok_or_else(|| bad(CMD, format!("unknown format `{f}` (aco|act|ase|gpl|pal|hex)")))?,
         None => ext_format(path).unwrap_or(Format::Aco),
     };
     let mut groups: Vec<Group<Swatch>> = match name_param(p, "group", CMD)? {
@@ -733,7 +772,8 @@ fn export(s: &mut Session, p: &Value) -> Result<Value> {
     if total(&groups) == 0 {
         return Err(bad(CMD, "no swatches to export"));
     }
-    let (bytes, count, warnings) = write_file(&groups, format).map_err(|e| bad(CMD, e))?;
+    let conv = SwatchConv::new(s);
+    let (bytes, count, warnings) = write_file(&groups, format, &conv).map_err(|e| bad(CMD, e))?;
     let mut out = json!({"format": format.id(), "count": count, "bytes": bytes.len(), "warnings": warnings});
     match path {
         Some(path) => {
@@ -860,7 +900,7 @@ pub fn specs() -> Vec<CommandSpec> {
             label: "Import Swatches…",
             menu: &[],
             shortcut: None,
-            params: r##"{"path":".aco, .act or .ase file"?,"data":base64 bytes?,"format":"aco|act|ase"? (detected; an .act by its .act path or its 768/772-byte length),"mode":"append|replace"="append","group":str?=file name (the group for ungrouped colours)} → {format,mode,groups,count,warnings}"##,
+            params: r##"{"path":".aco, .act, .ase, .gpl, .pal or .hex file"?,"data":base64 bytes?,"format":"aco|act|ase|gpl|pal|hex"? (detected; an .act by its .act path or its 768/772-byte length),"mode":"append|replace"="append","group":str?=file name (the group for ungrouped colours)} → {format,mode,groups,count,warnings}"##,
             enabled: always,
             run: import,
             journal: true,
@@ -870,7 +910,7 @@ pub fn specs() -> Vec<CommandSpec> {
             label: "Export Swatches…",
             menu: &[],
             shortcut: None,
-            params: r##"{"format":"aco|act|ase"?=from path, else aco,"path":file? (else the bytes come back as base64 `data`),"group":name? (only that group),"swatches":[names]? (only these)} → {format,count,bytes,warnings,path|data}"##,
+            params: r##"{"format":"aco|act|ase|gpl|pal|hex"?=from path, else aco,"path":file? (else the bytes come back as base64 `data`),"group":name? (only that group),"swatches":[names]? (only these)} → {format,count,bytes,warnings,path|data}"##,
             enabled: has_swatches,
             run: export,
             journal: true,

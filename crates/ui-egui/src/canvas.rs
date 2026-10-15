@@ -685,7 +685,8 @@ fn update_canvas_navigation(app: &mut PhotocraftApp, view: &mut View, input: Can
             }
             _ => {}
         }
-        let rotate_trackpad = app.session.prefs().enhanced_controls.rotate_view_with_trackpad;
+        // On a touch screen two fingers turn the canvas through touch_rotate.rs instead.
+        let rotate_trackpad = app.session.prefs().enhanced_controls.rotate_view_with_trackpad && !app.touch_ui;
         if let Some(delta) = crate::rotate_view::trackpad_delta(input.ctx, rotate_trackpad, touch_gestures) {
             view.zoom_animating = false;
             view.zoom_anchor = None;
@@ -1874,7 +1875,7 @@ fn layer_picker_eyedropper(app: &mut PhotocraftApp, ui: &egui::Ui, ctx: &egui::C
 
 /// Per-frame reconciliation of the camera with its document: resize re-centre, pending fit/fill,
 /// and the overscroll clamp. Returns the pixel aspect the view is drawn with.
-fn sync_view_to_document(app: &PhotocraftApp, ctx: &egui::Context, view: &mut View, doc: &Document, rect: Rect, ppp: f32) -> f32 {
+fn sync_view_to_document(app: &PhotocraftApp, ctx: &egui::Context, idx: usize, view: &mut View, doc: &Document, rect: Rect, ppp: f32) -> f32 {
     let size = [doc.size.width, doc.size.height];
     if view.doc_size != size {
         // Like Photoshop: keep the zoom level, re-centre the resized document.
@@ -1891,9 +1892,15 @@ fn sync_view_to_document(app: &PhotocraftApp, ctx: &egui::Context, view: &mut Vi
     if view.fill_pending && rect.width() > 50.0 {
         fill_view(view, doc, rect.size(), ppp, aspect);
     }
-    // Pixel art shows whole screen pixels per pixel, however the zoom was set (pixel_mode.rs).
+    // Two fingers twisting turn the canvas (touch_rotate.rs); pixel art by quarter turns.
+    if let Some(r) = crate::touch_rotate::update(ctx, egui::Id::new(("pc-canvas-twist", idx)), rect, view.rotation, app.touch_rotate, doc.pixel_art) {
+        view.rotation = r;
+    }
+    // Pixel art shows whole screen pixels per pixel, however the zoom was set, and is only ever
+    // turned by quarter turns (pixel_mode.rs).
     if doc.pixel_art {
         view.zoom = crate::zoom_levels::clamp(crate::pixel_mode::snap(view.zoom), size);
+        view.rotation = crate::rotate_view::snap_deg(view.rotation, 90.0);
     }
     // Preferences › Tools › Overscroll off: clamp before anything is drawn (scrollbars.rs).
     if !app.session.prefs().tools.overscroll && crate::scrollbars::clamp_view_with_aspect(view, rect.size(), ppp, aspect) {
@@ -1979,7 +1986,7 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
     }
     let doc = app.session.documents()[idx].doc.clone();
     let size = [doc.size.width, doc.size.height];
-    let aspect = sync_view_to_document(app, &ctx, &mut view, &doc, rect, ppp);
+    let aspect = sync_view_to_document(app, &ctx, idx, &mut view, &doc, rect, ppp);
     update_polygon_camera(app, &ctx, (idx, primary), rect, &mut view, ppp, aspect);
 
     let flip = app.ui.view.flip_horizontal;

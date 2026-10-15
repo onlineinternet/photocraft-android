@@ -5,17 +5,22 @@ where they fit. Done items move to the bottom with the date.
 
 ## Now
 
-- [ ] Check the Pixel Art Mode grid fix on the tablet and phone: one checker square per empty
-      pixel, pixel grid over every pixel (GPU canvas; the CPU fallback still draws the grid over
-      painted pixels only).
+- [ ] Try two-finger rotation on the tablet and phone: dead zone, snapping, the Touch rotate
+      toggle, quarter turns in Pixel Art Mode.
+- [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
+- [ ] Try the Allow access button in the Open dialog (turn All files access off first).
 
 ## Touch and layout (Clip Studio Paint style)
 
-- [ ] Two-finger canvas rotation (twist while pinching), with a snap back to 0°.
+- [ ] Rotate around the point between the fingers rather than the canvas centre.
+- [ ] A per-document "no rotation" setting, if the global Touch rotate toggle isn't enough.
 - [ ] Phone layout: bottom toolbar, tool groups that pop out, dialogs as bottom sheets.
 - [ ] Panels on phones and the tablet: undecided how they should work yet.
 - [ ] Palm rejection beyond "Finger draws" off.
-- [ ] OS clipboard, share sheet and the Android document picker (cloud drives, USB storage).
+- [ ] Android photo picker and document picker (cloud drives, USB storage, no All files access
+      needed): needs a small Java class in the APK and a Java build step in CI.
+- [ ] Thumbnails in the built-in file picker (decode small previews in the background).
+- [ ] OS clipboard and share sheet.
 - [ ] Load system fonts for non-Latin scripts.
 - [ ] Get rid of the one-frame flash of a dab before a two-finger gesture takes it back.
 
@@ -23,8 +28,8 @@ where they fit. Done items move to the bottom with the date.
 
 - [ ] Phase 2, palette: replace an exact colour across the layer or document (palette-linked
       recolor), colour ramps, a shading ink that steps along a ramp, palette-only painting.
-- [ ] Import palettes as `.gpl` (GIMP), `.hex` and `.pal` (JASC), so every Lospec download works
-      (`.ase` already imports through Swatches).
+- [ ] A Swatches menu item to export `.gpl`/`.hex`/`.pal` (the `swatches.export` command
+      already can).
 - [ ] Phase 3, animation: onion skin, frame tags, sprite-sheet export with JSON.
 - [ ] Phase 4: tilemaps, 9-patch slices, tiled (wrap-around) painting.
 - [ ] Saved New Document presets don't remember Pixel Art Mode yet.
@@ -42,6 +47,13 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-10-15: Two-finger canvas rotation (12° dead zone, snaps within 8° of quarter turns,
+  quarter turns only in Pixel Art Mode, "Touch rotate" edge-key toggle).
+- 2026-10-15: "Allow access" button in the file picker opens Android's All files access switch;
+  the list fills in when you come back.
+- 2026-10-15: Lospec palettes: `.gpl`, `.pal` and `.hex` import into Swatches; `swatches.export` writes them.
+- 2026-10-14: Pixel Art Mode checkerboard on whole pixels and pixel grid over every pixel
+  (checked on the devices).
 - 2026-10-14: Pixel Art Mode phase 1: whole-pixel zoom, pixel-perfect pencil, Pixel Art New
   Document category, nearest-neighbour transforms, saved in `.pcraft`.
 - 2026-10-14: Fingers paint at once; a quick second finger takes the dab back.

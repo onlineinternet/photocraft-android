@@ -61,6 +61,7 @@ pub use titlebar::{Caption, CaptionFamily, CaptionIcon, CaptionIcons, CaptionSty
 pub(crate) mod tool_memory;
 pub mod updates_ui;
 pub mod pixel_mode;
+pub mod touch_rotate;
 pub mod widgets;
 pub mod work_area;
 
@@ -755,6 +756,9 @@ pub struct PhotocraftApp {
     /// A touch screen is the main input (the Android shell): the Home screen shows no keyboard
     /// shortcuts or drag-and-drop hints, stacks its buttons and makes them finger-sized.
     pub touch_ui: bool,
+    /// Two fingers twisting turn the canvas (touch_rotate.rs). The touch shell sets it from its
+    /// own toggle; off on desktops.
+    pub touch_rotate: bool,
     /// Background job bookkeeping: opening tabs, control replies waiting on a job.
     pub jobs: jobs_ui::JobsUi,
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
