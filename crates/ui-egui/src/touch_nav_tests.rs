@@ -90,11 +90,11 @@ fn two_fingers_pan_and_twist_around_their_midpoint() {
     };
     gesture(&mut h, start, (turn(start.0), turn(start.1)), 10);
     let r = h.state().ui.views[0].rotation;
-    assert!((r - 22.0).abs() < 1.5, "30° less the dead zone: {r}");
+    assert!((r - 30.0).abs() < 1.5, "follows the fingers: {r}");
     let now = xf(&h).to_doc(mid + egui::vec2(40.0, 0.0));
     assert!((now[0] - under[0]).abs() < 0.5 && (now[1] - under[1]).abs() < 0.5, "{under:?} followed the fingers: {now:?}");
     lift(&mut h, turn(start.0), turn(start.1));
-    assert!((h.state().ui.views[0].rotation - r).abs() < 1e-3, "22° is too far from 0° to snap");
+    assert!((h.state().ui.views[0].rotation - r).abs() < 1e-3, "no snapping on release");
 }
 
 #[test]
