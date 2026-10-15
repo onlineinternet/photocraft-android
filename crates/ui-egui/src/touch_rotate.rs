@@ -3,18 +3,12 @@
 //! between the fingers, so the picture stays under them. Twisting needs the touch shell's
 //! toggle (`PhotocraftApp::touch_rotate`); zoom and pan always work.
 //!
-//! - A pinch always twists a little, so the view stays put until the fingers have turned
-//!   [`DEAD_ZONE`] degrees; from then on it follows them (less the dead zone, so it doesn't jump).
-//! - Letting go within [`SNAP`] degrees of 0°, 90°, 180° or 270° lands exactly on it.
+//! - The view follows the fingers exactly: no dead zone and no snapping (both felt jerky on a
+//!   tablet). View › Reset View straightens it.
 //! - A pixel-art document only turns in 90° steps: the view jumps to the next quarter turn once
 //!   the fingers are past halfway to it (`pixel_mode.rs` keeps it on quarter turns).
 
 use crate::rotate_view::{snap_deg, wrap_deg};
-
-/// Degrees the fingers must turn before the view starts to.
-pub const DEAD_ZONE: f32 = 8.0;
-/// Releasing within this many degrees of a quarter turn snaps to it.
-pub const SNAP: f32 = 4.0;
 
 /// One two-finger gesture, kept across frames.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -25,8 +19,6 @@ pub struct Twist {
     start: f32,
     /// How far the fingers have turned since, in degrees (clockwise positive).
     turned: f32,
-    /// Past the dead zone: the view follows.
-    engaged: bool,
 }
 
 impl Twist {
@@ -34,30 +26,21 @@ impl Twist {
     /// the view's new rotation, if it changes. `quarter_turns` is pixel art's 90° lock.
     pub fn turn(&mut self, current: f32, delta_deg: f32, quarter_turns: bool) -> Option<f32> {
         if !self.active {
-            *self = Self { active: true, start: current, turned: 0.0, engaged: false };
+            *self = Self { active: true, start: current, turned: 0.0 };
         }
         if !delta_deg.is_finite() {
             return None;
         }
         self.turned = wrap_deg(self.turned + delta_deg);
-        if !self.engaged && self.turned.abs() < DEAD_ZONE {
-            return None;
-        }
-        self.engaged = true;
-        let target =
-            if quarter_turns { snap_deg(self.start + self.turned, 90.0) } else { wrap_deg(self.start + self.turned - DEAD_ZONE.copysign(self.turned)) };
+        let target = if quarter_turns { snap_deg(self.start + self.turned, 90.0) } else { wrap_deg(self.start + self.turned) };
         (target != current).then_some(target)
     }
 
-    /// The fingers lifted with the view at `current`: the rotation to land on, if it changes.
-    pub fn release(&mut self, current: f32) -> Option<f32> {
-        let engaged = self.active && self.engaged;
+    /// The fingers lifted: the view stays where they left it (no snapping), so this only ends
+    /// the gesture. Returns the rotation to land on, which is never a change.
+    pub fn release(&mut self, _current: f32) -> Option<f32> {
         *self = Self::default();
-        if !engaged {
-            return None;
-        }
-        let quarter = snap_deg(current, 90.0);
-        (wrap_deg(current - quarter).abs() <= SNAP && quarter != current).then_some(quarter)
+        None
     }
 }
 
@@ -193,35 +176,15 @@ mod tests {
     }
 
     #[test]
-    fn a_small_twist_while_pinching_does_nothing() {
+    fn the_view_follows_the_fingers_exactly_and_stays_where_left() {
         let mut t = Twist::default();
-        assert_eq!(run(&mut t, 0.0, &[3.0, -2.0, 4.0, 2.0], false), 0.0);
-        assert_eq!(t.release(0.0), None);
-    }
-
-    #[test]
-    fn past_the_dead_zone_the_view_follows_without_jumping() {
-        let mut t = Twist::default();
-        let at = run(&mut t, 10.0, &[4.0, 4.0, 2.0], false);
-        assert!((at - 12.0).abs() < 1e-4, "2° past the dead zone: {at}");
-        let at = run(&mut t, at, &[20.0], false);
-        assert!((at - 32.0).abs() < 1e-4);
-        assert_eq!(t.release(at), None, "nowhere near a quarter turn");
-    }
-
-    #[test]
-    fn letting_go_near_a_quarter_turn_snaps_to_it() {
-        let mut t = Twist::default();
-        let at = run(&mut t, 0.0, &[50.0, 45.0], false);
+        let at = run(&mut t, 10.0, &[3.0, -1.0], false);
+        assert!((at - 12.0).abs() < 1e-4, "no dead zone: {at}");
+        let at = run(&mut t, at, &[75.0], false);
         assert!((at - 87.0).abs() < 1e-4);
-        assert_eq!(t.release(at), Some(90.0));
-        // A new gesture starts from where the view is.
-        let at = run(&mut t, 90.0, &[-30.0, -69.0], false);
-        assert!((at - (-1.0)).abs() < 1e-4);
-        assert_eq!(t.release(at), Some(0.0));
-        // Further off than the snap: left alone.
-        let at = run(&mut t, 0.0, &[20.0], false);
-        assert_eq!(t.release(at), None, "12° stays 12°");
+        assert_eq!(t.release(at), None, "no snap to 90°");
+        let at = run(&mut t, 87.0, &[-90.0], false);
+        assert!((at - (-3.0)).abs() < 1e-4, "a new gesture starts where the view is: {at}");
     }
 
     #[test]
@@ -239,6 +202,6 @@ mod tests {
         let mut t = Twist::default();
         assert_eq!(t.turn(0.0, f32::NAN, false), None);
         assert_eq!(t.turn(0.0, f32::INFINITY, false), None);
-        assert_eq!(run(&mut t, 0.0, &[30.0], false), 22.0);
+        assert_eq!(run(&mut t, 0.0, &[30.0], false), 30.0);
     }
 }
