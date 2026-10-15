@@ -3310,6 +3310,8 @@ mod blur_pins_tests;
 
 #[cfg(test)]
 mod move_outline_tests;
+#[cfg(test)]
+mod touch_nav_tests;
 
 #[cfg(test)]
 mod layer_thumb_bounds_tests;

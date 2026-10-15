@@ -3606,10 +3606,6 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
     if view.fill_pending && rect.width() > 50.0 {
         fill_view(&mut view, &doc, rect.size(), ppp, aspect);
     }
-    // Two fingers twisting turn the canvas (touch_rotate.rs); pixel art by quarter turns.
-    if let Some(r) = crate::touch_rotate::update(&ctx, egui::Id::new(("pc-canvas-twist", idx)), rect, view.rotation, app.touch_rotate, doc.pixel_art) {
-        view.rotation = r;
-    }
     // Pixel art shows whole screen pixels per pixel, however the zoom was set, and is only ever
     // turned by quarter turns (pixel_mode.rs).
     if doc.pixel_art {
@@ -3961,6 +3957,41 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
     // The wheel also scrolls over the scrollbars drawn on top of the canvas (last frame's hover).
     let bars_id = egui::Id::new(("pc-canvas-bars-hover", idx));
     let over_bars = ctx.data(|d| d.get_temp::<bool>(bars_id)).unwrap_or(false);
+    // Touch screens: two fingers zoom, pan and turn the view together, around the point between
+    // them (touch_rotate.rs). The pointer is gone during the gesture, so the wheel path below
+    // can't anchor a pinch.
+    let two_fingers = if app.touch_ui {
+        crate::touch_rotate::update(&ctx, egui::Id::new(("pc-canvas-twist", idx)), rect, view.rotation, app.touch_rotate, doc.pixel_art, xf.flip)
+    } else {
+        None
+    };
+    if let Some(nav) = two_fingers {
+        let before = xf.to_doc(nav.from);
+        if nav.zoom != 1.0 {
+            view.zoom = if doc.pixel_art {
+                let key = egui::Id::new(("pc-pixel-pinch", idx));
+                let mut pinch = ctx.data(|d| d.get_temp::<crate::pixel_mode::PinchZoom>(key)).unwrap_or_default();
+                let size = view.doc_size;
+                let nz = pinch.scale(view.zoom, nav.zoom, |z| crate::zoom_levels::clamp(z, size));
+                ctx.data_mut(|d| d.insert_temp(key, pinch));
+                nz
+            } else {
+                crate::zoom_levels::clamp(view.zoom * nav.zoom, view.doc_size)
+            };
+        }
+        if let Some(r) = nav.rotation {
+            view.rotation = r;
+        }
+        // Keep the picture point that was under the fingers under them.
+        let ppp_ok = if ppp.is_finite() && ppp > 0.0 { ppp } else { 1.0 };
+        let moved = ViewXform { zoom: view.zoom / ppp_ok, rotation: view.rotation, ..xf };
+        let u = moved.unmap_vec((nav.to - moved.rect.center()) / moved.zoom);
+        let c = [before[0] as f32 - u.x, before[1] as f32 - u.y];
+        if c[0].is_finite() && c[1].is_finite() {
+            view.center = c;
+        }
+        ctx.request_repaint();
+    }
     let nav_hovered = response.hovered() || free_hover || over_bars;
     // Interface › Enable Animations off: the wheel moves the canvas without a glide (#5721).
     // Enhanced Controls › Enable Gestures off: two fingers on a touch screen neither zoom nor
@@ -3975,7 +4006,7 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
         app.session.prefs().interface.enable_animations,
         touch_gestures,
     );
-    if nav_hovered {
+    if two_fingers.is_none() && nav_hovered {
         let pointer = ui.input(|i| i.pointer.hover_pos());
         match (wheel, pointer) {
             (Some(crate::wheel_nav::Wheel::Zoom(f)), Some(p)) => {
