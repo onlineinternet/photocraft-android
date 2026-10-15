@@ -5,8 +5,9 @@ where they fit. Done items move to the bottom with the date.
 
 ## Now
 
-- [ ] Try two-finger zoom/pan/rotate on the tablet and phone (now around the fingers, 8° dead
-      zone, 4° snap): does it feel smooth?
+- [ ] Try two-finger zoom/pan/rotate again with no snapping: still jerky? (Next suspects: the
+      canvas draws one frame behind the fingers, and the GPU canvas rounds its position to whole
+      pixels.)
 - [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
 - [ ] Try the Allow access button in the Open dialog (turn All files access off first).
 
@@ -48,7 +49,7 @@ where they fit. Done items move to the bottom with the date.
 
 - 2026-10-15: Two-finger zoom, pan and rotate together around the fingers, read from raw
   touches (egui's pinch never started once the shell dropped the mouse, which broke pinch zoom);
-  8° dead zone, 4° snap, quarter turns in Pixel Art Mode, "Touch rotate" toggle.
+  no dead zone or snapping (quarter turns only in Pixel Art Mode), "Touch rotate" toggle.
 - 2026-10-15: "Allow access" button in the file picker opens Android's All files access switch;
   the list fills in when you come back.
 - 2026-10-15: Lospec palettes: `.gpl`, `.pal` and `.hex` import into Swatches; `swatches.export` writes them.
