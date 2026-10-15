@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  PhotoCraft on Android (unofficial). No Java code: Android's own NativeActivity loads
-  libphotocraft_android.so and android-activity's glue calls `android_main` (src/lib.rs).
-  Built into an APK by build-apk.sh; see README.md beside this folder.
+  PhotoCraft on Android (unofficial). PhotoCraftActivity (java/) is Android's NativeActivity,
+  which loads libphotocraft_android.so where android-activity's glue calls `android_main`
+  (src/lib.rs), plus the answers of Android's file pickers. Built into an APK by build-apk.sh;
+  see README.md beside this folder.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="io.github.photocraft.unofficial"
@@ -21,7 +22,7 @@
 
     <application
         android:label="PhotoCraft (unofficial)"
-        android:hasCode="false"
+        android:hasCode="true"
         android:extractNativeLibs="true"
         android:requestLegacyExternalStorage="true"
         android:resizeableActivity="true"
@@ -30,7 +31,7 @@
         <!-- configChanges: rotating, folding, resizing or a keyboard arriving must not restart
              the activity, which would end the native app and lose unsaved work. -->
         <activity
-            android:name="android.app.NativeActivity"
+            android:name=".PhotoCraftActivity"
             android:exported="true"
             android:launchMode="singleTask"
             android:windowSoftInputMode="adjustResize"

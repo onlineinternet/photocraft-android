@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Build PhotoCraft's Android APK (arm64-v8a) without Gradle: cargo builds the native library,
-# then the SDK's own tools package and sign it (aapt2, zipalign, apksigner).
+# javac and d8 build the one Java class (java/), then the SDK's own tools package and sign it
+# (aapt2, zipalign, apksigner).
 #
-# Needs: Rust with the aarch64-linux-android target, the Android NDK, and the SDK's build-tools
-# and a platform. Used by .github/workflows/android.yml; works the same on a Linux machine:
+# Needs: Rust with the aarch64-linux-android target, the Android NDK, a JDK (javac), and the
+# SDK's build-tools and a platform. Used by .github/workflows/android.yml; works the same on a Linux machine:
 #
 #   ANDROID_HOME=~/Android/Sdk ANDROID_NDK_HOME=~/Android/Sdk/ndk/27.2.12479018 \
 #     apps/photocraft-android/android/build-apk.sh
@@ -63,12 +64,19 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$out" "$work/lib/arm64-v8a"
 
+echo "==> Compiling the Java activity"
+command -v javac >/dev/null || die "no javac (install a JDK, 11 or newer)"
+mkdir -p "$work/classes" "$work/dex"
+javac -source 11 -target 11 -nowarn -Xlint:-options -classpath "$JAR" -d "$work/classes" $(find "$here/java" -name '*.java')
+"$BT/d8" --release --min-api "$MIN_SDK" --lib "$JAR" --output "$work/dex" $(find "$work/classes" -name '*.class')
+[ -f "$work/dex/classes.dex" ] || die "d8 made no classes.dex"
+
 echo "==> Packaging"
 "$TC/llvm-strip" --strip-unneeded -o "$work/lib/arm64-v8a/libphotocraft_android.so" "$so"
 "$BT/aapt2" link -o "$work/unsigned.apk" -I "$JAR" --manifest "$here/AndroidManifest.xml" \
   --min-sdk-version "$MIN_SDK" --target-sdk-version "$TARGET_SDK" \
   --version-code "$VERSION_CODE" --version-name "$VERSION_NAME"
-(cd "$work" && zip -q -r unsigned.apk lib)
+(cd "$work" && zip -q -r unsigned.apk lib && cd dex && zip -q ../unsigned.apk classes.dex)
 "$BT/zipalign" -f 4 "$work/unsigned.apk" "$work/aligned.apk"
 
 KEYSTORE_PASS=${KEYSTORE_PASS:-android}

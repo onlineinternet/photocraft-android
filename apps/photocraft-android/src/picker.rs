@@ -156,6 +156,71 @@ impl Access {
     }
 }
 
+/// Android's own pickers (`android_system.rs`), swappable for tests.
+pub struct System {
+    pub open: fn(bool, &[&str]) -> Result<(), String>,
+    pub create: fn(&str, &str) -> Result<(), String>,
+    pub take: fn() -> Option<crate::android_system::Picked>,
+}
+
+impl Default for System {
+    fn default() -> Self {
+        use crate::android_system as a;
+        Self { open: a::open_document, create: a::create_document, take: a::take_picked }
+    }
+}
+
+/// A content:// file to save to, as a path the app can carry around: the URI, a slash and the
+/// file's name, so the name (and its extension, which picks the format) reads like a path's.
+pub fn saf_path(uri: &str, name: &str) -> String {
+    let name: String = name.chars().map(|c| if c == '/' || c.is_control() { '_' } else { c }).collect();
+    format!("{uri}/{}", if name.trim().is_empty() { "Untitled" } else { &name })
+}
+
+/// The URI inside a [`saf_path`], or `None` for a plain file path.
+pub fn saf_uri(path: &str) -> Option<&str> {
+    path.starts_with("content://").then(|| path.rsplit_once('/').map_or(path, |(uri, _)| uri))
+}
+
+/// A MIME type for saving `name` (Android's save picker wants one; unknown types are fine).
+pub fn mime_for(name: &str) -> &'static str {
+    let ext = Path::new(name).extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).unwrap_or_default();
+    match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "webp" => "image/webp",
+        "gif" => "image/gif",
+        "bmp" => "image/bmp",
+        "tif" | "tiff" => "image/tiff",
+        "svg" => "image/svg+xml",
+        "psd" | "psb" => "image/vnd.adobe.photoshop",
+        "pdf" => "application/pdf",
+        "json" => "application/json",
+        "txt" | "gpl" | "hex" | "pal" => "text/plain",
+        _ => "application/octet-stream",
+    }
+}
+
+/// What the app gets for one of Android's picker answers.
+pub fn answer_for(picked: crate::android_system::Picked, multiple: bool) -> Option<FileDialogAnswer> {
+    use crate::android_system::Picked;
+    match picked {
+        Picked::Cancel => None,
+        Picked::Save { uri, name } => Some(FileDialogAnswer::SaveTo(saf_path(&uri, &name))),
+        Picked::Open { mut files, error } => {
+            if files.is_empty() {
+                return error.map(|e| FileDialogAnswer::Unavailable(format!("Couldn't open {e}")));
+            }
+            if multiple && files.len() > 1 {
+                Some(FileDialogAnswer::ContentsMany(files))
+            } else {
+                let (name, bytes) = files.swap_remove(0);
+                Some(FileDialogAnswer::Contents(name, bytes))
+            }
+        }
+    }
+}
+
 /// The shell's dialog state: at most one picker at a time, plus where the next one starts.
 pub struct Host {
     /// Shared storage (`/storage/emulated/0`).
@@ -163,11 +228,14 @@ pub struct Host {
     last_dir: Option<PathBuf>,
     active: Option<Picker>,
     pub access: Access,
+    pub system: System,
+    /// Waiting for Android's picker to answer this (and whether it may answer several files).
+    waiting: Option<(FileDialogReply, bool)>,
 }
 
 impl Host {
     pub fn new(storage: PathBuf) -> Self {
-        Self { storage, last_dir: None, active: None, access: Access::default() }
+        Self { storage, last_dir: None, active: None, access: Access::default(), system: System::default(), waiting: None }
     }
 
     pub fn is_open(&self) -> bool {
@@ -186,6 +254,25 @@ impl Host {
 
     /// Show a dialog for `request`. A dialog still open is cancelled (its reply is dropped).
     pub fn request(&mut self, request: FileDialogRequest, reply: FileDialogReply) {
+        // Files to open and places to save go to Android's own pickers (thumbnails, Drive, no All
+        // files access needed); this picker is the fallback, and still chooses folders.
+        self.waiting = None;
+        let system = match &request {
+            FileDialogRequest::Open { multiple, .. } => (self.system.open)(*multiple, &[]).map(|()| *multiple),
+            FileDialogRequest::Save { suggested } => {
+                let name = Path::new(suggested).file_name().map_or_else(|| suggested.clone(), |n| n.to_string_lossy().into_owned());
+                (self.system.create)(&name, mime_for(&name)).map(|()| false)
+            }
+            FileDialogRequest::Folder { .. } => Err("folders use the built-in picker".into()),
+        };
+        match system {
+            Ok(multiple) => {
+                self.active = None;
+                self.waiting = Some((reply, multiple));
+                return;
+            }
+            Err(e) => log::info!("Android's picker isn't available ({e}); using the built-in one"),
+        }
         let (mode, dir, name) = match request {
             FileDialogRequest::Open { initial_dir, extensions, .. } => {
                 let extensions = extensions.unwrap_or_else(|| OPEN_EXTS.iter().map(|e| (*e).to_string()).collect());
@@ -204,6 +291,17 @@ impl Host {
 
     /// Draw the open dialog (if any); answers it when the user chooses or cancels.
     pub fn show(&mut self, ctx: &egui::Context) {
+        if self.waiting.is_some() {
+            match (self.system.take)() {
+                Some(picked) => {
+                    if let Some((reply, multiple)) = self.waiting.take() {
+                        reply.send(answer_for(picked, multiple));
+                    }
+                }
+                // The answer arrives from Java's side: look again shortly.
+                None => ctx.request_repaint_after(std::time::Duration::from_millis(150)),
+            }
+        }
         let Some(picker) = self.active.as_mut() else { return };
         let mut answer: Option<Option<FileDialogAnswer>> = None;
         let screen = ctx.content_rect();
@@ -454,5 +552,29 @@ mod tests {
         let mut off = Access::new(|| None, || Err("not running on Android".into()));
         off.refresh(0.0);
         assert!(!off.missing());
+    }
+
+    #[test]
+    fn android_picker_answers_become_the_apps() {
+        use crate::android_system::Picked;
+        assert_eq!(answer_for(Picked::Cancel, false), None);
+        let one = Picked::Open { files: vec![("a.png".into(), vec![1])], error: None };
+        assert_eq!(answer_for(one, true), Some(FileDialogAnswer::Contents("a.png".into(), vec![1])));
+        let two = Picked::Open { files: vec![("a.png".into(), vec![1]), ("b.psd".into(), vec![2])], error: None };
+        assert!(matches!(answer_for(two.clone(), true), Some(FileDialogAnswer::ContentsMany(f)) if f.len() == 2));
+        assert!(matches!(answer_for(two, false), Some(FileDialogAnswer::Contents(n, _)) if n == "a.png"));
+        let failed = Picked::Open { files: vec![], error: Some("big.psd: too large".into()) };
+        assert!(matches!(answer_for(failed, false), Some(FileDialogAnswer::Unavailable(m)) if m.contains("big.psd")));
+        assert_eq!(answer_for(Picked::Open { files: vec![], error: None }, false), None);
+        let save = Picked::Save { uri: "content://docs/document/42".into(), name: "Art.psd".into() };
+        let Some(FileDialogAnswer::SaveTo(path)) = answer_for(save, false) else { panic!("a place to save") };
+        assert_eq!(path, "content://docs/document/42/Art.psd");
+        assert_eq!(Path::new(&path).extension().and_then(|e| e.to_str()), Some("psd"), "the format comes from the name");
+        assert_eq!(saf_uri(&path), Some("content://docs/document/42"));
+        assert_eq!(saf_uri("/storage/emulated/0/a.png"), None);
+        assert_eq!(saf_path("content://x", "a/b"), "content://x/a_b");
+        assert_eq!(saf_path("content://x", " "), "content://x/Untitled");
+        assert_eq!(mime_for("x.PNG"), "image/png");
+        assert_eq!(mime_for("x.kra"), "application/octet-stream");
     }
 }
