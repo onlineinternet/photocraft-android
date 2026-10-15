@@ -33,6 +33,7 @@ pub enum Action {
 pub enum Setting {
     FingerDraws,
     FingerPressure,
+    TouchRotate,
 }
 
 /// The strip, top to bottom, two to a row. `None` starts a new group.
@@ -59,6 +60,7 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
     None,
     Some(("Finger draws", Action::Toggle(Setting::FingerDraws))),
     Some(("Finger pressure", Action::Toggle(Setting::FingerPressure))),
+    Some(("Touch rotate", Action::Toggle(Setting::TouchRotate))),
 ];
 
 /// One key on the strip: big enough for a fingertip.
@@ -190,6 +192,7 @@ impl EdgeKeys {
                 match setting {
                     Setting::FingerDraws => s.finger_draws = !s.finger_draws,
                     Setting::FingerPressure => s.finger_pressure = !s.finger_pressure,
+                    Setting::TouchRotate => s.touch_rotate = !s.touch_rotate,
                 }
                 self.settings_changed = true;
             }
@@ -205,6 +208,7 @@ impl EdgeKeys {
             Action::Space => self.latched.space,
             Action::Toggle(Setting::FingerDraws) => self.settings.finger_draws,
             Action::Toggle(Setting::FingerPressure) => self.settings.finger_pressure,
+            Action::Toggle(Setting::TouchRotate) => self.settings.touch_rotate,
             Action::Tap(_) | Action::Command(_) => false,
         }
     }
