@@ -49,6 +49,10 @@ pub fn guard<T>(what: &str, f: impl FnOnce() -> Result<T, String>) -> Result<T, 
 }
 
 fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    // A place Android's save picker chose (picker.rs `saf_path`): written through its provider.
+    if let Some(uri) = path.to_str().and_then(crate::picker::saf_uri) {
+        return crate::android_system::write_uri(uri, bytes);
+    }
     photocraft_format::atomic_write(path, bytes).map_err(|e| e.to_string())
 }
 
@@ -87,8 +91,12 @@ fn save_file(
     let r = guard("Save", || photocraft_io::export_with(doc, path, &opts, &interrupt).map_err(|e| e.to_string()))?;
     ctl.commit()?;
     ctl.progress(ENCODE_SHARE, "Writing");
-    photocraft_format::atomic_write_progress(Path::new(path), &r.bytes, &|f| ctl.progress(ENCODE_SHARE + (0.99 - ENCODE_SHARE) * f, ""))
-        .map_err(|e| e.to_string())?;
+    if crate::picker::saf_uri(path).is_some() {
+        write_atomic(Path::new(path), &r.bytes)?;
+    } else {
+        photocraft_format::atomic_write_progress(Path::new(path), &r.bytes, &|f| ctl.progress(ENCODE_SHARE + (0.99 - ENCODE_SHARE) * f, ""))
+            .map_err(|e| e.to_string())?;
+    }
     ctl.progress(1.0, "");
     Ok(r.warnings)
 }
