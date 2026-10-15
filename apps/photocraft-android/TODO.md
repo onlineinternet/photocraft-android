@@ -9,7 +9,7 @@ where they fit. Done items move to the bottom with the date.
       canvas draws one frame behind the fingers, and the GPU canvas rounds its position to whole
       pixels.)
 - [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
-- [ ] Try the Allow access button in the Open dialog (turn All files access off first).
+- [ ] Try File › Open and Save As through Android's pickers (Drive, Downloads, thumbnails).
 
 ## Touch and layout (Clip Studio Paint style)
 
@@ -17,9 +17,9 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Phone layout: bottom toolbar, tool groups that pop out, dialogs as bottom sheets.
 - [ ] Panels on phones and the tablet: undecided how they should work yet.
 - [ ] Palm rejection beyond "Finger draws" off.
-- [ ] Android photo picker and document picker (cloud drives, USB storage, no All files access
-      needed): needs a small Java class in the APK and a Java build step in CI.
-- [ ] Thumbnails in the built-in file picker (decode small previews in the background).
+- [ ] Android's photo picker (the grid of photos) as its own entry, e.g. File › Open Photo or a
+      Home screen button (`android_system::pick_photos` is ready).
+- [ ] Reopen files from Android's picker in Open Recent (keep a persistable URI permission).
 - [ ] OS clipboard and share sheet.
 - [ ] Load system fonts for non-Latin scripts.
 - [ ] Get rid of the one-frame flash of a dab before a two-finger gesture takes it back.
@@ -50,6 +50,9 @@ where they fit. Done items move to the bottom with the date.
 - 2026-10-15: Two-finger zoom, pan and rotate together around the fingers, read from raw
   touches (egui's pinch never started once the shell dropped the mouse, which broke pinch zoom);
   no dead zone or snapping (quarter turns only in Pixel Art Mode), "Touch rotate" toggle.
+- 2026-10-15: File › Open and Save As use Android's document and save pickers (one Java class,
+  PhotoCraftActivity, built by javac + d8 in build-apk.sh); the built-in browser stays for
+  folders and as the fallback.
 - 2026-10-15: "Allow access" button in the file picker opens Android's All files access switch;
   the list fills in when you come back.
 - 2026-10-15: Lospec palettes: `.gpl`, `.pal` and `.hex` import into Swatches; `swatches.export` writes them.
