@@ -2427,6 +2427,8 @@ mod smart_filter_rows_tests;
 
 #[cfg(test)]
 mod move_outline_tests;
+#[cfg(test)]
+mod touch_nav_tests;
 
 #[cfg(test)]
 mod mask_thumb_refresh_tests;
