@@ -115,17 +115,19 @@ pub struct TouchSettings {
     pub finger_draws: bool,
     /// A painting finger's pressure follows its speed; off, it paints at full pressure.
     pub finger_pressure: bool,
+    /// Twisting two fingers turns the canvas (pixel art turns in 90° steps).
+    pub touch_rotate: bool,
 }
 
 impl Default for TouchSettings {
     fn default() -> Self {
-        Self { finger_draws: true, finger_pressure: true }
+        Self { finger_draws: true, finger_pressure: true, touch_rotate: true }
     }
 }
 
 impl TouchSettings {
     pub fn to_json(self) -> String {
-        serde_json::json!({"fingerDraws": self.finger_draws, "fingerPressure": self.finger_pressure}).to_string()
+        serde_json::json!({"fingerDraws": self.finger_draws, "fingerPressure": self.finger_pressure, "touchRotate": self.touch_rotate}).to_string()
     }
 
     pub fn from_json(text: &str) -> Self {
@@ -134,6 +136,7 @@ impl TouchSettings {
         Self {
             finger_draws: v.get("fingerDraws").and_then(serde_json::Value::as_bool).unwrap_or(d.finger_draws),
             finger_pressure: v.get("fingerPressure").and_then(serde_json::Value::as_bool).unwrap_or(d.finger_pressure),
+            touch_rotate: v.get("touchRotate").and_then(serde_json::Value::as_bool).unwrap_or(d.touch_rotate),
         }
     }
 }
@@ -430,9 +433,13 @@ mod tests {
 
     #[test]
     fn settings_round_trip_and_survive_junk() {
-        let s = TouchSettings { finger_draws: false, finger_pressure: true };
+        let s = TouchSettings { finger_draws: false, finger_pressure: true, touch_rotate: false };
         assert_eq!(TouchSettings::from_json(&s.to_json()), s);
         assert_eq!(TouchSettings::from_json("not json"), TouchSettings::default());
-        assert_eq!(TouchSettings::from_json("{\"fingerDraws\": false}"), TouchSettings { finger_draws: false, finger_pressure: true });
+        assert_eq!(
+            TouchSettings::from_json("{\"fingerDraws\": false}"),
+            TouchSettings { finger_draws: false, finger_pressure: true, touch_rotate: true },
+            "older files keep rotation on"
+        );
     }
 }

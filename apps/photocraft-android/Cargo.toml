@@ -10,9 +10,10 @@ publish = false
 # Open HEIC/HEIF photos (the optional photocraft-heif crate), as in the desktop and web builds.
 heif = ["photocraft-codecs/heif"]
 
-# Like the workspace lints, except `unsafe_code` is denied instead of forbidden: Android finds
-# the app through one exported `android_main` symbol (`#[unsafe(no_mangle)]`), the single item
-# that allows it (src/lib.rs). Everything else stays safe code.
+# Like the workspace lints, except `unsafe_code` is denied instead of forbidden. Two items allow
+# it, each with a SAFETY comment: the exported `android_main` symbol Android finds the app by
+# (`#[unsafe(no_mangle)]`, src/lib.rs), and wrapping the activity's JNI reference to open the
+# All files access settings (src/android_system.rs). Everything else stays safe code.
 [lints.rust]
 unsafe_code = "deny"
 
@@ -38,6 +39,9 @@ eframe = { workspace = true, features = ["wgpu", "persistence"] }
 egui = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
+# The few Android system calls (src/android_system.rs); the version android-activity uses, so its
+# Java VM singleton is the one we see. Builds anywhere (no JVM is linked), so host tests run.
+jni = "=0.22.4"
 
 [target.'cfg(target_os = "android")'.dependencies]
 eframe = { workspace = true, features = ["android-native-activity"] }
