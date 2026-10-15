@@ -924,6 +924,8 @@ mod blur_pins_tests;
 
 #[cfg(test)]
 mod move_outline_tests;
+#[cfg(test)]
+mod touch_nav_tests;
 
 #[cfg(test)]
 mod move_bar_distribute_gear_tests;

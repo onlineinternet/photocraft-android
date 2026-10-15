@@ -5,14 +5,13 @@ where they fit. Done items move to the bottom with the date.
 
 ## Now
 
-- [ ] Try two-finger rotation on the tablet and phone: dead zone, snapping, the Touch rotate
-      toggle, quarter turns in Pixel Art Mode.
+- [ ] Try two-finger zoom/pan/rotate on the tablet and phone (now around the fingers, 8° dead
+      zone, 4° snap): does it feel smooth?
 - [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
 - [ ] Try the Allow access button in the Open dialog (turn All files access off first).
 
 ## Touch and layout (Clip Studio Paint style)
 
-- [ ] Rotate around the point between the fingers rather than the canvas centre.
 - [ ] A per-document "no rotation" setting, if the global Touch rotate toggle isn't enough.
 - [ ] Phone layout: bottom toolbar, tool groups that pop out, dialogs as bottom sheets.
 - [ ] Panels on phones and the tablet: undecided how they should work yet.
@@ -47,8 +46,9 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
-- 2026-10-15: Two-finger canvas rotation (12° dead zone, snaps within 8° of quarter turns,
-  quarter turns only in Pixel Art Mode, "Touch rotate" edge-key toggle).
+- 2026-10-15: Two-finger zoom, pan and rotate together around the fingers, read from raw
+  touches (egui's pinch never started once the shell dropped the mouse, which broke pinch zoom);
+  8° dead zone, 4° snap, quarter turns in Pixel Art Mode, "Touch rotate" toggle.
 - 2026-10-15: "Allow access" button in the file picker opens Android's All files access switch;
   the list fills in when you come back.
 - 2026-10-15: Lospec palettes: `.gpl`, `.pal` and `.hex` import into Swatches; `swatches.export` writes them.

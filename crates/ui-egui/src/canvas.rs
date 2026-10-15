@@ -625,6 +625,42 @@ fn update_canvas_navigation(app: &mut PhotocraftApp, view: &mut View, input: Can
     // The wheel also scrolls over the scrollbars drawn on top of the canvas (last frame's hover).
     let bars_id = egui::Id::unique(("pc-canvas-bars-hover", input.idx));
     let over_bars = input.ctx.data(|d| d.get_temp::<bool>(bars_id)).unwrap_or(false);
+    // Touch screens: two fingers zoom, pan and turn the view together, around the point between
+    // them (touch_rotate.rs). The pointer is gone during the gesture, so the wheel path below
+    // can't anchor a pinch.
+    let xf = input.xf;
+    let two_fingers = if app.touch_ui {
+        crate::touch_rotate::update(input.ctx, egui::Id::new(("pc-canvas-twist", input.idx)), xf.rect, view.rotation, app.touch_rotate, view.pixel_art, xf.flip)
+    } else {
+        None
+    };
+    if let Some(nav) = two_fingers {
+        let before = xf.to_doc(nav.from);
+        if nav.zoom != 1.0 {
+            view.zoom = if view.pixel_art {
+                let key = egui::Id::new(("pc-pixel-pinch", input.idx));
+                let mut pinch = input.ctx.data(|d| d.get_temp::<crate::pixel_mode::PinchZoom>(key)).unwrap_or_default();
+                let size = view.doc_size;
+                let nz = pinch.scale(view.zoom, nav.zoom, |z| crate::zoom_levels::clamp(z, size));
+                input.ctx.data_mut(|d| d.insert_temp(key, pinch));
+                nz
+            } else {
+                crate::zoom_levels::clamp(view.zoom * nav.zoom, view.doc_size)
+            };
+        }
+        if let Some(r) = nav.rotation {
+            view.rotation = r;
+        }
+        // Keep the picture point that was under the fingers under them.
+        let ppp_ok = if input.ppp.is_finite() && input.ppp > 0.0 { input.ppp } else { 1.0 };
+        let moved = ViewXform { zoom: view.zoom / ppp_ok, rotation: view.rotation, ..xf };
+        let u = moved.unmap_vec((nav.to - moved.rect.center()) / moved.zoom);
+        let c = [before[0] as f32 - u.x, before[1] as f32 - u.y];
+        if c[0].is_finite() && c[1].is_finite() {
+            view.center = c;
+        }
+        input.ctx.request_repaint();
+    }
     let nav_hovered = input.response.hovered() || input.free_hover || over_bars;
     // Like Photoshop, a wheel notch moves the canvas the whole step in one frame, without a
     // glide (`smooth` off; #5721, #9479).
@@ -642,7 +678,7 @@ fn update_canvas_navigation(app: &mut PhotocraftApp, view: &mut View, input: Can
         false,
         touch_gestures,
     );
-    if nav_hovered {
+    if two_fingers.is_none() && nav_hovered {
         let pointer = input.ctx.input(|i| i.pointer.hover_pos());
         match (wheel, pointer) {
             (Some(crate::wheel_nav::Wheel::Zoom(f)), Some(p)) => {
@@ -1875,7 +1911,7 @@ fn layer_picker_eyedropper(app: &mut PhotocraftApp, ui: &egui::Ui, ctx: &egui::C
 
 /// Per-frame reconciliation of the camera with its document: resize re-centre, pending fit/fill,
 /// and the overscroll clamp. Returns the pixel aspect the view is drawn with.
-fn sync_view_to_document(app: &PhotocraftApp, ctx: &egui::Context, idx: usize, view: &mut View, doc: &Document, rect: Rect, ppp: f32) -> f32 {
+fn sync_view_to_document(app: &PhotocraftApp, ctx: &egui::Context, view: &mut View, doc: &Document, rect: Rect, ppp: f32) -> f32 {
     let size = [doc.size.width, doc.size.height];
     if view.doc_size != size {
         // Like Photoshop: keep the zoom level, re-centre the resized document.
@@ -1891,10 +1927,6 @@ fn sync_view_to_document(app: &PhotocraftApp, ctx: &egui::Context, idx: usize, v
     }
     if view.fill_pending && rect.width() > 50.0 {
         fill_view(view, doc, rect.size(), ppp, aspect);
-    }
-    // Two fingers twisting turn the canvas (touch_rotate.rs); pixel art by quarter turns.
-    if let Some(r) = crate::touch_rotate::update(ctx, egui::Id::new(("pc-canvas-twist", idx)), rect, view.rotation, app.touch_rotate, doc.pixel_art) {
-        view.rotation = r;
     }
     // Pixel art shows whole screen pixels per pixel, however the zoom was set, and is only ever
     // turned by quarter turns (pixel_mode.rs).
@@ -1986,7 +2018,7 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
     }
     let doc = app.session.documents()[idx].doc.clone();
     let size = [doc.size.width, doc.size.height];
-    let aspect = sync_view_to_document(app, &ctx, idx, &mut view, &doc, rect, ppp);
+    let aspect = sync_view_to_document(app, &ctx, &mut view, &doc, rect, ppp);
     update_polygon_camera(app, &ctx, (idx, primary), rect, &mut view, ppp, aspect);
 
     let flip = app.ui.view.flip_horizontal;

@@ -46,11 +46,12 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 - **Finger draws** (edge keyboard toggle): on, a finger paints, with **Finger pressure**
   simulated from speed; off, one finger pans the canvas and two pinch to zoom, so only the pen
   draws. A tap outside the edge keyboard closes it.
-- **Two-finger tap** undoes, **three-finger tap** redoes. Pinch zooms and two fingers pan.
-- **Twist two fingers** to rotate the canvas. Small twists while pinching are ignored (12°), and
-  letting go within 8° of 0°, 90°, 180° or 270° snaps to it; View › Reset View
-  straightens it. In Pixel Art Mode the canvas only turns in 90° steps. The **Touch rotate**
-  edge key turns the gesture off.
+- **Two-finger tap** undoes, **three-finger tap** redoes.
+- **Two fingers** pinch to zoom, move to pan and twist to rotate, all at once and around the
+  point between them, so the picture stays under your fingers. Small twists while pinching are
+  ignored (8°), and letting go within 4° of 0°, 90°, 180° or 270° snaps to it; View › Reset View
+  straightens it. In Pixel Art Mode it only turns in 90° steps and zooms by whole pixels. The
+  **Touch rotate** edge key turns twisting off (pinch and pan still work).
 - On screens narrower than 1000 points (phones), the right dock starts hidden, menus that don't
   fit the menu bar move into a **»** menu at its end, and dialogs fit the screen.
 - Dragging a document tab never tears it off into a floating window (a floated one goes back with
