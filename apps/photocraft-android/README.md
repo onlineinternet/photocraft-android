@@ -22,10 +22,10 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 ## Install and first run
 
 1. Copy the APK to the device and open it (allow installing from that app when asked).
-2. Grant file access: **Settings › Apps › PhotoCraft (unofficial) › Permissions › Files and
-   media › Allow management of all files** (on Samsung, also reachable from *Settings › Apps ›
-   Special access › All files access*). Without it, File › Open and Save As can't see your
-   storage.
+2. Grant file access: open File › Open and tap **Allow access**, which goes straight to
+   PhotoCraft's "All files access" switch; turn it on and come back, and the list fills in. By
+   hand it's *Settings › Apps › ⋮ › Special access › All files access* (it isn't on the app's
+   Permissions page). Without it, File › Open and Save As can't see your storage.
 3. Fonts: the Type tool lists Android's system fonts. To add your own, put `.ttf` / `.otf`
    files in a `Fonts` folder at the top of internal storage and restart the app.
 4. For pen pressure, check **Preferences › Tools › Use Tablet Pressure**, and set a brush's
@@ -47,6 +47,10 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
   simulated from speed; off, one finger pans the canvas and two pinch to zoom, so only the pen
   draws. A tap outside the edge keyboard closes it.
 - **Two-finger tap** undoes, **three-finger tap** redoes. Pinch zooms and two fingers pan.
+- **Twist two fingers** to rotate the canvas. Small twists while pinching are ignored (12°), and
+  letting go within 8° of 0°, 90°, 180° or 270° snaps to it; View › Reset View
+  straightens it. In Pixel Art Mode the canvas only turns in 90° steps. The **Touch rotate**
+  edge key turns the gesture off.
 - On screens narrower than 1000 points (phones), the right dock starts hidden, menus that don't
   fit the menu bar move into a **»** menu at its end, and dialogs fit the screen.
 - Dragging a document tab never tears it off into a floating window (a floated one goes back with
@@ -73,6 +77,9 @@ on:
   corner, like Aseprite (`paint.pencil` `"pixelPerfect"`);
 - Free Transform starts with Nearest Neighbor interpolation.
 
+Palettes from Lospec and other pixel-art tools open straight into Swatches: `.gpl` (GIMP),
+`.pal` (JASC), `.hex` and `.ase` (File › Open, or Import Swatches in the Swatches panel menu).
+
 File › New has a **Pixel Art** category (16×16, 32×32, 64×64, 320×180 on a transparent canvas)
 that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
 
@@ -81,6 +88,8 @@ that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
 - `src/lib.rs`: the entry point (`android_main`) and the shell around `PhotocraftApp`.
 - `src/picker.rs`: Open / Choose Folder / Save As, drawn with egui over filesystem paths
   (rfd has no Android backend).
+- `src/android_system.rs`: the few Android calls made through JNI (All files access check and
+  its settings page).
 - `src/services.rs`: files, preferences, presets and crash recovery in app storage.
 - `src/edge_keys.rs`: the edge keyboard.
 - `src/pen.rs`: pen or finger, the stylus feed, finger pressure, navigating fingers.
@@ -102,5 +111,5 @@ The plan and open work are in [TODO.md](TODO.md).
 - Text in non-Latin scripts may not render, since their system fonts aren't loaded.
 - Starting a two-finger gesture can flash the first finger's dab for a frame before it's taken
   back.
-- No palm rejection yet beyond "Finger draws" off; no two-finger canvas rotation yet.
+- No palm rejection yet beyond "Finger draws" off.
 - Only arm64-v8a is built.

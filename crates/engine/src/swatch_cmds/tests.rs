@@ -438,3 +438,27 @@ fn values_beyond_f32_range_are_rejected_so_presets_survive_a_restart() {
     assert_eq!(t.presets.swatches, s.presets.swatches, "user swatches survive a save and reload");
     assert!(names(&t).contains(&"Keep me".to_string()));
 }
+
+/// Lospec's text palettes import as one group of RGB swatches, detected without a format, and
+/// export back.
+#[test]
+fn text_palettes_import_and_export() {
+    let b64 = |t: &str| photocraft_paint::tile::b64_encode(t.as_bytes());
+    let mut s = Session::new();
+    let gpl = "GIMP Palette\nName: Tiny\n#\n 26  28  44\tnight\n255   0  77\tUntitled\n";
+    let r = s.execute("swatches.import", json!({"data": b64(gpl), "group": "Tiny"})).unwrap();
+    assert_eq!((r["format"].as_str(), r["count"].as_u64()), (Some("gpl"), Some(2)));
+    let g = s.presets.swatches.last().unwrap();
+    assert_eq!(g.items[0].name, "night");
+    assert_eq!(g.items[1].name, "Swatch 2");
+    assert_eq!(g.items[1].color, SwatchColor::Rgb([1.0, 0.0, 77.0 / 255.0]));
+    for (text, format) in [("JASC-PAL\n0100\n1\n1 2 3\n", "pal"), ("#0a0b0c\n", "hex")] {
+        let r = s.execute("swatches.import", json!({"data": b64(text)})).unwrap();
+        assert_eq!(r["format"], format);
+    }
+    assert!(s.execute("swatches.import", json!({"data": b64("hello")})).is_err());
+    assert!(s.execute("swatches.import", json!({"data": b64("GIMP Palette\n"), "format": "gpl"})).is_err());
+    let r = s.execute("swatches.export", json!({"format": "hex", "group": "Tiny"})).unwrap();
+    let bytes = photocraft_paint::tile::b64_decode(r["data"].as_str().unwrap()).unwrap();
+    assert_eq!(String::from_utf8(bytes).unwrap(), "1a1c2c\nff004d\n");
+}

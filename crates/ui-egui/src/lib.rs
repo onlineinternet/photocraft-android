@@ -233,6 +233,7 @@ pub mod tiff_options_ui;
 mod tile_overlay;
 mod timeline_ui;
 mod titlebar;
+pub mod touch_rotate;
 pub use titlebar::{Caption, CaptionFamily, CaptionIcon, CaptionIcons, CaptionStyle, RenderIconFn};
 pub mod tone;
 mod tool_cursor;
@@ -1020,6 +1021,9 @@ pub struct PhotocraftApp {
     /// A touch screen is the main input (the Android shell): the Home screen shows no keyboard
     /// shortcuts or drag-and-drop hints, stacks its buttons and makes them finger-sized.
     pub touch_ui: bool,
+    /// Two fingers twisting turn the canvas (touch_rotate.rs). The touch shell sets it from its
+    /// own toggle; off on desktops.
+    pub touch_rotate: bool,
     /// Background job bookkeeping: opening tabs, control replies waiting on a job.
     pub jobs: jobs_ui::JobsUi,
     #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
@@ -1181,6 +1185,7 @@ impl PhotocraftApp {
             last_frame_start_ms: 0.0,
             touch_drag_slop: 0.0,
             touch_ui: false,
+            touch_rotate: false,
             jobs: Default::default(),
             #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
             live_tokens: theme::live::LiveTokens::from_env(),

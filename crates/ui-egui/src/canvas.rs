@@ -3606,9 +3606,15 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
     if view.fill_pending && rect.width() > 50.0 {
         fill_view(&mut view, &doc, rect.size(), ppp, aspect);
     }
-    // Pixel art shows whole screen pixels per pixel, however the zoom was set (pixel_mode.rs).
+    // Two fingers twisting turn the canvas (touch_rotate.rs); pixel art by quarter turns.
+    if let Some(r) = crate::touch_rotate::update(&ctx, egui::Id::new(("pc-canvas-twist", idx)), rect, view.rotation, app.touch_rotate, doc.pixel_art) {
+        view.rotation = r;
+    }
+    // Pixel art shows whole screen pixels per pixel, however the zoom was set, and is only ever
+    // turned by quarter turns (pixel_mode.rs).
     if doc.pixel_art {
         view.zoom = crate::zoom_levels::clamp(crate::pixel_mode::snap(view.zoom), size);
+        view.rotation = crate::rotate_view::snap_deg(view.rotation, 90.0);
     }
     // Preferences › Tools › Overscroll off: clamp before anything is drawn (scrollbars.rs).
     if !app.session.prefs().tools.overscroll && crate::scrollbars::clamp_view_with_aspect(&mut view, rect.size(), ppp, aspect) {
@@ -4009,7 +4015,8 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
             }
             _ => {}
         }
-        let rotate_trackpad = app.session.prefs().enhanced_controls.rotate_view_with_trackpad;
+        // On a touch screen two fingers turn the canvas through touch_rotate.rs instead.
+        let rotate_trackpad = app.session.prefs().enhanced_controls.rotate_view_with_trackpad && !app.touch_ui;
         if let Some(delta) = crate::rotate_view::trackpad_delta(&ctx, rotate_trackpad, touch_gestures) {
             view.zoom_animating = false;
             view.zoom_anchor = None;
