@@ -128,6 +128,11 @@ pub fn android(dirs: &Dirs, picker: SharedPicker) -> Services {
         save_file: Some(Arc::new(save_file)),
         file_dialog: Some(Box::new(move |request, _parent, reply| picker.borrow_mut().request(request, reply))),
         write: Some(Box::new(|path: &str, bytes: &[u8]| write_atomic(Path::new(path), bytes))),
+        // Files opened through Android's picker reopen by their URI (Open Recent).
+        read_uri: Some(Box::new(|path: &str| match crate::picker::saf_uri(path) {
+            Some(uri) => crate::android_system::read_uri(uri),
+            None => Err("not a file Android's picker opened".into()),
+        })),
         encode_png: Some(Box::new(|w, h, rgba| {
             let img = photocraft_codecs::Image::from_u8(w, h, photocraft_codecs::ChannelLayout::Rgba, rgba.to_vec()).map_err(|e| e.to_string())?;
             photocraft_codecs::encode(&img, photocraft_codecs::Format::Png, &photocraft_codecs::EncodeOptions::default()).map_err(|e| e.to_string())

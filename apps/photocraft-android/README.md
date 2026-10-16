@@ -35,7 +35,7 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 ## Touch features
 
 - **Edge keyboard:** tap the `‹` tab on the right edge for one-tap shortcuts: Undo, Redo,
-  Copy, Paste, Select All, Deselect, Inverse, Transform, brush Size −/+, Swap colors, New Layer,
+  Copy, Paste, **Open Photo** (File › Open from Android's photo grid), Select All, Deselect, Inverse, Transform, brush Size −/+, Swap colors, New Layer,
   and **Panels** (hide the right dock), **Hide UI** (everything but the canvas), **Search**
   (run any menu command by name), **Pixel Art** (Pixel Art Mode, below) and **Straighten**
   (turn the canvas to the nearest 90°).
@@ -83,7 +83,9 @@ on:
   corner, like Aseprite (`paint.pencil` `"pixelPerfect"`);
 - Free Transform starts with Nearest Neighbor interpolation.
 
-Palettes from Lospec and other pixel-art tools open straight into Swatches: `.gpl` (GIMP),
+Palettes from Lospec and other pixel-art tools open straight into Swatches, and the Swatches
+panel menu's **Export Swatches as GIMP Palette…** writes a `.gpl` that Aseprite, Krita and
+Lospec read. Saved New Document presets remember Pixel Art Mode. Formats read: `.gpl` (GIMP),
 `.pal` (JASC), `.hex` and `.ase` (File › Open, or Import Swatches in the Swatches panel menu).
 
 File › New has a **Pixel Art** category (16×16, 32×32, 64×64, 320×180 on a transparent canvas)
@@ -116,8 +118,9 @@ Pen samples reach the canvas through the same stylus feed the desktop tablet cod
 The plan and open work are in [TODO.md](TODO.md).
 
 
-- No OS clipboard or share sheet yet. A file opened through Android's picker has no path, so
-  File › Save asks where to save it the first time, and Open Recent can't reopen it.
+- No OS clipboard or share sheet yet. A photo opened with Open Photo is only lent to the app,
+  so File › Save asks where to save it and Open Recent can't reopen it (files from File › Open
+  can: the app keeps access to them).
 - The interface is the desktop layout; panels are still desktop-sized.
 - Text in non-Latin scripts may not render, since their system fonts aren't loaded.
 - Starting a two-finger gesture can flash the first finger's dab for a frame before it's taken
