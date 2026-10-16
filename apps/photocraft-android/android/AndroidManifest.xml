@@ -42,5 +42,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Images copied or shared to other apps (clipboard, share sheet): read-only cache files,
+             readable only through the permission Android grants for that copy or share. -->
+        <provider
+            android:name=".ImageProvider"
+            android:authorities="io.github.photocraft.unofficial.images"
+            android:exported="false"
+            android:grantUriPermissions="true" />
     </application>
 </manifest>
