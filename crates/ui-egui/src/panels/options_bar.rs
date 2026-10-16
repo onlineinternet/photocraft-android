@@ -302,6 +302,7 @@ fn brush_specific_options(app: &mut PhotocraftApp, ui: &mut egui::Ui, t: Tokens,
             widgets::vline(ui, 22.0);
             widgets::checkbox(ui, &mut app.ui.tool_options.pencil_auto_erase, tl!("Auto Erase"))
                 .on_hover_text(tl!("Draws background color over foreground colors"));
+            crate::palette_ui::pencil_options(app, ui);
             widgets::vline(ui, 22.0);
             if t.pro {
                 // Between Auto Erase and the Symmetry button the bar adds after this arm (#11962).
