@@ -251,6 +251,57 @@ pub fn write_uri(uri: &str, bytes: &[u8]) -> Result<(), String> {
     }
 }
 
+/// A Java method's "null on success, else why not" answer.
+fn error_of<'a>(env: &mut Env<'a>, answer: JObject<'a>) -> jni::errors::Result<Option<String>> {
+    if answer.is_null() {
+        return Ok(None);
+    }
+    let s = env.cast_local::<JString>(answer)?;
+    Ok(Some(s.try_to_string(env)?))
+}
+
+/// Open Android's share sheet with a PNG called `name`.
+pub fn share_image(png: &[u8], name: &str) -> Result<(), String> {
+    let why = with_activity(|env, activity| {
+        let data = env.byte_array_from_slice(png)?;
+        let name = env.new_string(name)?;
+        let r = env
+            .call_method(
+                activity,
+                jni_str!("shareImage"),
+                jni_sig!("([BLjava/lang/String;)Ljava/lang/String;"),
+                &[JValue::Object(&data), JValue::Object(&name)],
+            )?
+            .l()?;
+        error_of(env, r)
+    })?;
+    why.map_or(Ok(()), |e| Err(format!("couldn't share: {e}")))
+}
+
+/// Put a PNG on Android's clipboard.
+pub fn set_clipboard_image(png: &[u8]) -> Result<(), String> {
+    let why = with_activity(|env, activity| {
+        let data = env.byte_array_from_slice(png)?;
+        let r = env.call_method(activity, jni_str!("setClipboardImage"), jni_sig!("([B)Ljava/lang/String;"), &[JValue::Object(&data)])?.l()?;
+        error_of(env, r)
+    })?;
+    why.map_or(Ok(()), Err)
+}
+
+/// The image on Android's clipboard, still encoded (PNG, JPEG, …), if there is one.
+pub fn clipboard_image() -> Option<Vec<u8>> {
+    with_activity(|env, activity| {
+        let r = env.call_method(activity, jni_str!("clipboardImage"), jni_sig!("()[B"), &[])?.l()?;
+        if r.is_null() {
+            return Ok(None);
+        }
+        let bytes = env.cast_local::<JByteArray>(r)?;
+        Ok(Some(env.convert_byte_array(&bytes)?))
+    })
+    .ok()
+    .flatten()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -264,6 +315,9 @@ mod tests {
         assert!(create_document("a.png", "image/png").is_err());
         assert_eq!(take_picked(), None);
         assert!(read_uri("content://x").is_err());
+        assert!(share_image(b"png", "a.png").is_err());
+        assert!(set_clipboard_image(b"png").is_err());
+        assert_eq!(clipboard_image(), None);
         assert!(write_uri("content://x", b"data").is_err());
         init(std::ptr::null_mut());
         assert_eq!(has_all_files_access(), None, "a null activity is never registered");
