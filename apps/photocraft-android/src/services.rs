@@ -128,6 +128,19 @@ pub fn android(dirs: &Dirs, picker: SharedPicker) -> Services {
         save_file: Some(Arc::new(save_file)),
         file_dialog: Some(Box::new(move |request, _parent, reply| picker.borrow_mut().request(request, reply))),
         write: Some(Box::new(|path: &str, bytes: &[u8]| write_atomic(Path::new(path), bytes))),
+        // Copy and Paste reach Android's clipboard: copies go out as PNG, images copied in other
+        // apps (or a screenshot's Copy) paste in.
+        clipboard_set_image: Some(Box::new(|w: u32, h: u32, rgba: &[u8]| {
+            let img = photocraft_codecs::Image::from_u8(w, h, photocraft_codecs::ChannelLayout::Rgba, rgba.to_vec()).map_err(|e| e.to_string())?;
+            let png =
+                photocraft_codecs::encode(&img, photocraft_codecs::Format::Png, &photocraft_codecs::EncodeOptions::default()).map_err(|e| e.to_string())?;
+            crate::android_system::set_clipboard_image(&png)
+        })),
+        clipboard_get_image: Some(Box::new(|| {
+            let bytes = crate::android_system::clipboard_image()?;
+            let img = guard("Paste", || photocraft_codecs::decode(&bytes).map_err(|e| e.to_string())).ok()?;
+            Some((img.width(), img.height(), img.to_rgba8()))
+        })),
         // Files opened through Android's picker reopen by their URI (Open Recent).
         read_uri: Some(Box::new(|path: &str| match crate::picker::saf_uri(path) {
             Some(uri) => crate::android_system::read_uri(uri),
