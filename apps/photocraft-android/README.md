@@ -37,7 +37,11 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 - **Edge keyboard:** tap the `‹` tab on the right edge for one-tap shortcuts: Undo, Redo,
   Copy, Paste, Select All, Deselect, Inverse, Transform, brush Size −/+, Swap colors, New Layer,
   and **Panels** (hide the right dock), **Hide UI** (everything but the canvas), **Search**
-  (run any menu command by name) and **Pixel Art** (Pixel Art Mode, below).
+  (run any menu command by name), **Pixel Art** (Pixel Art Mode, below) and **Straighten**
+  (turn the canvas to the nearest 90°).
+- **Shift, Ctrl and Alt** at the top of the edge keyboard latch: tap one and it stays held (lit)
+  until you tap it again, so Shift-click adds to a Magic Wand or Lasso selection, Alt-click
+  subtracts, and so on. They're the same keys as Window › Modifier Keys.
 - **Apply / Cancel** buttons appear at the bottom while Free Transform or a crop is waiting,
   and a tap has to move 10 points before it drags the transform box, so a tap inside it doesn't
   nudge it and a tap outside applies it.
@@ -51,7 +55,8 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 - **Two fingers** pinch to zoom, move to pan and twist to rotate, all at once and around the
   point between them, so the picture stays under your fingers. The canvas follows your fingers
   exactly, with no snapping; View › Reset View straightens it. In Pixel Art Mode it only turns in 90° steps and zooms by whole pixels. The
-  **Touch rotate** edge key turns twisting off (pinch and pan still work).
+  **Touch rotate** edge key turns twisting off (pinch and pan still work), and **Straighten**
+  turns the canvas to the nearest 90°.
 - On screens narrower than 1000 points (phones), the right dock starts hidden, menus that don't
   fit the menu bar move into a **»** menu at its end, and dialogs fit the screen.
 - Dragging a document tab never tears it off into a floating window (a floated one goes back with
