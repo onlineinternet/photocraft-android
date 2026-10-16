@@ -89,6 +89,23 @@ panel menu's **Export Swatches as GIMP Palette…** writes a `.gpl` that Aseprit
 Lospec read. Saved New Document presets remember Pixel Art Mode. Formats read: `.gpl` (GIMP),
 `.pal` (JASC), `.hex` and `.ase` (File › Open, or Import Swatches in the Swatches panel menu).
 
+### The document palette
+
+In Pixel Art Mode the top of the Swatches panel shows the document's own **Palette** (up to 256
+colours, saved in `.pcraft`), like Aseprite's:
+
+- tap a colour to paint with it; **+** adds the foreground colour and **−** removes the selected
+  one; **From Layer** takes the colours the layer already uses (dark to light) and **From
+  Swatches** the first Swatches group (import a Lospec palette there first);
+- **Recolor** changes the selected colour *and every pixel of exactly that colour* in the
+  document to the foreground colour, so you can try a new palette on a finished sprite;
+- **Ramp** inserts four steps from the selected colour to the foreground colour, for shading.
+
+With a palette, the Pencil's options bar has **Ink**: *Shade up* / *Shade down* moves each pixel
+it passes one palette entry up or down instead of painting (Aseprite's shading ink; order the
+palette dark to light for lighten/darken), and **Palette only** paints with the palette colour
+nearest the foreground colour.
+
 File › New has a **Pixel Art** category (16×16, 32×32, 64×64, 320×180 on a transparent canvas)
 that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
 

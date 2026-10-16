@@ -3871,3 +3871,17 @@ curves	Smooth	Vloeiend maken
 	Step {step} is waiting for its dialog	Stap {step} wacht op zijn dialoogvenster
 @plural	{n} action|{n} actions	{n} handeling|{n} handelingen
 	Auto Add/Delete	Automatisch toevoegen/verwijderen
+	Palette	Palet
+	Recolor	Herkleuren
+	Ramp	Verloop
+	From Layer	Uit laag
+	From Swatches	Uit stalen
+	Ink	Inkt
+	Shade up	Schaduw omhoog
+	Shade down	Schaduw omlaag
+	Palette only	Alleen palet
+	No palette yet	Nog geen palet
+	Add the foreground color	Voorgrondkleur toevoegen
+	Remove the selected color	Geselecteerde kleur verwijderen
+	Change the selected color, and every pixel of it, to the foreground color	De geselecteerde kleur, en al haar pixels, veranderen in de voorgrondkleur
+	Add 4 steps from the selected color to the foreground color	4 stappen van de geselecteerde kleur naar de voorgrondkleur toevoegen

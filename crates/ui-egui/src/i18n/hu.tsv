@@ -4032,3 +4032,17 @@ cameraRaw	Yellow	Sárga
 	Loaded Camera Raw settings from {file}	Camera Raw-beállítások betöltve innen: {file}
 	Loaded Camera Raw settings from {file} ({n} not supported)	Camera Raw-beállítások betöltve innen: {file} ({n} nem támogatott)
 	Auto Add/Delete	Automatikus hozzáadás/törlés
+	Palette	Paletta
+	Recolor	Átszínezés
+	Ramp	Átmenet
+	From Layer	Rétegből
+	From Swatches	Színmintákból
+	Ink	Tinta
+	Shade up	Árnyalás fel
+	Shade down	Árnyalás le
+	Palette only	Csak paletta
+	No palette yet	Még nincs paletta
+	Add the foreground color	Előtérszín hozzáadása
+	Remove the selected color	A kijelölt szín eltávolítása
+	Change the selected color, and every pixel of it, to the foreground color	A kijelölt szín és minden képpontja előtérszínre cserélése
+	Add 4 steps from the selected color to the foreground color	4 lépés hozzáadása a kijelölt színtől az előtérszínig

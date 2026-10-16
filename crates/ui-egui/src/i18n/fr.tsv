@@ -3113,3 +3113,18 @@ curves	Smooth	Lisser
 	Step {step} is waiting for its dialog	L’étape {step} attend sa boîte de dialogue
 @plural	{n} action|{n} actions	{n} action|{n} actions
 	Auto Add/Delete	Ajout/suppr. auto
+	Palette	Palette
+	Recolor	Recolorer
+	Ramp	Dégradé
+	From Layer	Depuis le calque
+	From Swatches	Depuis le nuancier
+	Ink	Encre
+	Shade up	Ombrer vers le haut
+	Shade down	Ombrer vers le bas
+	Palette only	Palette uniquement
+	No palette yet	Pas encore de palette
+	Add the foreground color	Ajouter la couleur de premier plan
+	Remove the selected color	Supprimer la couleur sélectionnée
+	Change the selected color, and every pixel of it, to the foreground color	Remplacer la couleur sélectionnée, et tous ses pixels, par la couleur de premier plan
+	Add 4 steps from the selected color to the foreground color	Ajouter 4 étapes de la couleur sélectionnée à la couleur de premier plan
+	Simple	Simple

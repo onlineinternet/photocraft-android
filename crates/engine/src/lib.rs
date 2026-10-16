@@ -76,6 +76,7 @@ pub mod multichannel_cmds;
 pub mod new_layer;
 pub mod notes_cmds;
 pub mod paint_cmds;
+pub mod palette_cmds;
 pub mod palette_text;
 mod param_check;
 mod path_edit_cmds;

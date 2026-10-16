@@ -3722,3 +3722,17 @@ curves	Smooth	スムーズ
 	Step {step} is waiting for its dialog	ステップ {step} はダイアログを待っています
 @plural	{n} action|{n} actions	アクション {n} 個
 	Auto Add/Delete	自動追加・削除
+	Palette	パレット
+	Recolor	色を置き換え
+	Ramp	ランプ
+	From Layer	レイヤーから
+	From Swatches	スウォッチから
+	Ink	インク
+	Shade up	明るく陰影
+	Shade down	暗く陰影
+	Palette only	パレットのみ
+	No palette yet	パレットはまだありません
+	Add the foreground color	描画色を追加
+	Remove the selected color	選択した色を削除
+	Change the selected color, and every pixel of it, to the foreground color	選択した色とそのすべてのピクセルを描画色に変更
+	Add 4 steps from the selected color to the foreground color	選択した色から描画色まで4段階を追加
