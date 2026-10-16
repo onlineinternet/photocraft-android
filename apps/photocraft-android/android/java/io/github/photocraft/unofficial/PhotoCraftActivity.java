@@ -33,8 +33,9 @@ public class PhotoCraftActivity extends NativeActivity {
     private static final Object LOCK = new Object();
     /**
      * The latest picker answer, until the native side takes it:
-     * {"open", String[] names, byte[][] data, String error-or-null}, {"save", uri, name} or
-     * {"cancel"}.
+     * {"open", String[] names, byte[][] data, String error-or-null, String[] uris}, {"save", uri,
+     * name} or {"cancel"}. A uri is null when the file can't be reopened later (the photo picker
+     * only lends its files).
      */
     private static Object[] result;
 
@@ -71,6 +72,9 @@ public class PhotoCraftActivity extends NativeActivity {
                 i.putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes);
             }
             i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple);
+            // Keep access to the files, so File › Save writes back and Open Recent reopens them.
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             launch(i, OPEN);
         });
     }
@@ -101,6 +105,8 @@ public class PhotoCraftActivity extends NativeActivity {
             i.addCategory(Intent.CATEGORY_OPENABLE);
             i.setType(mimeType == null || mimeType.isEmpty() ? "application/octet-stream" : mimeType);
             i.putExtra(Intent.EXTRA_TITLE, name);
+            i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
             launch(i, SAVE);
         });
     }
@@ -109,7 +115,7 @@ public class PhotoCraftActivity extends NativeActivity {
         try {
             startActivityForResult(i, code);
         } catch (Exception e) {
-            answer(new Object[] {"open", new String[0], new byte[0][], "no picker: " + e});
+            answer(new Object[] {"open", new String[0], new byte[0][], "no picker: " + e, new String[0]});
         }
     }
 
@@ -128,6 +134,7 @@ public class PhotoCraftActivity extends NativeActivity {
             if (uri == null) {
                 answer(new Object[] {"cancel"});
             } else {
+                keep(uri);
                 answer(new Object[] {"save", uri.toString(), displayName(uri)});
             }
             return;
@@ -148,12 +155,14 @@ public class PhotoCraftActivity extends NativeActivity {
         new Thread(() -> {
             String[] names = new String[uris.size()];
             byte[][] bytes = new byte[uris.size()][];
+            String[] kept = new String[uris.size()];
             String error = null;
             int n = 0;
             for (Uri u : uris) {
                 try {
                     bytes[n] = read(u);
                     names[n] = displayName(u);
+                    kept[n] = keep(u) ? u.toString() : null;
                     n++;
                 } catch (Exception e) {
                     error = displayName(u) + ": " + e.getMessage();
@@ -163,8 +172,31 @@ public class PhotoCraftActivity extends NativeActivity {
             byte[][] someBytes = new byte[n][];
             System.arraycopy(names, 0, someNames, 0, n);
             System.arraycopy(bytes, 0, someBytes, 0, n);
-            answer(new Object[] {"open", someNames, someBytes, error});
+            String[] someKept = new String[n];
+            System.arraycopy(kept, 0, someKept, 0, n);
+            answer(new Object[] {"open", someNames, someBytes, error, someKept});
         }, "photocraft-open").start();
+    }
+
+    /** Keep access to {@code uri} across restarts (read and write, else read); false if it can't be kept. */
+    private boolean keep(Uri uri) {
+        int rw = Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+        try {
+            getContentResolver().takePersistableUriPermission(uri, rw);
+            return true;
+        } catch (Exception e) {
+            try {
+                getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                return true;
+            } catch (Exception ignored) {
+                return false;
+            }
+        }
+    }
+
+    /** Read a file reopened from a kept URI (Open Recent). Throws when it can't be read. */
+    public byte[] readUri(String uri) throws Exception {
+        return read(Uri.parse(uri));
     }
 
     private byte[] read(Uri uri) throws Exception {

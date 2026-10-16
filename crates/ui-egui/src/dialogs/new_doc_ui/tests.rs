@@ -223,6 +223,7 @@ fn recent_category_lists_clipboard_then_created_documents_then_uncovered_default
         profile: None,
         unit: "px".into(),
         resolution_unit: "in".into(),
+        pixel_art: false,
     };
     let mut f = Map::new();
     set_clipboard(&mut f, 20, 30);

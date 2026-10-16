@@ -142,6 +142,14 @@ impl eframe::App for AndroidShell {
             }
         }
         self.edge.run_queued(&mut self.app, ctx);
+        if std::mem::take(&mut self.edge.open_photos) {
+            // File › Open, answered from Android's photo grid.
+            self.picker.borrow_mut().photos_next = true;
+            if let Err(e) = photocraft_ui_egui::menus::invoke(&mut self.app, ctx, "file.open", serde_json::json!({})) {
+                self.picker.borrow_mut().photos_next = false;
+                log::info!("Open Photo: {e}");
+            }
+        }
         if std::mem::take(&mut self.edge.settings_changed)
             && let Err(e) = photocraft_format::atomic_write(&self.touch_file, self.edge.settings.to_json().as_bytes())
         {

@@ -29,6 +29,8 @@ pub enum Action {
     Run(&'static str, &'static str),
     /// Flip one of the touch settings.
     Toggle(Setting),
+    /// File › Open through Android's photo picker (a grid of your photos) instead of the files.
+    OpenPhotos,
 }
 
 /// The touch settings the strip can flip ([`crate::pen::TouchSettings`]).
@@ -49,6 +51,7 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
     Some(("Redo", Action::Command("edit.redo"))),
     Some(("Copy", Action::Command("edit.copy"))),
     Some(("Paste", Action::Command("edit.paste"))),
+    Some(("Open Photo", Action::OpenPhotos)),
     None,
     Some(("Select All", Action::Command("select.all"))),
     Some(("Deselect", Action::Command("select.deselect"))),
@@ -127,6 +130,8 @@ pub fn space(pressed: bool, modifiers: Modifiers) -> Event {
 
 #[derive(Default)]
 pub struct EdgeKeys {
+    /// Open Photo was tapped: the shell runs File › Open with the photo picker.
+    pub open_photos: bool,
     pub open: bool,
     pub latched: Latched,
     /// Space changed: send its key event with the next frame's input.
@@ -196,6 +201,7 @@ impl EdgeKeys {
             Action::Tap(key) => self.taps.push(key),
             Action::Command(id) => self.queued.push((id, json!({}))),
             Action::Run(id, params) => self.queued.push((id, serde_json::from_str(params).unwrap_or_else(|_| json!({})))),
+            Action::OpenPhotos => self.open_photos = true,
             Action::Toggle(setting) => {
                 let s = &mut self.settings;
                 match setting {
@@ -218,7 +224,7 @@ impl EdgeKeys {
             Action::Toggle(Setting::FingerDraws) => self.settings.finger_draws,
             Action::Toggle(Setting::FingerPressure) => self.settings.finger_pressure,
             Action::Toggle(Setting::TouchRotate) => self.settings.touch_rotate,
-            Action::Tap(_) | Action::Command(_) | Action::Run(..) => false,
+            Action::Tap(_) | Action::Command(_) | Action::Run(..) | Action::OpenPhotos => false,
         }
     }
 
