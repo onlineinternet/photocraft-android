@@ -262,6 +262,14 @@ impl PhotocraftApp {
     fn open_contents(&mut self, mut files: Vec<(String, Vec<u8>)>) {
         files.sort_by(|a, b| crate::file_open::natural_cmp(&a.0, &b.0));
         for (name, bytes) in files {
+            // A file the platform read from a URI (Android's picker): it keeps that as its path,
+            // so File › Save writes back and Open Recent can reopen it.
+            if crate::file_open::is_uri(&name) {
+                if let Err(e) = self.open_file(&name, &bytes) {
+                    self.open_failed(&crate::file_open::display_name(&name), &e);
+                }
+                continue;
+            }
             if let Err(e) = self.open_bytes(&name, &bytes) {
                 self.open_failed(&name, &e);
             }

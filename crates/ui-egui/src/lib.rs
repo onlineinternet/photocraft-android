@@ -468,6 +468,8 @@ pub struct FileStamp {
 pub type FileStampFn = Box<dyn Fn(&str) -> Option<FileStamp>>;
 /// Whether two paths name one entry in one folder on disk; false when either can't be read.
 pub type SameFileFn = Box<dyn Fn(&str, &str) -> bool>;
+/// See [`Services::read_uri`].
+pub type ReadUriFn = Box<dyn FnMut(&str) -> Result<Vec<u8>, String>>;
 /// Encode a document and write it to a path, reporting the stage to the job; returns the export
 /// warnings. Runs on a worker thread (see [`Services::save_file`]). It must call
 /// [`jobs_ui::SaveCtl::commit`] right before replacing the file, and write nothing if that fails.
@@ -589,6 +591,9 @@ pub struct Services {
     /// cancel and which reports nothing back), so a save through it names the document but
     /// leaves its changes unsaved and the leave-page guard armed (#4962).
     pub write_unconfirmed: bool,
+    /// Read a file named by a URI rather than a path (`content://…` on Android), for Open Recent
+    /// and the like; plain paths are read from disk as usual.
+    pub read_uri: Option<ReadUriFn>,
     /// Encode and write in one step on a worker thread, so a large save doesn't freeze the
     /// window (#2017). With background jobs on, saves use it instead of `export` and `write`.
     pub save_file: Option<SaveFileFn>,

@@ -365,6 +365,7 @@ pub fn apply_settings(f: &mut Map<String, Value>, settings: &DocumentSettings) {
     f.remove("backgroundColor");
     // A preset without a Color Profile is on the working space, whatever was picked before.
     f.remove("profile");
+    f.remove("pixelArt");
     if let Some(params) = settings.command_params().as_object() {
         f.extend(params.clone());
     }
@@ -395,6 +396,7 @@ fn holds(f: &Map<String, Value>, settings: &DocumentSettings) -> bool {
         && f.get("depth").and_then(Value::as_u64).unwrap_or(8) == u64::from(settings.depth)
         && get_s(f, "mode", "rgb") == settings.mode
         && get_s(f, "background", "white") == settings.background
+        && f.get("pixelArt").and_then(Value::as_bool).unwrap_or(false) == settings.pixel_art
 }
 
 /// A card in the preset grid: a built-in preset or a recently created document.
@@ -1075,6 +1077,7 @@ mod tests {
             profile: None,
             unit: "px".into(),
             resolution_unit: "in".into(),
+            pixel_art: false,
         };
         let mut f = Map::new();
         set_clipboard(&mut f, 20, 30);

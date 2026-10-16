@@ -226,6 +226,10 @@ pub fn panel_menu(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     if ui.add_enabled(!empty, egui::Button::new(tl!("Export Swatches for Exchange…"))).clicked() {
         act = Some("ase");
     }
+    // GIMP palettes open in Aseprite, Krita, Lospec and most pixel-art tools.
+    if ui.add_enabled(!empty, egui::Button::new(tl!("Export Swatches as GIMP Palette…"))).clicked() {
+        act = Some("gpl");
+    }
     ui.separator();
     if ui.button(tl!("Reset Swatches")).clicked() {
         act = Some("reset");
@@ -243,7 +247,7 @@ pub fn panel_menu(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         }
         "import" => import_dialog(app, false),
         "replace" => import_dialog(app, true),
-        "aco" | "ase" => export_dialog(app, a),
+        "aco" | "ase" | "gpl" => export_dialog(app, a),
         _ => app.run("swatches.reset", json!({})),
     };
     if let Err(e) = r

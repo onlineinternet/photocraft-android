@@ -1093,3 +1093,36 @@ fn opening_an_open_file_again_shows_its_tab() {
         let _ = std::fs::remove_dir_all(&d);
     }
 }
+
+/// Android's picker answers a file it read from a `content://` URI as `<uri>/<name>`: the
+/// document keeps that as its path (File › Save writes back through the platform), goes to Open
+/// Recent, and Open Recent reads it through `read_uri`.
+#[test]
+fn a_file_read_from_a_uri_keeps_it_as_its_path_and_reopens_from_recent() {
+    let path = "content://com.android.providers.downloads.documents/document/msf%3A42/Sprite.psd";
+    assert!(is_uri(path));
+    assert!(!is_uri("/storage/emulated/0/Pictures/a.png") && !is_uri("C:\\a.png") && !is_uri("://x"));
+    let (mut app, written) = app_with(vec![Some(FileDialogAnswer::Contents(path.into(), b"img".to_vec()))]);
+    menus::invoke(&mut app, &egui::Context::default(), "file.open", json!({})).unwrap();
+    answer(&mut app);
+    let st = app.session.active().unwrap();
+    assert_eq!(st.doc.name, "Sprite.psd");
+    assert_eq!(st.path.as_deref(), Some(path));
+    assert_eq!(app.ui.recent_files.first().map(String::as_str), Some(path));
+    menus::invoke(&mut app, &egui::Context::default(), "file.save", json!({})).unwrap();
+    assert_eq!(written.borrow().last().map(|w| w.0.as_str()), Some(path), "Save writes back to the URI");
+
+    // Opening it again while it's open shows its tab (#6598).
+    let open = app.session.documents().len();
+    app.open_path(path).unwrap();
+    assert_eq!(app.session.documents().len(), open);
+
+    // Closed, then Open Recent: no reader, a clear error; with one, it opens.
+    app.session.close(open - 1);
+    assert!(app.open_path(path).unwrap_err().contains("Sprite.psd"));
+    app.services.read_uri = Some(Box::new(|p: &str| if p.ends_with("Sprite.psd") { Ok(b"img".to_vec()) } else { Err("gone".into()) }));
+    let before = app.session.documents().len();
+    app.open_paths(&[path.to_string()]);
+    assert_eq!(app.session.documents().len(), before + 1, "reopened from its URI, not a made-up file path");
+    assert!(app.open_path("content://x/y/Missing.png").unwrap_err().contains("gone"));
+}

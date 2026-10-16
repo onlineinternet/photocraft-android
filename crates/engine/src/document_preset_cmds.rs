@@ -110,6 +110,9 @@ pub struct DocumentSettings {
     /// Display units only; width/height are always pixels and resolution is always ppi.
     pub unit: String,
     pub resolution_unit: String,
+    /// The document starts in Pixel Art Mode (`file.new` `pixelArt`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub pixel_art: bool,
 }
 
 impl DocumentSettings {
@@ -181,6 +184,9 @@ impl DocumentSettings {
         }
         if let Some(profile) = &self.profile {
             p["profile"] = json!(profile);
+        }
+        if self.pixel_art {
+            p["pixelArt"] = json!(true);
         }
         p
     }
@@ -420,6 +426,24 @@ mod tests {
                 assert_eq!(doc.depth, sample_type(depth).unwrap());
             }
         }
+    }
+
+    #[test]
+    fn a_saved_preset_remembers_pixel_art_mode() {
+        let mut s = Session::new();
+        let mut config = settings();
+        config["pixelArt"] = json!(true);
+        let preset = saved(&mut s, "Sprite", config.clone());
+        assert_eq!(preset["settings"]["pixelArt"], true);
+        let next = reload(&s);
+        let mut next = next;
+        let selected = next.execute("document.presets.get", json!({"name": "Sprite"})).unwrap();
+        assert_eq!(selected["params"]["pixelArt"], true);
+        next.execute("file.new", selected["params"].clone()).unwrap();
+        assert!(next.active().unwrap().doc.pixel_art);
+        // A plain preset leaves it out entirely (older files never had it).
+        let plain = saved(&mut s, "Plain", settings());
+        assert!(plain["settings"].get("pixelArt").is_none());
     }
 
     #[test]

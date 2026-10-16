@@ -9,7 +9,9 @@ where they fit. Done items move to the bottom with the date.
       canvas draws one frame behind the fingers, and the GPU canvas rounds its position to whole
       pixels.)
 - [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
-- [ ] Try File › Open and Save As through Android's pickers (Drive, Downloads, thumbnails).
+- [ ] Try File › Open and Save As through Android's pickers (Drive, Downloads, thumbnails),
+      then File › Save on a file opened that way and Open Recent after restarting the app.
+- [ ] Try the Open Photo edge key (Android's photo grid).
 
 ## Touch and layout (Clip Studio Paint style)
 
@@ -17,9 +19,6 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Phone layout: bottom toolbar, tool groups that pop out, dialogs as bottom sheets.
 - [ ] Panels on phones and the tablet: undecided how they should work yet.
 - [ ] Palm rejection beyond "Finger draws" off.
-- [ ] Android's photo picker (the grid of photos) as its own entry, e.g. File › Open Photo or a
-      Home screen button (`android_system::pick_photos` is ready).
-- [ ] Reopen files from Android's picker in Open Recent (keep a persistable URI permission).
 - [ ] OS clipboard and share sheet.
 - [ ] Load system fonts for non-Latin scripts.
 - [ ] Get rid of the one-frame flash of a dab before a two-finger gesture takes it back.
@@ -28,11 +27,8 @@ where they fit. Done items move to the bottom with the date.
 
 - [ ] Phase 2, palette: replace an exact colour across the layer or document (palette-linked
       recolor), colour ramps, a shading ink that steps along a ramp, palette-only painting.
-- [ ] A Swatches menu item to export `.gpl`/`.hex`/`.pal` (the `swatches.export` command
-      already can).
 - [ ] Phase 3, animation: onion skin, frame tags, sprite-sheet export with JSON.
 - [ ] Phase 4: tilemaps, 9-patch slices, tiled (wrap-around) painting.
-- [ ] Saved New Document presets don't remember Pixel Art Mode yet.
 
 ## Community content
 
@@ -47,6 +43,10 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-10-16: Files from File › Open keep a persistable URI: File › Save writes back and Open
+  Recent reopens them (`Services::read_uri`, `content://` paths). Open Photo edge key (Android's
+  photo picker). Swatches › Export Swatches as GIMP Palette…. Saved New Document presets keep
+  Pixel Art Mode.
 - 2026-10-16: Shift / Ctrl / Alt latching keys back on the edge keyboard (for Magic Wand and
   other click modifiers); Straighten key (`view.rotateView {"snap": 90}`).
 - 2026-10-15: Two-finger zoom, pan and rotate together around the fingers, read from raw

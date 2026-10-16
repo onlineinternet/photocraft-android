@@ -161,12 +161,13 @@ pub struct System {
     pub open: fn(bool, &[&str]) -> Result<(), String>,
     pub create: fn(&str, &str) -> Result<(), String>,
     pub take: fn() -> Option<crate::android_system::Picked>,
+    pub photos: fn(bool) -> Result<(), String>,
 }
 
 impl Default for System {
     fn default() -> Self {
         use crate::android_system as a;
-        Self { open: a::open_document, create: a::create_document, take: a::take_picked }
+        Self { open: a::open_document, create: a::create_document, take: a::take_picked, photos: a::pick_photos }
     }
 }
 
@@ -211,6 +212,10 @@ pub fn answer_for(picked: crate::android_system::Picked, multiple: bool) -> Opti
             if files.is_empty() {
                 return error.map(|e| FileDialogAnswer::Unavailable(format!("Couldn't open {e}")));
             }
+            // A file Android lets the app keep is named by `<uri>/<name>`, so it opens with that as
+            // its path: File › Save writes back to it and Open Recent reopens it.
+            let mut files: Vec<(String, Vec<u8>)> =
+                files.drain(..).map(|f| (f.uri.as_deref().map_or_else(|| f.name.clone(), |u| saf_path(u, &f.name)), f.bytes)).collect();
             if multiple && files.len() > 1 {
                 Some(FileDialogAnswer::ContentsMany(files))
             } else {
@@ -231,11 +236,13 @@ pub struct Host {
     pub system: System,
     /// Waiting for Android's picker to answer this (and whether it may answer several files).
     waiting: Option<(FileDialogReply, bool)>,
+    /// The next Open shows Android's photo picker rather than its files.
+    pub photos_next: bool,
 }
 
 impl Host {
     pub fn new(storage: PathBuf) -> Self {
-        Self { storage, last_dir: None, active: None, access: Access::default(), system: System::default(), waiting: None }
+        Self { storage, last_dir: None, active: None, access: Access::default(), system: System::default(), waiting: None, photos_next: false }
     }
 
     pub fn is_open(&self) -> bool {
@@ -258,6 +265,7 @@ impl Host {
         // files access needed); this picker is the fallback, and still chooses folders.
         self.waiting = None;
         let system = match &request {
+            FileDialogRequest::Open { multiple, .. } if std::mem::take(&mut self.photos_next) => (self.system.photos)(*multiple).map(|()| *multiple),
             FileDialogRequest::Open { multiple, .. } => (self.system.open)(*multiple, &[]).map(|()| *multiple),
             FileDialogRequest::Save { suggested } => {
                 let name = Path::new(suggested).file_name().map_or_else(|| suggested.clone(), |n| n.to_string_lossy().into_owned());
@@ -558,9 +566,16 @@ mod tests {
     fn android_picker_answers_become_the_apps() {
         use crate::android_system::Picked;
         assert_eq!(answer_for(Picked::Cancel, false), None);
-        let one = Picked::Open { files: vec![("a.png".into(), vec![1])], error: None };
-        assert_eq!(answer_for(one, true), Some(FileDialogAnswer::Contents("a.png".into(), vec![1])));
-        let two = Picked::Open { files: vec![("a.png".into(), vec![1]), ("b.psd".into(), vec![2])], error: None };
+        let f = |name: &str, b: u8, uri: Option<&str>| crate::android_system::PickedFile { name: name.into(), bytes: vec![b], uri: uri.map(Into::into) };
+        let one = Picked::Open { files: vec![f("a.png", 1, None)], error: None };
+        assert_eq!(answer_for(one, true), Some(FileDialogAnswer::Contents("a.png".into(), vec![1])), "a lent photo has only its name");
+        let kept = Picked::Open { files: vec![f("a.png", 1, Some("content://docs/document/7"))], error: None };
+        assert_eq!(
+            answer_for(kept, false),
+            Some(FileDialogAnswer::Contents("content://docs/document/7/a.png".into(), vec![1])),
+            "a kept file opens by its URI"
+        );
+        let two = Picked::Open { files: vec![f("a.png", 1, None), f("b.psd", 2, None)], error: None };
         assert!(matches!(answer_for(two.clone(), true), Some(FileDialogAnswer::ContentsMany(f)) if f.len() == 2));
         assert!(matches!(answer_for(two, false), Some(FileDialogAnswer::Contents(n, _)) if n == "a.png"));
         let failed = Picked::Open { files: vec![], error: Some("big.psd: too large".into()) };
