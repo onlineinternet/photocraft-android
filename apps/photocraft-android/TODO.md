@@ -47,6 +47,8 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-10-16: Shift / Ctrl / Alt latching keys back on the edge keyboard (for Magic Wand and
+  other click modifiers); Straighten key (`view.rotateView {"snap": 90}`).
 - 2026-10-15: Two-finger zoom, pan and rotate together around the fingers, read from raw
   touches (egui's pinch never started once the shell dropped the mouse, which broke pinch zoom);
   no dead zone or snapping (quarter turns only in Pixel Art Mode), "Touch rotate" toggle.
