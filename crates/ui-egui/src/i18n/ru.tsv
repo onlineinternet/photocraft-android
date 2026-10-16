@@ -4625,3 +4625,17 @@ shape	Appearance	Оформление
 	Grayscale Ramp	Шкала градаций серого
 	Current Colors	Текущие цвета
 	Make Ramp Web Safe	Сделать шкалу безопасной для web
+	Palette	Палитра
+	Recolor	Перекрасить
+	Ramp	Переход
+	From Layer	Из слоя
+	From Swatches	Из образцов
+	Ink	Чернила
+	Shade up	Тень вверх
+	Shade down	Тень вниз
+	Palette only	Только палитра
+	No palette yet	Палитры пока нет
+	Add the foreground color	Добавить основной цвет
+	Remove the selected color	Удалить выбранный цвет
+	Change the selected color, and every pixel of it, to the foreground color	Заменить выбранный цвет и все его пиксели основным цветом
+	Add 4 steps from the selected color to the foreground color	Добавить 4 шага от выбранного цвета к основному

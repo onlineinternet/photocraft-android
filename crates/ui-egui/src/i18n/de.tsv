@@ -3435,3 +3435,18 @@ curves	Smooth	Glätten
 	Grayscale Ramp	Graustufenbalken
 	Current Colors	Aktuelle Farben
 	Make Ramp Web Safe	Farbbalken auf Webfarben beschränken
+	Palette	Palette
+	Recolor	Umfärben
+	Ramp	Verlauf
+	From Layer	Aus Ebene
+	From Swatches	Aus Farbfeldern
+	Ink	Tinte
+	Shade up	Heller schattieren
+	Shade down	Dunkler schattieren
+	Palette only	Nur Palette
+	No palette yet	Noch keine Palette
+	Add the foreground color	Vordergrundfarbe hinzufügen
+	Remove the selected color	Ausgewählte Farbe entfernen
+	Change the selected color, and every pixel of it, to the foreground color	Ausgewählte Farbe und alle ihre Pixel in die Vordergrundfarbe ändern
+	Add 4 steps from the selected color to the foreground color	4 Stufen von der ausgewählten Farbe zur Vordergrundfarbe hinzufügen
+	Simple	Einfach

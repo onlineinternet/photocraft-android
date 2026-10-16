@@ -285,6 +285,7 @@ fn stroke_with(s: &mut Session, cmd: &str, p: &Value, label: &str, brush: BrushS
     // instead of rendering the whole stroke again (the hitch at pen-up).
     let live = s.live_commit.take().filter(|l| l.matches(s, cmd, p, &pts));
     let from_live = live.is_some();
+    let shade = if cmd == "paint.pencil" { Shade::of(s, p)? } else { None };
     let dmg = photocraft_color::convert::with_cmyk_space(cmyk.as_ref(), || {
         s.edit(label, |doc, _| {
             if let Some(l) = live {
@@ -294,6 +295,7 @@ fn stroke_with(s: &mut Session, cmd: &str, p: &Value, label: &str, brush: BrushS
             }
             let sel = doc.selection.clone();
             let (surf, lock) = crate::channel_cmds::target_surface(doc, id, p)?;
+            let before = shade.as_ref().map(|_| surf.clone());
             let mut brush = brush;
             erase_locked(&mut brush, lock, bg);
             if auto_erase {
@@ -323,6 +325,9 @@ fn stroke_with(s: &mut Session, cmd: &str, p: &Value, label: &str, brush: BrushS
             } else {
                 render_stroke(surf, &brush, &pts, sel.as_ref(), lock, zoom)
             };
+            if let (Some(shade), Some(before)) = (&shade, &before) {
+                shade.apply(before, surf, damage);
+            }
             Ok(damage)
         })
     })?;
@@ -331,6 +336,41 @@ fn stroke_with(s: &mut Session, cmd: &str, p: &Value, label: &str, brush: BrushS
         r["fromLive"] = json!(true);
     }
     Ok(r)
+}
+
+/// The Pencil's shading ink (`"shade": 1` or `-1`): each pixel the stroke passes moves one
+/// entry along the document's palette (palette_cmds.rs). The stroke paints a marker colour that
+/// isn't in the palette, and [`Shade::apply`] turns the marked pixels into their shaded colours.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct Shade {
+    step: i32,
+    palette: Vec<[f32; 3]>,
+    marker: [f32; 3],
+}
+
+impl Shade {
+    /// The shading `p` asks for, if any.
+    fn of(s: &Session, p: &Value) -> Result<Option<Self>> {
+        let step = match p.get("shade") {
+            None | Some(Value::Null) => return Ok(None),
+            Some(v) => match v.as_i64() {
+                Some(0) => return Ok(None),
+                Some(1) => 1,
+                Some(-1) => -1,
+                _ => return Err(bad("paint.pencil", "`shade` must be 1 (along the palette), -1 (back) or 0")),
+            },
+        };
+        let palette = s.active().map(|st| st.doc.palette.clone()).unwrap_or_default();
+        if palette.is_empty() {
+            return Err(bad("paint.pencil", "shading moves pixels along the palette, and this document has none"));
+        }
+        let marker = crate::palette_cmds::shade_marker(&palette);
+        Ok(Some(Self { step, palette, marker }))
+    }
+
+    fn apply(&self, pre: &Surface, surf: &mut Surface, area: Rect) {
+        crate::palette_cmds::shade_pixels(pre, surf, area, self.marker, &self.palette, self.step);
+    }
 }
 
 /// Pencil Auto Erase: a stroke that starts on a pixel of the foreground colour paints the
@@ -351,6 +391,26 @@ fn pencil_brush(s: &Session, p: &Value) -> Result<BrushSettings> {
         return block_brush(brush, p);
     }
     brush.aliased = true;
+    if let Some(shade) = Shade::of(s, p)? {
+        // A plain, solid marker stroke: the shading replaces every pixel it covers.
+        let [r, g, b] = shade.marker;
+        brush.color = [r, g, b, 1.0];
+        brush.color_cmyk = None;
+        brush.opacity = 1.0;
+        brush.flow = 1.0;
+        brush.erase = false;
+        brush.mode = photocraft_color::BlendMode::Normal;
+        brush.pressure_opacity = false;
+        brush.color_dynamics = Default::default();
+        brush.transfer = Default::default();
+    } else if flag(p, "paletteLock", false)
+        && let Some(palette) = s.active().map(|st| &st.doc.palette)
+        && let Some(c) = crate::palette_cmds::nearest(palette, [brush.color[0], brush.color[1], brush.color[2]]).and_then(|k| palette.get(k))
+    {
+        // Palette only: the nearest palette colour.
+        brush.color = [c[0], c[1], c[2], brush.color[3]];
+        brush.color_cmyk = None;
+    }
     // Pixel-perfect lines (Aseprite): a 1 px pencil drops the L-corner pixels of a freehand
     // line. On by default in a pixel-art document.
     let pixel_art = s.active().is_some_and(|d| d.doc.pixel_art);
@@ -459,6 +519,8 @@ pub struct LiveStroke {
     points: Vec<StrokePoint>,
     /// The document and revision the stroke started on.
     base: (photocraft_doc::DocId, u64),
+    /// The Pencil's shading ink, applied to what each step painted.
+    shade: Option<Shade>,
 }
 
 /// A finished live stroke offered to its own commit ([`Session::offer_live_stroke`],
@@ -514,6 +576,7 @@ impl LiveStroke {
             other => return Err(bad(other, "live strokes are `paint.stroke` or `paint.pencil`")),
         };
         let brush = if pencil { pencil_brush(s, p)? } else { with_blend_mode(resolve_brush(s, p, cmd)?, p) };
+        let shade = if pencil { Shade::of(s, p)? } else { None };
         let (seed, fg) = (brush.seed, brush.color);
         let (layer, mut brush, zoom) = stroke_target(s, p, brush)?;
         let st = s.active().ok_or(EngineError::NoDocument)?;
@@ -548,6 +611,7 @@ impl LiveStroke {
             cmyk: doc_cmyk_space(s),
             points: Vec::new(),
             base,
+            shade,
         };
         live.push(&pts)?;
         Ok(live)
@@ -617,6 +681,9 @@ impl LiveStroke {
                 dmg = dmg.union(&StrokeRenderer::composite_union_live(&mut renderers, &mut live, full, &self.pre, surf, self.sel.as_ref(), self.lock));
                 self.tail = old.union(&live.bounds());
                 self.union_live = Some((live, passes));
+                if let Some(shade) = &self.shade {
+                    shade.apply(&self.pre, surf, dmg);
+                }
                 return Ok(dmg);
             }
             let mut dmg = Rect::EMPTY;
@@ -631,6 +698,9 @@ impl LiveStroke {
             if let Some(mut tail) = self.renderer.tail_preview() {
                 self.tail = tail.composite(&self.pre, surf, self.sel.as_ref(), self.lock, false);
                 dmg = dmg.union(&self.tail);
+            }
+            if let Some(shade) = &self.shade {
+                shade.apply(&self.pre, surf, dmg);
             }
             Ok(dmg)
         })
@@ -1199,7 +1269,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "paint.pencil",
             "Pencil",
-            r##"{"points":[[x,y,pressure?,tiltX?,tiltY?,rotation?,timeMs?,wheel?],…],"brush":{…}?,"preset":name?,"size":0.5..5000 px?,"opacity":0..1?,"color":"#rrggbb"?=foreground,"mode":"normal|multiply|screen|…|clear (erases with this brush)"="normal","erase":bool?,"block":bool=false (a hard 16×16 screen-px square, 16/zoom doc px; size, opacity, flow, hardness and dynamics ignored: the Eraser's Block mode),"zoom":view zoom=1,"autoErase":bool=false,"pixelPerfect":bool=document is pixel art (a 1 px line drops its L-corner pixels),"seed":u64?,"target":"pixels"|"mask"|"quickMask"|{"channel":i}=Channels panel target}"##,
+            r##"{"points":[[x,y,pressure?,tiltX?,tiltY?,rotation?,timeMs?,wheel?],…],"brush":{…}?,"preset":name?,"size":0.5..5000 px?,"opacity":0..1?,"color":"#rrggbb"?=foreground,"mode":"normal|multiply|screen|…|clear (erases with this brush)"="normal","erase":bool?,"block":bool=false (a hard 16×16 screen-px square, 16/zoom doc px; size, opacity, flow, hardness and dynamics ignored: the Eraser's Block mode),"zoom":view zoom=1,"autoErase":bool=false,"pixelPerfect":bool=document is pixel art (a 1 px line drops its L-corner pixels),"shade":1|-1|0=0 (shading ink: each pixel passed moves one entry along the document palette),"paletteLock":bool=false (paint with the nearest palette colour),"seed":u64?,"target":"pixels"|"mask"|"quickMask"|{"channel":i}=Channels panel target}"##,
             has_paintable,
             pencil,
             true

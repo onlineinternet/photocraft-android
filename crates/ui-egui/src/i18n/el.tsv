@@ -4122,3 +4122,17 @@ curves	Smooth	Εξομάλυνση
 	Grayscale Ramp	Διαβάθμιση του γκρι
 	Current Colors	Τρέχοντα χρώματα
 	Make Ramp Web Safe	Μόνο χρώματα ιστού στη διαβάθμιση
+	Palette	Παλέτα
+	Recolor	Επαναχρωματισμός
+	Ramp	Διαβάθμιση
+	From Layer	Από επίπεδο
+	From Swatches	Από δείγματα
+	Ink	Μελάνι
+	Shade up	Σκίαση προς τα πάνω
+	Shade down	Σκίαση προς τα κάτω
+	Palette only	Μόνο παλέτα
+	No palette yet	Δεν υπάρχει ακόμη παλέτα
+	Add the foreground color	Προσθήκη χρώματος προσκηνίου
+	Remove the selected color	Αφαίρεση επιλεγμένου χρώματος
+	Change the selected color, and every pixel of it, to the foreground color	Αλλαγή του επιλεγμένου χρώματος και όλων των pixel του στο χρώμα προσκηνίου
+	Add 4 steps from the selected color to the foreground color	Προσθήκη 4 βημάτων από το επιλεγμένο χρώμα στο χρώμα προσκηνίου

@@ -860,6 +860,9 @@ pub struct Metadata {
     pub psd_global_blocks: Vec<PsdGlobalBlock>,
 }
 
+/// Most colours a pixel-art palette holds (Aseprite and indexed images top out at 256).
+pub const MAX_PALETTE: usize = 256;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Document {
     pub id: DocId,
@@ -905,6 +908,10 @@ pub struct Document {
     /// and edits it for pixel work (whole-number zoom, pixel grid, no anti-aliasing, the Pencil
     /// pixel-perfect). Saved in `.pcraft` only.
     pub pixel_art: bool,
+    /// The pixel-art palette: sRGB colours (0..1) in order, kept with the document like
+    /// Aseprite's. Painting can be locked to it and recolouring an entry recolours its pixels.
+    /// Saved in `.pcraft` only (a PSD keeps no palette for RGB images).
+    pub palette: Vec<[f32; 3]>,
     /// Window › Layer Comps, top to bottom as listed in the panel.
     pub layer_comps: Vec<LayerComp>,
     /// Id of the comp applied last (PSD `lastAppliedComp`); None = the document's own state.
@@ -986,6 +993,7 @@ impl Document {
             color_table: None,
             duotone: None,
             pixel_art: false,
+            palette: Vec::new(),
             layer_comps: Vec::new(),
             last_applied_comp: None,
             last_document_state: None,

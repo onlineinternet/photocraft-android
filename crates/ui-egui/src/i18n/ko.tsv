@@ -3633,3 +3633,17 @@ curves	Smooth	매끄럽게
 	Grayscale Ramp	회색 음영 램프
 	Current Colors	현재 색상
 	Make Ramp Web Safe	램프를 웹 안전 색상으로 만들기
+	Palette	팔레트
+	Recolor	색 바꾸기
+	Ramp	램프
+	From Layer	레이어에서
+	From Swatches	견본에서
+	Ink	잉크
+	Shade up	밝게 음영
+	Shade down	어둡게 음영
+	Palette only	팔레트만
+	No palette yet	아직 팔레트가 없습니다
+	Add the foreground color	전경색 추가
+	Remove the selected color	선택한 색 제거
+	Change the selected color, and every pixel of it, to the foreground color	선택한 색과 그 색의 모든 픽셀을 전경색으로 변경
+	Add 4 steps from the selected color to the foreground color	선택한 색에서 전경색까지 4단계 추가

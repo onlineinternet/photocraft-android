@@ -4384,3 +4384,17 @@ navigator	Zoom	Zoom
 	Grayscale Ramp	Rampa de escala de grises
 	Current Colors	Colores actuales
 	Make Ramp Web Safe	Hacer rampa segura para web
+	Palette	Paleta
+	Recolor	Recolorear
+	Ramp	Rampa
+	From Layer	Desde capa
+	From Swatches	Desde muestras
+	Ink	Tinta
+	Shade up	Sombrear arriba
+	Shade down	Sombrear abajo
+	Palette only	Solo paleta
+	No palette yet	Aún no hay paleta
+	Add the foreground color	Añadir el color frontal
+	Remove the selected color	Quitar el color seleccionado
+	Change the selected color, and every pixel of it, to the foreground color	Cambiar el color seleccionado, y todos sus píxeles, al color frontal
+	Add 4 steps from the selected color to the foreground color	Añadir 4 pasos del color seleccionado al color frontal

@@ -4132,3 +4132,17 @@ curves	Smooth	Згладити
 	Grayscale Ramp	Шкала градацій сірого
 	Current Colors	Поточні кольори
 	Make Ramp Web Safe	Зробити шкалу безпечною для вебу
+	Palette	Палітра
+	Recolor	Перефарбувати
+	Ramp	Перехід
+	From Layer	Із шару
+	From Swatches	Зі зразків
+	Ink	Чорнило
+	Shade up	Тінь угору
+	Shade down	Тінь униз
+	Palette only	Лише палітра
+	No palette yet	Палітри ще немає
+	Add the foreground color	Додати основний колір
+	Remove the selected color	Вилучити вибраний колір
+	Change the selected color, and every pixel of it, to the foreground color	Змінити вибраний колір і всі його пікселі на основний колір
+	Add 4 steps from the selected color to the foreground color	Додати 4 кроки від вибраного кольору до основного

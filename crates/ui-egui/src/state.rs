@@ -817,6 +817,13 @@ pub struct ToolOptions {
     /// Pencil › Auto Erase: a stroke that starts on the foreground colour paints the background colour.
     #[serde(default)]
     pub pencil_auto_erase: bool,
+    /// Pencil › Ink in Pixel Art Mode: 0 paints, 1 / -1 shade each pixel one palette entry up
+    /// or down (`paint.pencil` `"shade"`, palette_ui.rs).
+    #[serde(default)]
+    pub pencil_shade: i8,
+    /// Pencil › Palette only in Pixel Art Mode: paint with the nearest palette colour.
+    #[serde(default)]
+    pub pencil_palette_lock: bool,
     /// Brush › Mode: Clear, which erases with the Brush (Photoshop's painting-only mode, #3439).
     /// Not a blend mode, so it is kept beside the brush's `mode` rather than in it.
     #[serde(default)]
@@ -1047,6 +1054,8 @@ impl Default for ToolOptions {
             cr_anti_alias: true,
             zoom_scrubby: true,
             pencil_auto_erase: false,
+            pencil_shade: 0,
+            pencil_palette_lock: false,
             brush_clear: false,
             pencil_clear: false,
             eraser_mode: default_eraser_mode(),

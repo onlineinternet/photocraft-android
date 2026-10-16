@@ -4168,3 +4168,17 @@ cameraRaw	Dehaze	Odstranění oparu
 	Grayscale Ramp	Přechod stupňů šedi
 	Current Colors	Aktuální barvy
 	Make Ramp Web Safe	Omezit pruh na webové barvy
+	Palette	Paleta
+	Recolor	Přebarvit
+	Ramp	Přechod
+	From Layer	Z vrstvy
+	From Swatches	Ze vzorníku
+	Ink	Inkoust
+	Shade up	Stínovat nahoru
+	Shade down	Stínovat dolů
+	Palette only	Jen paleta
+	No palette yet	Zatím žádná paleta
+	Add the foreground color	Přidat barvu popředí
+	Remove the selected color	Odebrat vybranou barvu
+	Change the selected color, and every pixel of it, to the foreground color	Změnit vybranou barvu a všechny její pixely na barvu popředí
+	Add 4 steps from the selected color to the foreground color	Přidat 4 kroky od vybrané barvy k barvě popředí

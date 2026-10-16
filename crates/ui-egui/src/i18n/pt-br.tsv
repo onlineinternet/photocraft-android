@@ -4352,3 +4352,17 @@ layerLabel	No Color	Sem cor
 	Grayscale Ramp	Rampa de tons de cinza
 	Current Colors	Cores atuais
 	Make Ramp Web Safe	Tornar rampa segura para a Web
+	Palette	Paleta
+	Recolor	Recolorir
+	Ramp	Rampa
+	From Layer	Da camada
+	From Swatches	Das amostras
+	Ink	Tinta
+	Shade up	Sombrear para cima
+	Shade down	Sombrear para baixo
+	Palette only	Somente paleta
+	No palette yet	Ainda não há paleta
+	Add the foreground color	Adicionar a cor de primeiro plano
+	Remove the selected color	Remover a cor selecionada
+	Change the selected color, and every pixel of it, to the foreground color	Mudar a cor selecionada, e todos os seus pixels, para a cor de primeiro plano
+	Add 4 steps from the selected color to the foreground color	Adicionar 4 passos da cor selecionada até a cor de primeiro plano

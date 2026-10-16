@@ -60,6 +60,8 @@ pub fn use_swatch(app: &mut PhotocraftApp, name: &str, background: bool) {
 
 /// The Swatches panel body.
 pub fn panel(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
+    // Pixel Art Mode: the document's palette above the swatches (palette_ui.rs).
+    crate::palette_ui::strip(app, ui);
     let lib = &app.session.presets.swatches;
     let groups: Vec<GroupView> = lib
         .iter()

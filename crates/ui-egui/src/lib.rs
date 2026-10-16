@@ -167,6 +167,7 @@ pub mod outline;
 mod page_keys;
 pub mod paint_mouse;
 pub mod palette;
+pub mod palette_ui;
 mod panel_docking;
 pub mod panels;
 pub mod parity;

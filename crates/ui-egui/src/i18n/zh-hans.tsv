@@ -3091,3 +3091,18 @@ curves	Smooth	平滑
 	Exported {path}	已导出 {path}
 	Exported {n} files	已导出 {n} 个文件
 	Driver: {driver}	驱动程序：{driver}
+	Palette	调色板
+	Recolor	重新着色
+	Ramp	渐变阶
+	From Layer	从图层
+	From Swatches	从色板
+	Ink	墨水
+	Shade up	向上着阴影
+	Shade down	向下着阴影
+	Palette only	仅限调色板
+	No palette yet	尚无调色板
+	Add the foreground color	添加前景色
+	Remove the selected color	移除所选颜色
+	Change the selected color, and every pixel of it, to the foreground color	将所选颜色及其所有像素改为前景色
+	Add 4 steps from the selected color to the foreground color	从所选颜色到前景色添加 4 个渐变阶
+	Simple	简单

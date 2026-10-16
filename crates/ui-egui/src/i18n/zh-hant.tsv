@@ -3047,3 +3047,18 @@ curves	Smooth	平滑
 	Grayscale Ramp	灰階色帶
 	Current Colors	目前色彩
 	Make Ramp Web Safe	讓色帶成為網頁安全色
+	Palette	調色盤
+	Recolor	重新上色
+	Ramp	漸層階
+	From Layer	從圖層
+	From Swatches	從色票
+	Ink	墨水
+	Shade up	向上陰影
+	Shade down	向下陰影
+	Palette only	僅限調色盤
+	No palette yet	尚無調色盤
+	Add the foreground color	加入前景色
+	Remove the selected color	移除所選顏色
+	Change the selected color, and every pixel of it, to the foreground color	將所選顏色及其所有像素改為前景色
+	Add 4 steps from the selected color to the foreground color	從所選顏色到前景色加入 4 個漸層階
+	Simple	簡單

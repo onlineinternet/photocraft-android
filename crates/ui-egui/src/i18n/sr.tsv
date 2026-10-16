@@ -4495,3 +4495,17 @@ shape	Appearance	Izgled
 	Grayscale Ramp	Skala nijansi sive
 	Current Colors	Trenutne boje
 	Make Ramp Web Safe	Učini skalu bezbednom za veb
+	Palette	Paleta
+	Recolor	Preboji
+	Ramp	Prelaz
+	From Layer	Iz sloja
+	From Swatches	Iz uzoraka
+	Ink	Mastilo
+	Shade up	Senči nagore
+	Shade down	Senči nadole
+	Palette only	Samo paleta
+	No palette yet	Još nema palete
+	Add the foreground color	Dodaj boju prvog plana
+	Remove the selected color	Ukloni izabranu boju
+	Change the selected color, and every pixel of it, to the foreground color	Promeni izabranu boju, i sve njene piksele, u boju prvog plana
+	Add 4 steps from the selected color to the foreground color	Dodaj 4 koraka od izabrane boje do boje prvog plana

@@ -4039,3 +4039,17 @@ curves	Smooth	Wygładź
 	Grayscale Ramp	Pasek skali szarości
 	Current Colors	Bieżące kolory
 	Make Ramp Web Safe	Ogranicz pasek do kolorów internetowych
+	Palette	Paleta
+	Recolor	Przekoloruj
+	Ramp	Rampa
+	From Layer	Z warstwy
+	From Swatches	Z próbek
+	Ink	Atrament
+	Shade up	Cieniuj w górę
+	Shade down	Cieniuj w dół
+	Palette only	Tylko paleta
+	No palette yet	Brak palety
+	Add the foreground color	Dodaj kolor pierwszego planu
+	Remove the selected color	Usuń zaznaczony kolor
+	Change the selected color, and every pixel of it, to the foreground color	Zmień zaznaczony kolor i wszystkie jego piksele na kolor pierwszego planu
+	Add 4 steps from the selected color to the foreground color	Dodaj 4 kroki od zaznaczonego koloru do koloru pierwszego planu

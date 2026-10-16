@@ -3915,3 +3915,17 @@ curves	Smooth	Làm mượt
 	Grayscale Ramp	Dải thang xám
 	Current Colors	Màu hiện tại
 	Make Ramp Web Safe	Giới hạn dải màu ở màu web
+	Palette	Bảng màu
+	Recolor	Tô lại màu
+	Ramp	Dải chuyển
+	From Layer	Từ lớp
+	From Swatches	Từ mẫu màu
+	Ink	Mực
+	Shade up	Đổ bóng lên
+	Shade down	Đổ bóng xuống
+	Palette only	Chỉ bảng màu
+	No palette yet	Chưa có bảng màu
+	Add the foreground color	Thêm màu tiền cảnh
+	Remove the selected color	Xóa màu đã chọn
+	Change the selected color, and every pixel of it, to the foreground color	Đổi màu đã chọn, và mọi điểm ảnh của nó, thành màu tiền cảnh
+	Add 4 steps from the selected color to the foreground color	Thêm 4 bước từ màu đã chọn đến màu tiền cảnh

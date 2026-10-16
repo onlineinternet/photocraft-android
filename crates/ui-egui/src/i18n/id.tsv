@@ -3437,3 +3437,18 @@ curves	Smooth	Haluskan
 	Grayscale Ramp	Gradasi Grayscale
 	Current Colors	Warna Saat Ini
 	Make Ramp Web Safe	Jadikan Gradasi Aman untuk Web
+	Palette	Palet
+	Recolor	Warnai ulang
+	Ramp	Gradasi
+	From Layer	Dari Layer
+	From Swatches	Dari Swatch
+	Ink	Tinta
+	Shade up	Bayangan naik
+	Shade down	Bayangan turun
+	Palette only	Hanya palet
+	No palette yet	Belum ada palet
+	Add the foreground color	Tambahkan warna latar depan
+	Remove the selected color	Hapus warna terpilih
+	Change the selected color, and every pixel of it, to the foreground color	Ubah warna terpilih, dan semua pikselnya, menjadi warna latar depan
+	Add 4 steps from the selected color to the foreground color	Tambahkan 4 langkah dari warna terpilih ke warna latar depan
+	Simple	Sederhana
