@@ -52,6 +52,12 @@ fn dropped_name(f: &egui::DroppedFileHandle) -> String {
     f.path().file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "dropped".into())
 }
 
+/// `path` is a URI such as Android's `content://…` (read and written by the platform), not a
+/// file path.
+pub fn is_uri(path: &str) -> bool {
+    path.split_once("://").is_some_and(|(scheme, _)| !scheme.is_empty() && scheme.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.')))
+}
+
 /// The file name of `path` (the document's display name), or `path` itself when it has none.
 pub fn display_name(path: &str) -> String {
     std::path::Path::new(path).file_name().map(|n| n.to_string_lossy().to_string()).filter(|n| !n.is_empty()).unwrap_or_else(|| path.to_string())
@@ -100,6 +106,12 @@ impl PhotocraftApp {
     /// Read and open the file at `path` (see [`open_file`](Self::open_file)).
     #[cfg(not(target_arch = "wasm32"))]
     pub fn open_path(&mut self, path: &str) -> Result<Vec<String>, String> {
+        // A URI (Android's content://): the platform reads it.
+        if is_uri(path) {
+            let read = self.services.read_uri.as_mut().ok_or_else(|| format!("{}: can't be opened here", display_name(path)))?;
+            let bytes = read(path).map_err(|e| format!("{}: {e}", display_name(path)))?;
+            return self.open_file(path, &bytes);
+        }
         // Documents opening in the background are read on the worker too (a 2 GB PSB read
         // would block the window). Preset files (brushes, gradients) go the usual way.
         let ext = std::path::Path::new(path).extension().map(|e| e.to_string_lossy().to_ascii_lowercase()).unwrap_or_default();
@@ -304,6 +316,9 @@ fn digit_run(it: &mut std::iter::Peekable<std::str::Chars>) -> String {
 
 #[cfg(not(target_arch = "wasm32"))]
 fn absolute(p: &str) -> String {
+    if is_uri(p) {
+        return p.to_string();
+    }
     std::path::absolute(p).map(|a| a.to_string_lossy().to_string()).unwrap_or_else(|_| p.to_string())
 }
 
