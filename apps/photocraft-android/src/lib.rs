@@ -142,6 +142,13 @@ impl eframe::App for AndroidShell {
             }
         }
         self.edge.run_queued(&mut self.app, ctx);
+        if std::mem::take(&mut self.edge.share) {
+            let r = share_png(&self.app).and_then(|(png, name)| android_system::share_image(&png, &name));
+            if let Err(e) = r {
+                self.app.ui.status = e;
+                self.app.ui.status_error = true;
+            }
+        }
         if std::mem::take(&mut self.edge.open_photos) {
             // File › Open, answered from Android's photo grid.
             self.picker.borrow_mut().photos_next = true;
@@ -299,6 +306,15 @@ pub fn run(
     eframe::run_native("PhotoCraft", options, Box::new(move |cc| Ok(Box::new(create_app(cc, &dirs, storage, content_rect, pen_queue)))))
 }
 
+/// The active image as a flattened PNG and its name, for the share sheet.
+fn share_png(app: &PhotocraftApp) -> Result<(Vec<u8>, String), String> {
+    let doc = &app.session.active().ok_or("Open an image to share it")?.doc;
+    let stem = std::path::Path::new(&doc.name).file_stem().map_or_else(|| "Image".to_string(), |s| s.to_string_lossy().into_owned());
+    let name = format!("{stem}.png");
+    let r = photocraft_io::export(doc, &name, &photocraft_io::ExportOptions::default()).map_err(|e| format!("couldn't share: {e}"))?;
+    Ok((r.bytes, name))
+}
+
 /// The entry point Android's NativeActivity calls (through android-activity's glue) on its own
 /// thread once the activity starts.
 #[cfg(target_os = "android")]
@@ -353,5 +369,21 @@ fn pen_sample_from_winit(s: &winit::platform::android::pointer::PointerSample) -
         tilt: s.tilt,
         orientation: s.orientation,
         barrel_button: s.barrel_button,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn share_sends_the_active_image_as_a_png_named_after_it() {
+        let mut app = PhotocraftApp::new(Session::new(), photocraft_ui_egui::Services::default());
+        assert!(share_png(&app).is_err(), "nothing to share");
+        app.session.execute("file.new", serde_json::json!({"width": 8, "height": 6, "name": "Sprite.psd"})).unwrap();
+        let (png, name) = share_png(&app).unwrap();
+        assert_eq!(name, "Sprite.png");
+        let img = photocraft_codecs::decode(&png).unwrap();
+        assert_eq!((img.width(), img.height()), (8, 6));
     }
 }
