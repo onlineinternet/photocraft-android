@@ -221,6 +221,17 @@ fn commands_rotate_reset_and_reject_without_a_document() {
     assert_eq!(app.ui.views[0].zoom, z);
     assert_eq!(app.ui.views[0].center, c);
     assert!(crate::menus::invoke(&mut app, &ctx, "view.rotateView", json!({})).is_err());
+    // Straighten: the nearest quarter turn.
+    crate::menus::invoke(&mut app, &ctx, "view.rotateView", json!({"angle": 50})).unwrap();
+    crate::menus::invoke(&mut app, &ctx, "view.rotateView", json!({"snap": 90})).unwrap();
+    assert_eq!(app.ui.views[0].rotation, 90.0);
+    crate::menus::invoke(&mut app, &ctx, "view.rotateView", json!({"angle": -140})).unwrap();
+    crate::menus::invoke(&mut app, &ctx, "view.rotateView", json!({"snap": 90})).unwrap();
+    assert_eq!(app.ui.views[0].rotation.abs(), 180.0);
+    for bad in [json!({"snap": 0}), json!({"snap": -90}), json!({"snap": 1000}), json!({"snap": "90"})] {
+        assert!(crate::menus::invoke(&mut app, &ctx, "view.rotateView", bad.clone()).is_err(), "{bad}");
+    }
+    crate::menus::invoke(&mut app, &ctx, "view.resetView", json!({})).unwrap();
     assert!(crate::menus::invoke(&mut app, &ctx, "view.rotateView", json!({"angle": f64::NAN})).is_err());
     assert_eq!(app.ui.views[0].rotation, 0.0);
     assert_eq!(app.session.documents()[0].history.past_len(), 0);

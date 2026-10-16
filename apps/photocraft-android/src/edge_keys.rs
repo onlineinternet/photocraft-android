@@ -2,9 +2,10 @@
 //! shortcuts a touch screen has no keys for, after Clip Studio Paint's Edge Keyboard.
 //!
 //! Each button runs a PhotoCraft command directly, so it works whatever the keyboard shortcuts
-//! are, and there are no virtual Ctrl/Shift/Alt keys: with a Bluetooth keyboard they aren't
-//! needed, and with the on-screen keyboard they're awkward. (PhotoCraft's own Window › Modifier
-//! Keys panel still latches them; the strip keeps its keys added to every input event.)
+//! are. **Shift**, **Ctrl** and **Alt** latch: tap one and it stays held (lit) for every tap and
+//! stroke until it's tapped again, for the tools that read them (Shift adds to a selection, Alt
+//! subtracts or picks a colour, Shift draws straight lines). They're the same latched keys as
+//! PhotoCraft's Window › Modifier Keys panel.
 //!
 //! The strip also has the panel toggles that make a phone screen usable: **Panels** hides the
 //! right-hand dock (Shift+Tab) and **Hide UI** hides the toolbar, options bar and dock (Tab).
@@ -24,6 +25,8 @@ pub enum Action {
     Tap(Key),
     /// Run a PhotoCraft command id.
     Command(&'static str),
+    /// Run a PhotoCraft command id with these params (JSON).
+    Run(&'static str, &'static str),
     /// Flip one of the touch settings.
     Toggle(Setting),
 }
@@ -38,6 +41,10 @@ pub enum Setting {
 
 /// The strip, top to bottom, two to a row. `None` starts a new group.
 pub const BUTTONS: &[Option<(&str, Action)>] = &[
+    Some(("Shift", Action::Shift)),
+    Some(("Ctrl", Action::Ctrl)),
+    Some(("Alt", Action::Alt)),
+    None,
     Some(("Undo", Action::Command("edit.undo"))),
     Some(("Redo", Action::Command("edit.redo"))),
     Some(("Copy", Action::Command("edit.copy"))),
@@ -61,6 +68,7 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
     Some(("Finger draws", Action::Toggle(Setting::FingerDraws))),
     Some(("Finger pressure", Action::Toggle(Setting::FingerPressure))),
     Some(("Touch rotate", Action::Toggle(Setting::TouchRotate))),
+    Some(("Straighten", Action::Run("view.rotateView", r#"{"snap":90}"#))),
 ];
 
 /// One key on the strip: big enough for a fingertip.
@@ -124,7 +132,7 @@ pub struct EdgeKeys {
     /// Space changed: send its key event with the next frame's input.
     space_changed: bool,
     /// A command tapped this frame, run once the frame is drawn.
-    queued: Vec<&'static str>,
+    queued: Vec<(&'static str, serde_json::Value)>,
     /// Keys to press and release with the next frame's input.
     taps: Vec<Key>,
     /// The hardware keyboard's own modifiers, and whether any key was latched last frame.
@@ -169,8 +177,8 @@ impl EdgeKeys {
 
     /// Run the commands tapped in the last frame.
     pub fn run_queued(&mut self, app: &mut PhotocraftApp, ctx: &egui::Context) {
-        for id in std::mem::take(&mut self.queued) {
-            if let Err(e) = photocraft_ui_egui::menus::invoke(app, ctx, id, json!({})) {
+        for (id, params) in std::mem::take(&mut self.queued) {
+            if let Err(e) = photocraft_ui_egui::menus::invoke(app, ctx, id, params) {
                 log::info!("edge keyboard: {id}: {e}");
             }
         }
@@ -186,7 +194,8 @@ impl EdgeKeys {
                 self.space_changed = true;
             }
             Action::Tap(key) => self.taps.push(key),
-            Action::Command(id) => self.queued.push(id),
+            Action::Command(id) => self.queued.push((id, json!({}))),
+            Action::Run(id, params) => self.queued.push((id, serde_json::from_str(params).unwrap_or_else(|_| json!({})))),
             Action::Toggle(setting) => {
                 let s = &mut self.settings;
                 match setting {
@@ -209,7 +218,7 @@ impl EdgeKeys {
             Action::Toggle(Setting::FingerDraws) => self.settings.finger_draws,
             Action::Toggle(Setting::FingerPressure) => self.settings.finger_pressure,
             Action::Toggle(Setting::TouchRotate) => self.settings.touch_rotate,
-            Action::Tap(_) | Action::Command(_) => false,
+            Action::Tap(_) | Action::Command(_) | Action::Run(..) => false,
         }
     }
 
@@ -356,9 +365,28 @@ mod tests {
     #[test]
     fn every_command_button_runs_a_command_photocraft_has() {
         for (label, action) in BUTTONS.iter().flatten() {
-            if let Action::Command(id) = action {
+            if let Action::Command(id) | Action::Run(id, _) = action {
                 assert!(photocraft_ui_egui::menus::is_live(id), "{label}: {id} is no PhotoCraft command");
             }
         }
+    }
+
+    #[test]
+    fn param_buttons_have_valid_json() {
+        for (label, action) in BUTTONS.iter().flatten() {
+            if let Action::Run(_, params) = action {
+                assert!(serde_json::from_str::<serde_json::Value>(params).is_ok_and(|v| v.is_object()), "{label}");
+            }
+        }
+    }
+
+    #[test]
+    fn modifier_keys_latch_until_tapped_again() {
+        let mut keys = EdgeKeys::default();
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), photocraft_ui_egui::Services::default());
+        keys.press(Action::Shift, &mut app);
+        assert!(keys.is_on(Action::Shift) && app.ui.shell.sticky_shift, "held, and the Modifier Keys panel agrees");
+        keys.press(Action::Shift, &mut app);
+        assert!(!keys.is_on(Action::Shift) && !app.ui.shell.sticky_shift);
     }
 }
