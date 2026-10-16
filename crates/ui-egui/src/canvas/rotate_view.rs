@@ -89,11 +89,12 @@ fn finite_number(p: &Value, key: &str) -> Result<Option<f32>, String> {
 }
 
 /// Apply `view.rotateView` params to `current`. Empty params, a non-object, or a missing
-/// `angle`/`delta`/`reset` are errors (never a silent no-op).
+/// `angle`/`delta`/`reset`/`snap` are errors (never a silent no-op). `snap` (degrees) then turns
+/// the result to its nearest multiple: `{"snap": 90}` straightens to the nearest quarter turn.
 pub fn apply_params(current: f32, p: &Value) -> Result<f32, String> {
     let obj = p.as_object().ok_or("params must be an object")?;
     for k in obj.keys() {
-        if !matches!(k.as_str(), "angle" | "delta" | "reset") {
+        if !matches!(k.as_str(), "angle" | "delta" | "reset" | "snap") {
             return Err(format!("unknown field `{k}`"));
         }
     }
@@ -103,8 +104,12 @@ pub fn apply_params(current: f32, p: &Value) -> Result<f32, String> {
     };
     let angle = finite_number(p, "angle")?;
     let delta = finite_number(p, "delta")?;
-    if !reset && angle.is_none() && delta.is_none() {
-        return Err("expected angle, delta, or reset".into());
+    let snap = finite_number(p, "snap")?;
+    if snap.is_some_and(|s| s <= 0.0 || s > 360.0) {
+        return Err("snap must be a step in degrees, above 0 and at most 360".into());
+    }
+    if !reset && angle.is_none() && delta.is_none() && snap.is_none() {
+        return Err("expected angle, delta, reset or snap".into());
     }
     if reset {
         return Ok(0.0);
@@ -116,7 +121,10 @@ pub fn apply_params(current: f32, p: &Value) -> Result<f32, String> {
             return Err("delta overflowed the angle".into());
         }
     }
-    Ok(wrap_deg(r))
+    Ok(match snap {
+        Some(step) => snap_deg(r, step),
+        None => wrap_deg(r),
+    })
 }
 
 /// Trackpad rotate: `delta_rad` is egui's rotation delta (radians, same sign as [`wrap_deg`]).
