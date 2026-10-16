@@ -12,6 +12,8 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Try File › Open and Save As through Android's pickers (Drive, Downloads, thumbnails),
       then File › Save on a file opened that way and Open Recent after restarting the app.
 - [ ] Try the Open Photo and Share edge keys, and Copy/Paste to and from another app.
+- [ ] Try the palette (Swatches panel in Pixel Art Mode): Recolor, Ramp, the Pencil's Ink and
+      Palette only.
 
 ## Touch and layout (Clip Studio Paint style)
 
@@ -24,8 +26,8 @@ where they fit. Done items move to the bottom with the date.
 
 ## Pixel art
 
-- [ ] Phase 2, palette: replace an exact colour across the layer or document (palette-linked
-      recolor), colour ramps, a shading ink that steps along a ramp, palette-only painting.
+- [ ] Palette: drag to reorder entries; edit an entry with the colour picker; indexed-colour
+      export (PNG-8 / GIF with exactly the palette).
 - [ ] Phase 3, animation: onion skin, frame tags, sprite-sheet export with JSON.
 - [ ] Phase 4: tilemaps, 9-patch slices, tiled (wrap-around) painting.
 
@@ -42,6 +44,9 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-10-16: Pixel art phase 2: the document palette (`Document::palette`, `palette.*`
+  commands, saved in `.pcraft`), palette-linked Recolor, Ramp, From Layer / From Swatches, and
+  the Pencil's shading ink (`"shade"`) and Palette only (`"paletteLock"`).
 - 2026-10-16: Android clipboard (copies out as PNG through ImageProvider, images paste in) and
   a Share edge key (flattened PNG to the share sheet).
 - 2026-10-16: Files from File › Open keep a persistable URI: File › Save writes back and Open

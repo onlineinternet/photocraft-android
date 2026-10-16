@@ -221,6 +221,7 @@ fn brush_specific_options(app: &mut PhotocraftApp, ui: &mut egui::Ui, t: Tokens,
             smoothing_field(ui, b, if t.pro { 58.0 } else { 66.0 });
             widgets::vline(ui, 22.0);
             widgets::checkbox(ui, &mut app.ui.tool_options.pencil_auto_erase, tl!("Auto Erase"));
+            crate::palette_ui::pencil_options(app, ui);
         }
         Tool::Brush | Tool::Eraser => {
             brush_preset_chip(ui, b, &mut app.ui);

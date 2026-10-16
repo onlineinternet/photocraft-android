@@ -4384,3 +4384,17 @@ smartSvg	AI/PDF/EPS contents will be edited as SVG. Saving replaces the embedded
 	Auto-size Canvas	Canvasgrootte automatisch aanpassen
 	Keep Relative Position During Layer Reordering	Relatieve positie behouden bij het wijzigen van de laagvolgorde
 	Shrinkwrap Canvas on Save	Canvas bij opslaan verkleinen tot de inhoud
+	Palette	Palet
+	Recolor	Herkleuren
+	Ramp	Verloop
+	From Layer	Uit laag
+	From Swatches	Uit stalen
+	Ink	Inkt
+	Shade up	Schaduw omhoog
+	Shade down	Schaduw omlaag
+	Palette only	Alleen palet
+	No palette yet	Nog geen palet
+	Add the foreground color	Voorgrondkleur toevoegen
+	Remove the selected color	Geselecteerde kleur verwijderen
+	Change the selected color, and every pixel of it, to the foreground color	De geselecteerde kleur, en al haar pixels, veranderen in de voorgrondkleur
+	Add 4 steps from the selected color to the foreground color	4 stappen van de geselecteerde kleur naar de voorgrondkleur toevoegen

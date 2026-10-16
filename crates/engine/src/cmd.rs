@@ -123,6 +123,7 @@ pub mod pattern_fill_cmds;
 pub mod perspective_crop_cmds;
 pub mod photo_cmds;
 pub mod pick_cmds;
+pub mod palette_cmds;
 pub mod pixel_art_cmds;
 pub mod plugin_cmds;
 pub mod preset_import_cmds;
@@ -1417,6 +1418,7 @@ fn build() -> Vec<CommandSpec> {
     v.extend(crate::automate_cmds::specs());
     v.extend(crate::print_cmds::specs());
     v.extend(crate::pixel_art_cmds::specs());
+    v.extend(crate::palette_cmds::specs());
     v.extend(crate::installed_profiles::specs());
     v.extend(crate::pick_cmds::specs());
     v.extend(crate::layer_nav_cmds::specs());

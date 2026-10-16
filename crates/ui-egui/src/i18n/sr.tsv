@@ -4696,3 +4696,17 @@ smartSvg	AI/PDF/EPS contents will be edited as SVG. Saving replaces the embedded
 	Auto-size Canvas	Automatski promeni veličinu platna
 	Keep Relative Position During Layer Reordering	Zadrži relativni položaj pri promeni redosleda slojeva
 	Shrinkwrap Canvas on Save	Smanji platno na sadržaj pri čuvanju
+	Palette	Paleta
+	Recolor	Preboji
+	Ramp	Prelaz
+	From Layer	Iz sloja
+	From Swatches	Iz uzoraka
+	Ink	Mastilo
+	Shade up	Senči nagore
+	Shade down	Senči nadole
+	Palette only	Samo paleta
+	No palette yet	Još nema palete
+	Add the foreground color	Dodaj boju prvog plana
+	Remove the selected color	Ukloni izabranu boju
+	Change the selected color, and every pixel of it, to the foreground color	Promeni izabranu boju, i sve njene piksele, u boju prvog plana
+	Add 4 steps from the selected color to the foreground color	Dodaj 4 koraka od izabrane boje do boje prvog plana

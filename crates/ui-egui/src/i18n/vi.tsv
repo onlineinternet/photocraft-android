@@ -4135,3 +4135,17 @@ smartSvg	AI/PDF/EPS contents will be edited as SVG. Saving replaces the embedded
 	Auto-size Canvas	Tự động đổi kích thước vùng vẽ
 	Keep Relative Position During Layer Reordering	Giữ vị trí tương đối khi sắp xếp lại lớp
 	Shrinkwrap Canvas on Save	Thu nhỏ vùng vẽ theo nội dung khi lưu
+	Palette	Bảng màu
+	Recolor	Tô lại màu
+	Ramp	Dải chuyển
+	From Layer	Từ lớp
+	From Swatches	Từ mẫu màu
+	Ink	Mực
+	Shade up	Đổ bóng lên
+	Shade down	Đổ bóng xuống
+	Palette only	Chỉ bảng màu
+	No palette yet	Chưa có bảng màu
+	Add the foreground color	Thêm màu tiền cảnh
+	Remove the selected color	Xóa màu đã chọn
+	Change the selected color, and every pixel of it, to the foreground color	Đổi màu đã chọn, và mọi điểm ảnh của nó, thành màu tiền cảnh
+	Add 4 steps from the selected color to the foreground color	Thêm 4 bước từ màu đã chọn đến màu tiền cảnh

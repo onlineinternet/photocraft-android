@@ -302,6 +302,7 @@ pub(super) fn stroke_params(app: &PhotocraftApp, d: &Drag, points: &[Vec<f64>]) 
     }
     if tool == Tool::Pencil {
         p["autoErase"] = json!(app.ui.tool_options.pencil_auto_erase);
+        crate::palette_ui::add_pencil_inks(app, &mut p, d.erase);
     }
     // Block mode: the engine sizes the square from the stroke's zoom (16 / zoom px, #2770).
     if crate::eraser_ui::block_mode(app, tool) {

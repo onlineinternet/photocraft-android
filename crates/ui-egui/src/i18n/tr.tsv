@@ -4361,3 +4361,17 @@ smartSvg	AI/PDF/EPS contents will be edited as SVG. Saving replaces the embedded
 	Auto-size Canvas	Tuvali Otomatik Boyutlandır
 	Keep Relative Position During Layer Reordering	Katmanları Yeniden Sıralarken Göreli Konumu Koru
 	Shrinkwrap Canvas on Save	Kaydederken Tuvali İçeriğe Göre Küçült
+	Palette	Palet
+	Recolor	Yeniden renklendir
+	Ramp	Rampa
+	From Layer	Katmandan
+	From Swatches	Renk örneklerinden
+	Ink	Mürekkep
+	Shade up	Yukarı gölgele
+	Shade down	Aşağı gölgele
+	Palette only	Yalnızca palet
+	No palette yet	Henüz palet yok
+	Add the foreground color	Ön plan rengini ekle
+	Remove the selected color	Seçili rengi kaldır
+	Change the selected color, and every pixel of it, to the foreground color	Seçili rengi ve tüm piksellerini ön plan rengine çevir
+	Add 4 steps from the selected color to the foreground color	Seçili renkten ön plan rengine 4 adım ekle
