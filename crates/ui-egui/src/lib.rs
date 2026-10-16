@@ -368,6 +368,8 @@ pub struct FileStamp {
 }
 /// The [`FileStamp`] of the file at a path, `None` when it can't be read.
 pub type FileStampFn = Box<dyn Fn(&str) -> Option<FileStamp>>;
+/// See [`Services::read_uri`].
+pub type ReadUriFn = Box<dyn FnMut(&str) -> Result<Vec<u8>, String>>;
 /// Encode a document and write it to a path, reporting the stage to the job; returns the export
 /// warnings. Runs on a worker thread (see [`Services::save_file`]). It must call
 /// [`jobs_ui::SaveCtl::commit`] right before replacing the file, and write nothing if that fails.
@@ -468,6 +470,9 @@ pub struct Services {
     /// Size and modification time of a file (native); `None` on the web, where Save never
     /// writes back to a file.
     pub file_stamp: Option<FileStampFn>,
+    /// Read a file named by a URI rather than a path (`content://…` on Android), for Open Recent
+    /// and the like; plain paths are read from disk as usual.
+    pub read_uri: Option<ReadUriFn>,
     /// Encode and write in one step on a worker thread, so a large save doesn't freeze the
     /// window (#2017). With background jobs on, saves use it instead of `export` and `write`.
     pub save_file: Option<SaveFileFn>,

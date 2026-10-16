@@ -89,12 +89,22 @@ pub fn open_all_files_settings() -> Result<(), String> {
     })
 }
 
+/// A file Android's picker handed over.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PickedFile {
+    pub name: String,
+    pub bytes: Vec<u8>,
+    pub uri: Option<String>,
+}
+
 /// What one of Android's pickers answered.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Picked {
-    /// Files chosen to open, with their names; `error` names one that couldn't be read.
+    /// Files chosen to open: name, contents, and the URI to reopen and save it by (`None` when
+    /// Android only lends the file, as the photo picker does); `error` names one that couldn't be
+    /// read.
     Open {
-        files: Vec<(String, Vec<u8>)>,
+        files: Vec<PickedFile>,
         error: Option<String>,
     },
     /// Where to save: a `content://` URI, and the name the file got.
@@ -177,14 +187,20 @@ pub fn take_picked() -> Option<Picked> {
                 let datas = a.get_element(env, 2)?;
                 let datas = env.cast_local::<JObjectArray>(datas)?;
                 let error = string_at(env, &a, 3)?;
+                let kept = a.get_element(env, 4)?;
+                let kept = if kept.is_null() { None } else { Some(env.cast_local::<JObjectArray>(kept)?) };
                 let n = if names.is_null() || datas.is_null() { 0 } else { names.len(env)?.min(datas.len(env)?) };
                 let mut files = Vec::with_capacity(n.min(256));
                 for i in 0..n {
                     let name = string_at(env, &names, i)?.unwrap_or_else(|| "Untitled".into());
                     let bytes = datas.get_element(env, i)?;
                     let bytes = env.cast_local::<JByteArray>(bytes)?;
+                    let uri = match &kept {
+                        Some(k) if i < k.len(env)? => string_at(env, k, i)?,
+                        _ => None,
+                    };
                     if !bytes.is_null() {
-                        files.push((name, env.convert_byte_array(&bytes)?));
+                        files.push(PickedFile { name, bytes: env.convert_byte_array(&bytes)?, uri });
                     }
                 }
                 Picked::Open { files, error }
@@ -199,6 +215,20 @@ pub fn take_picked() -> Option<Picked> {
             None
         }
     }
+}
+
+/// Read a file by a `content://` URI kept from Android's picker (Open Recent).
+pub fn read_uri(uri: &str) -> Result<Vec<u8>, String> {
+    with_activity(|env, activity| {
+        let uri = env.new_string(uri)?;
+        let data = env.call_method(activity, jni_str!("readUri"), jni_sig!("(Ljava/lang/String;)[B"), &[JValue::Object(&uri)])?.l()?;
+        let data = env.cast_local::<JByteArray>(data)?;
+        if data.is_null() {
+            return Ok(Vec::new());
+        }
+        env.convert_byte_array(&data)
+    })
+    .map_err(|e| if e.contains("Exception") { "can't be read any more (moved, deleted or access was taken back)".to_string() } else { e })
 }
 
 /// Write `bytes` to a `content://` URI the save picker answered.
@@ -233,6 +263,7 @@ mod tests {
         assert!(pick_photos(false).is_err());
         assert!(create_document("a.png", "image/png").is_err());
         assert_eq!(take_picked(), None);
+        assert!(read_uri("content://x").is_err());
         assert!(write_uri("content://x", b"data").is_err());
         init(std::ptr::null_mut());
         assert_eq!(has_all_files_access(), None, "a null activity is never registered");
