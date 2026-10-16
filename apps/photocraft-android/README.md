@@ -35,7 +35,8 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 ## Touch features
 
 - **Edge keyboard:** tap the `‹` tab on the right edge for one-tap shortcuts: Undo, Redo,
-  Copy, Paste, **Open Photo** (File › Open from Android's photo grid), Select All, Deselect, Inverse, Transform, brush Size −/+, Swap colors, New Layer,
+  Copy, Paste, **Open Photo** (File › Open from Android's photo grid), **Share** (send the
+  image as a PNG to another app), Select All, Deselect, Inverse, Transform, brush Size −/+, Swap colors, New Layer,
   and **Panels** (hide the right dock), **Hide UI** (everything but the canvas), **Search**
   (run any menu command by name), **Pixel Art** (Pixel Art Mode, below) and **Straighten**
   (turn the canvas to the nearest 90°).
@@ -100,8 +101,10 @@ that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
   `content://` URI, carried as `<uri>/<name>` so its extension still picks the format.
 - `src/android_system.rs`: the Android calls made through JNI (the pickers, writing a picked
   file, the All files access check and its settings page).
-- `android/java/.../PhotoCraftActivity.java`: the one Java class, Android's NativeActivity plus
-  receiving the pickers' answers (which a NativeActivity can't do on its own).
+- `android/java/.../PhotoCraftActivity.java`: Android's NativeActivity plus what it can't do
+  on its own: receiving the pickers' answers, the clipboard and the share sheet.
+- `android/java/.../ImageProvider.java`: serves copied and shared images to other apps
+  (read-only files in the app's cache).
 - `src/services.rs`: files, preferences, presets and crash recovery in app storage.
 - `src/edge_keys.rs`: the edge keyboard.
 - `src/pen.rs`: pen or finger, the stylus feed, finger pressure, navigating fingers.
@@ -118,7 +121,9 @@ Pen samples reach the canvas through the same stylus feed the desktop tablet cod
 The plan and open work are in [TODO.md](TODO.md).
 
 
-- No OS clipboard or share sheet yet. A photo opened with Open Photo is only lent to the app,
+- Copy and Paste use Android's clipboard: a copy pastes into other apps as a PNG, and an image
+  copied elsewhere (a screenshot's Copy, an image in a browser) pastes in.
+- A photo opened with Open Photo is only lent to the app,
   so File › Save asks where to save it and Open Recent can't reopen it (files from File › Open
   can: the app keeps access to them).
 - The interface is the desktop layout; panels are still desktop-sized.

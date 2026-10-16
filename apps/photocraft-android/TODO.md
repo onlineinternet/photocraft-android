@@ -11,7 +11,7 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
 - [ ] Try File › Open and Save As through Android's pickers (Drive, Downloads, thumbnails),
       then File › Save on a file opened that way and Open Recent after restarting the app.
-- [ ] Try the Open Photo edge key (Android's photo grid).
+- [ ] Try the Open Photo and Share edge keys, and Copy/Paste to and from another app.
 
 ## Touch and layout (Clip Studio Paint style)
 
@@ -19,7 +19,6 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Phone layout: bottom toolbar, tool groups that pop out, dialogs as bottom sheets.
 - [ ] Panels on phones and the tablet: undecided how they should work yet.
 - [ ] Palm rejection beyond "Finger draws" off.
-- [ ] OS clipboard and share sheet.
 - [ ] Load system fonts for non-Latin scripts.
 - [ ] Get rid of the one-frame flash of a dab before a two-finger gesture takes it back.
 
@@ -43,6 +42,8 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-10-16: Android clipboard (copies out as PNG through ImageProvider, images paste in) and
+  a Share edge key (flattened PNG to the share sheet).
 - 2026-10-16: Files from File › Open keep a persistable URI: File › Save writes back and Open
   Recent reopens them (`Services::read_uri`, `content://` paths). Open Photo edge key (Android's
   photo picker). Swatches › Export Swatches as GIMP Palette…. Saved New Document presets keep

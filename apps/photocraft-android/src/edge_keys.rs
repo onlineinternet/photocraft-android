@@ -31,6 +31,8 @@ pub enum Action {
     Toggle(Setting),
     /// File › Open through Android's photo picker (a grid of your photos) instead of the files.
     OpenPhotos,
+    /// Send the image (flattened PNG) to another app through Android's share sheet.
+    Share,
 }
 
 /// The touch settings the strip can flip ([`crate::pen::TouchSettings`]).
@@ -52,6 +54,7 @@ pub const BUTTONS: &[Option<(&str, Action)>] = &[
     Some(("Copy", Action::Command("edit.copy"))),
     Some(("Paste", Action::Command("edit.paste"))),
     Some(("Open Photo", Action::OpenPhotos)),
+    Some(("Share", Action::Share)),
     None,
     Some(("Select All", Action::Command("select.all"))),
     Some(("Deselect", Action::Command("select.deselect"))),
@@ -132,6 +135,8 @@ pub fn space(pressed: bool, modifiers: Modifiers) -> Event {
 pub struct EdgeKeys {
     /// Open Photo was tapped: the shell runs File › Open with the photo picker.
     pub open_photos: bool,
+    /// Share was tapped: the shell shares the active image.
+    pub share: bool,
     pub open: bool,
     pub latched: Latched,
     /// Space changed: send its key event with the next frame's input.
@@ -202,6 +207,7 @@ impl EdgeKeys {
             Action::Command(id) => self.queued.push((id, json!({}))),
             Action::Run(id, params) => self.queued.push((id, serde_json::from_str(params).unwrap_or_else(|_| json!({})))),
             Action::OpenPhotos => self.open_photos = true,
+            Action::Share => self.share = true,
             Action::Toggle(setting) => {
                 let s = &mut self.settings;
                 match setting {
@@ -224,7 +230,7 @@ impl EdgeKeys {
             Action::Toggle(Setting::FingerDraws) => self.settings.finger_draws,
             Action::Toggle(Setting::FingerPressure) => self.settings.finger_pressure,
             Action::Toggle(Setting::TouchRotate) => self.settings.touch_rotate,
-            Action::Tap(_) | Action::Command(_) | Action::Run(..) | Action::OpenPhotos => false,
+            Action::Tap(_) | Action::Command(_) | Action::Run(..) | Action::OpenPhotos | Action::Share => false,
         }
     }
 

@@ -2,6 +2,9 @@ package io.github.photocraft.unofficial;
 
 import android.app.NativeActivity;
 import android.content.ClipData;
+import android.content.ClipDescription;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.database.Cursor;
@@ -11,6 +14,8 @@ import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -251,6 +256,85 @@ public class PhotoCraftActivity extends NativeActivity {
             return null;
         } catch (Exception e) {
             return String.valueOf(e.getMessage());
+        }
+    }
+
+    // ------------------------------------------------------------------ clipboard and sharing
+
+    /** Write {@code data} to the shared folder as {@code name}; its content:// URI. */
+    private Uri shared(String name, byte[] data) throws Exception {
+        String safe = name.replaceAll("[^A-Za-z0-9 ._-]", "_");
+        if (safe.isEmpty() || safe.startsWith(".")) {
+            safe = "image.png";
+        }
+        File f = new File(ImageProvider.dir(this), safe);
+        try (FileOutputStream out = new FileOutputStream(f)) {
+            out.write(data);
+        }
+        return Uri.parse("content://" + ImageProvider.AUTHORITY + "/" + Uri.encode(safe));
+    }
+
+    /** Open Android's share sheet with a PNG; null on success, else why not. */
+    public String shareImage(byte[] png, String name) {
+        try {
+            final Uri uri = shared(name, png);
+            runOnUiThread(() -> {
+                Intent send = new Intent(Intent.ACTION_SEND);
+                send.setType("image/png");
+                send.putExtra(Intent.EXTRA_STREAM, uri);
+                send.setClipData(ClipData.newRawUri(name, uri));
+                send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                Intent chooser = Intent.createChooser(send, null);
+                chooser.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                try {
+                    startActivity(chooser);
+                } catch (Exception ignored) {
+                    // No app takes images: nothing to share with.
+                }
+            });
+            return null;
+        } catch (Exception e) {
+            return String.valueOf(e.getMessage());
+        }
+    }
+
+    /** Put a PNG on Android's clipboard (other apps paste it); null on success. */
+    public String setClipboardImage(byte[] png) {
+        try {
+            final Uri uri = shared("clipboard.png", png);
+            runOnUiThread(() -> {
+                ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null) {
+                    cm.setPrimaryClip(ClipData.newUri(getContentResolver(), "PhotoCraft image", uri));
+                }
+            });
+            return null;
+        } catch (Exception e) {
+            return String.valueOf(e.getMessage());
+        }
+    }
+
+    /** The image on Android's clipboard (encoded, e.g. PNG or JPEG), or null when there is none. */
+    public byte[] clipboardImage() {
+        try {
+            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm == null || !cm.hasPrimaryClip()) {
+                return null;
+            }
+            ClipData clip = cm.getPrimaryClip();
+            if (clip == null || clip.getItemCount() == 0) {
+                return null;
+            }
+            Uri uri = clip.getItemAt(0).getUri();
+            if (uri == null) {
+                return null;
+            }
+            String type = getContentResolver().getType(uri);
+            ClipDescription d = clip.getDescription();
+            boolean image = (type != null && type.startsWith("image/")) || (d != null && d.hasMimeType("image/*"));
+            return image ? read(uri) : null;
+        } catch (Exception e) {
+            return null;
         }
     }
 }
