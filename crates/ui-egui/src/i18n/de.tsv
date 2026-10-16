@@ -3232,3 +3232,18 @@ curves	Smooth	Glätten
 	GPU Memory (MB, 0 = Automatic)	GPU-Speicher (MB, 0 = Automatisch)
 	{name} was changed by another app after it was opened or saved here.	{name} wurde von einer anderen App geändert, nachdem es hier geöffnet oder gespeichert wurde.
 	Replace it with this document, or cancel and use File › Save As to keep both.	Ersetze die Datei durch dieses Dokument oder brich ab und nutze Datei › Speichern unter, um beide zu behalten.
+	Palette	Palette
+	Recolor	Umfärben
+	Ramp	Verlauf
+	From Layer	Aus Ebene
+	From Swatches	Aus Farbfeldern
+	Ink	Tinte
+	Shade up	Heller schattieren
+	Shade down	Dunkler schattieren
+	Palette only	Nur Palette
+	No palette yet	Noch keine Palette
+	Add the foreground color	Vordergrundfarbe hinzufügen
+	Remove the selected color	Ausgewählte Farbe entfernen
+	Change the selected color, and every pixel of it, to the foreground color	Ausgewählte Farbe und alle ihre Pixel in die Vordergrundfarbe ändern
+	Add 4 steps from the selected color to the foreground color	4 Stufen von der ausgewählten Farbe zur Vordergrundfarbe hinzufügen
+	Simple	Einfach

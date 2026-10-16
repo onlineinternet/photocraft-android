@@ -77,6 +77,9 @@ pub struct DocM {
     /// View › Pixel Art Mode.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub pixel_art: bool,
+    /// The pixel-art palette (sRGB 0..1).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub palette: Vec<[f32; 3]>,
     /// Window › Layer Comps.
     #[serde(default)]
     pub layer_comps: Vec<LayerCompM>,
