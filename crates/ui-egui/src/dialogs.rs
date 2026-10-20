@@ -461,7 +461,11 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 }
                 DialogKind::Command if crate::color_range_ui::owns(&fields) => crate::color_range_ui::body(app, ui, &mut fields),
                 DialogKind::Command if crate::prefs_ui::owns(&fields) => crate::prefs_ui::body(app, ui, &mut fields),
-                DialogKind::Command if fields.contains_key("__export") => crate::export_dialog::body(app, ui, &mut fields),
+                // Export As scrolls on a short screen (a phone), so Export / Cancel stay reachable.
+                DialogKind::Command if fields.contains_key("__export") => {
+                    let room = (ctx.content_rect().height() - DIALOG_CHROME).max(120.0);
+                    egui::ScrollArea::vertical().id_salt(id.with("body")).max_height(room).show(ui, |ui| crate::export_dialog::body(app, ui, &mut fields));
+                }
                 // Image Size and Canvas Size open on Width, selected (#2329).
                 DialogKind::Command if fields.contains_key("__sizing") => first_field_focused(ui, id, |ui| crate::sizing::body(ui, &mut fields)),
                 DialogKind::Command if crate::smart_filter_dialog::owns(&fields) => crate::smart_filter_dialog::body(app, ui, &mut fields),

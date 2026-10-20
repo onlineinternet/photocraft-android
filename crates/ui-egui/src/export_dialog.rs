@@ -847,12 +847,39 @@ fn preset_fields(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String,
 }
 
 pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Value>) {
-    let t = Tokens::get(ui.ctx());
     let Some(doc) = app.session.active().map(|s| s.doc.clone()) else { return };
-    ui.horizontal_top(|ui| {
-        // Left: settings.
+    // Side by side when there is room; on a narrow screen (a phone held upright) the preview goes
+    // under the settings and shrinks to the width there is, so nothing spills off screen.
+    let avail = ui.available_width();
+    let side_by_side = avail >= SETTINGS_WIDTH + GAP + PREVIEW_SIDE;
+    // Side by side on a short screen (a phone held sideways), the preview also fits the height
+    // left under the title and above the buttons.
+    let short = (ui.ctx().content_rect().height() - 150.0 - 24.0).max(120.0);
+    let preview_side = if side_by_side { PREVIEW_SIDE.min(short) } else { avail.clamp(120.0, PREVIEW_SIDE) };
+    if side_by_side {
+        ui.horizontal_top(|ui| {
+            ui.vertical(|ui| settings_column(app, ui, f, &doc, SETTINGS_WIDTH));
+            ui.add_space(GAP);
+            ui.vertical(|ui| preview_column(app, ui, f, &doc, preview_side));
+        });
+    } else {
         ui.vertical(|ui| {
-            ui.set_width(248.0);
+            settings_column(app, ui, f, &doc, avail);
+            ui.add_space(GAP);
+            preview_column(app, ui, f, &doc, preview_side);
+        });
+    }
+}
+
+const SETTINGS_WIDTH: f32 = 248.0;
+const PREVIEW_SIDE: f32 = 300.0;
+const GAP: f32 = 12.0;
+
+fn settings_column(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Value>, doc: &Arc<Document>, width: f32) {
+    let t = Tokens::get(ui.ctx());
+    {
+        {
+            ui.set_width(width);
             ui.label(egui::RichText::new(tl!("File Settings")).font(crate::theme::semibold(12.0)).color(t.text));
             ui.horizontal(|ui| {
                 ui.label(egui::RichText::new(tl!("Format")).color(t.text_dim));
@@ -922,10 +949,15 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Valu
                 ui.label(egui::RichText::new(tl!("ICO is limited to 256 × 256 pixels")).color(t.warning));
             }
             preset_fields(app, ui, f, bw, bh);
-        });
-        ui.add_space(12.0);
-        // Right: preview + estimated size.
-        ui.vertical(|ui| {
+        }
+    }
+}
+
+/// The preview (`side` points square) and the estimated file size.
+fn preview_column(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &Map<String, Value>, doc: &Arc<Document>, side: f32) {
+    let t = Tokens::get(ui.ctx());
+    {
+        {
             let layer = f.get("__layer").and_then(Value::as_u64);
             let key = egui::Id::new(("export-preview", doc.id.0, app.session.active().map_or(0, |s| s.revision), layer));
             let sig = format!(
@@ -949,7 +981,7 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Valu
                 Some(cached) => Some(cached),
                 None => {
                     #[cfg(not(target_arch = "wasm32"))]
-                    let result = if background_preview_needed(&doc) {
+                    let result = if background_preview_needed(doc) {
                         poll_or_start_preview(ui, key, &sig, doc.clone(), f)
                     } else {
                         let source = source_document(app, f).unwrap_or_else(|_| doc.clone());
@@ -964,7 +996,6 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Valu
                     result.map(|result| cache_preview(ui, key, sig.clone(), result, filter))
                 }
             };
-            let side = 300.0;
             let (r, _) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::hover());
             crate::widgets::checker(ui.painter(), r, 8.0);
             if let Some(tex) = preview.as_ref().and_then(|preview| preview.texture.as_ref()) {
@@ -985,8 +1016,8 @@ pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Valu
             let est =
                 exact.or_else(|| preview.as_ref().and_then(|preview| preview.estimate)).map_or("—".to_string(), |b| crate::sizing::human_bytes(b as f64));
             ui.label(egui::RichText::new(format!("{}  ≈ {est}", s_fmt(f).to_uppercase())).color(t.text_dim).size(11.5));
-        });
-    });
+        }
+    }
 }
 
 /// Export with the dialog's settings: choose a path, render, encode, write.
@@ -1120,6 +1151,31 @@ fn quick_export(app: &mut PhotocraftApp, p: Value) -> Result<Value, String> {
 
 #[cfg(test)]
 mod tests {
+    /// Export As fits a phone, held upright or sideways: every control and the Export and Cancel
+    /// buttons are on screen (the preview goes under the settings, and the body scrolls).
+    #[test]
+    fn export_as_fits_a_phone_screen() {
+        use super::*;
+        use egui_kittest::kittest::Queryable;
+        for size in [egui::vec2(360.0, 740.0), egui::vec2(740.0, 360.0)] {
+            let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+            app.session.prefs.edit(|p| p.interface.language = "en".into());
+            app.run("file.new", json!({"width": 64, "height": 48})).unwrap();
+            let mut h = egui_kittest::Harness::builder().with_size(size).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app);
+            PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+            open(h.state_mut()).unwrap();
+            h.run_steps(8);
+            for label in ["Export", "Cancel", "File Settings", "Image Size"] {
+                let r = h.get_by_label(label).rect();
+                assert!(r.left() >= 0.0 && r.right() <= size.x && r.top() >= 0.0 && r.bottom() <= size.y, "{label} is off a {size:?} screen at {r:?}");
+            }
+            if size.x < size.y {
+                let settings = h.get_by_label("File Settings").rect();
+                assert!(settings.right() <= size.x, "the settings fit across an upright phone: {settings:?}");
+            }
+        }
+    }
+
     #[test]
     fn ico_export_is_available_and_rejects_oversize_output() {
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
