@@ -220,6 +220,6 @@ mod tests {
         assert_eq!(view.zoom, 45.0);
         doc.pixel_art = false;
         crate::canvas::fit_view(&mut view, &doc, egui::vec2(500.0, 400.0), 2.0, 1.0);
-        assert_eq!(view.zoom, 2.0, "other documents still fit at 100 % at most");
+        assert_eq!(view.zoom, 1.0, "other documents still fit at 100 % (one image pixel per device pixel) at most");
     }
 }
