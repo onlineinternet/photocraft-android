@@ -893,148 +893,172 @@ fn preset_fields(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String,
 }
 
 pub fn body(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Value>) {
-    let t = Tokens::get(ui.ctx());
     let Some(doc) = app.session.active().map(|s| s.doc.clone()) else { return };
     let source_profile = effective_source_profile(app, &doc);
-    ui.horizontal_top(|ui| {
-        // Left: settings.
-        ui.vertical(|ui| {
-            ui.set_width(248.0);
-            ui.label(egui::RichText::new(tl!("File Settings")).font(crate::theme::semibold(12.0)).color(t.text));
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(tl!("Format")).color(t.text_dim));
-                let mut fmt = s_fmt(f);
-                let opts: Vec<(String, &str)> = FORMATS.iter().map(|(k, l)| (k.to_string(), *l)).collect();
-                if crate::widgets::dropdown(ui, "export-format", tl!("Format"), &mut fmt, &opts, 130.0) {
-                    set_format_defaults(f, &fmt, &app.session.prefs().export);
-                }
-            });
-            let fmt = s_fmt(f);
-            if fmt == "webp" {
-                let mut ll = lossless(f);
-                crate::widgets::checkbox(ui, &mut ll, tl!("Lossless"));
-                f.insert("lossless".into(), json!(ll));
-            }
-            if fmt == "jpg" || (fmt == "webp" && !lossless(f)) {
-                let mut q = n(f, "quality", 85.0) as f32;
-                crate::widgets::slider_row(ui, tl!("Quality"), &mut q, 1.0..=100.0, "%", None);
-                f.insert("quality".into(), json!(q.round()));
-            }
-            if fmt == "tga" {
-                ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(tl!("Resolution")).color(t.text_dim));
-                    let mut bits = s(f, "tgaBits");
-                    let opts: Vec<(String, &str)> =
-                        vec![("auto".into(), tl!("Auto")), ("24".into(), tl!("24 bits/pixel")), ("32".into(), tl!("32 bits/pixel"))];
-                    if crate::widgets::dropdown(ui, "export-tga-bits", tl!("Depth"), &mut bits, &opts, 130.0) {
-                        f.insert("tgaBits".into(), json!(bits));
-                    }
-                });
-            }
-            if fmt != "jpg" {
-                let mut tr = f.get("transparency").and_then(Value::as_bool).unwrap_or(true);
-                crate::widgets::checkbox(ui, &mut tr, tl!("Transparency"));
-                f.insert("transparency".into(), json!(tr));
-            }
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(tl!("Metadata")).color(t.text_dim));
-                let mut m = s(f, "metadata");
-                let opts: Vec<(String, &str)> = vec![("none".into(), tl!("None")), ("exif".into(), tl!("EXIF")), ("all".into(), tl!("All"))];
-                if crate::widgets::dropdown(ui, "export-metadata", tl!("Metadata"), &mut m, &opts, 130.0) {
-                    f.insert("metadata".into(), json!(m));
-                }
-            });
-            ui.horizontal(|ui| {
-                ui.label(egui::RichText::new(tl!("Color Profile")).color(t.text_dim));
-                let mut profile = s(f, "profile");
-                if profile != "srgb" {
-                    profile = "document".into();
-                }
-                let opts: Vec<(String, &str)> = vec![("document".into(), tl!("Document Profile")), ("srgb".into(), tl!("Convert to sRGB"))];
-                if crate::widgets::dropdown(ui, "export-profile", tl!("Color Profile"), &mut profile, &opts, 130.0) {
-                    f.insert("profile".into(), json!(profile));
-                }
-            });
-            let mut embed = f.get("embedProfile").and_then(Value::as_bool).unwrap_or(true);
-            crate::widgets::checkbox(ui, &mut embed, tl!("Embed Color Profile"));
-            f.insert("embedProfile".into(), json!(embed));
-            ui.add_space(8.0);
-            ui.label(egui::RichText::new(tl!("Image Size")).font(crate::theme::semibold(12.0)).color(t.text));
-            let (bw, bh) = (n(f, "__w", f64::from(doc.size.width)), n(f, "__h", f64::from(doc.size.height)));
-            size_fields(ui, f, bw, bh);
-            resample_field(ui, f);
-            let (w, h) = (n(f, "width", bw), n(f, "height", bh));
-            ui.label(egui::RichText::new(format!("{w} × {h} px")).color(t.text_dim).size(11.5));
-            if fmt == "ico" && (w > 256.0 || h > 256.0) {
-                ui.label(egui::RichText::new(tl!("ICO is limited to 256 × 256 pixels")).color(t.warning));
-            }
-            preset_fields(app, ui, f, bw, bh);
+    // Side by side when there is room; on a narrow screen (a phone held upright) the preview goes
+    // under the settings and shrinks to the width there is, so nothing spills off screen.
+    let avail = ui.available_width();
+    let side_by_side = avail >= SETTINGS_WIDTH + GAP + PREVIEW_SIDE;
+    // Side by side on a short screen (a phone held sideways), the preview also fits the height
+    // left under the title and above the buttons.
+    let short = (ui.ctx().content_rect().height() - 150.0 - 24.0).max(120.0);
+    let preview_side = if side_by_side { PREVIEW_SIDE.min(short) } else { avail.clamp(120.0, PREVIEW_SIDE) };
+    if side_by_side {
+        ui.horizontal_top(|ui| {
+            ui.vertical(|ui| settings_column(app, ui, f, &doc, SETTINGS_WIDTH));
+            ui.add_space(GAP);
+            ui.vertical(|ui| preview_column(app, ui, f, &doc, preview_side, &source_profile));
         });
-        ui.add_space(12.0);
-        // Right: preview + estimated size.
+    } else {
         ui.vertical(|ui| {
-            let layer = f.get("__layer").and_then(Value::as_u64);
-            let key = egui::Id::unique(("export-preview", doc.id.0, app.session.active().map_or(0, |s| s.revision), layer));
-            let sig = format!(
-                "{}{}{}{}{}{}{}{}{}{}{}{}{}",
-                s_fmt(f),
-                n(f, "quality", 85.0),
-                lossless(f),
-                f.get("transparency").map(|v| v.to_string()).unwrap_or_default(),
-                n(f, "scale", 100.0),
-                n(f, "width", 0.0),
-                n(f, "height", 0.0),
-                s(f, "metadata"),
-                s(f, "tgaBits"),
-                s(f, "profile"),
-                f.get("embedProfile").and_then(Value::as_bool).unwrap_or(true),
-                s(f, "sizing"),
-                s(f, "resample")
-            );
-            let sig = format!("{sig}:{}", source_profile.content_hash());
-            let cached: Option<CachedPreview> = ui.data(|d| d.get_temp(key));
-            let preview = match cached.filter(|cached| cached.signature == sig) {
-                Some(cached) => Some(cached),
-                None => {
-                    #[cfg(not(target_arch = "wasm32"))]
-                    let result = if background_preview_needed(&doc) {
-                        poll_or_start_preview(ui, key, &sig, doc.clone(), f, source_profile.clone())
-                    } else {
-                        let source = source_document(app, f).unwrap_or_else(|_| doc.clone());
-                        Some(preview_sync(app, &source, f, &source_profile))
-                    };
-                    #[cfg(target_arch = "wasm32")]
-                    let result = {
-                        let source = source_document(app, f).unwrap_or_else(|_| doc.clone());
-                        Some(preview_sync(app, &source, f, &source_profile))
-                    };
-                    let filter = preview_filter(f);
-                    result.map(|result| cache_preview(ui, key, sig.clone(), result, filter))
-                }
-            };
-            let side = 300.0;
-            let (r, _) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::hover());
-            crate::widgets::checker(ui.painter(), r, 8.0);
-            if let Some(tex) = preview.as_ref().and_then(|preview| preview.texture.as_ref()) {
-                let ts = tex.size_vec2();
-                let k = (side / ts.x.max(ts.y)).min(1.0e3);
-                let ir = egui::Rect::from_center_size(r.center(), ts * k);
-                ui.painter().image(tex.id(), ir, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
-            } else if preview.is_none() {
-                ui.put(egui::Rect::from_center_size(r.center(), egui::vec2(24.0, 24.0)), egui::Spinner::new());
-            } else {
-                ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, tl!("Preview"), egui::FontId::proportional(12.0), t.text_dim);
-            }
-            ui.painter().rect_stroke(r, 0.0, egui::Stroke::new(1.0, t.separator), egui::StrokeKind::Outside);
-            #[cfg(not(target_arch = "wasm32"))]
-            let exact = poll_or_start_exact_estimate(ui, key, &sig, doc.clone(), f, source_profile.clone()).flatten();
-            #[cfg(target_arch = "wasm32")]
-            let exact: Option<u64> = None;
-            let est =
-                exact.or_else(|| preview.as_ref().and_then(|preview| preview.estimate)).map_or("—".to_string(), |b| crate::sizing::human_bytes(b as f64));
-            ui.label(egui::RichText::new(format!("{}  ≈ {est}", s_fmt(f).to_uppercase())).color(t.text_dim).size(11.5));
+            settings_column(app, ui, f, &doc, avail);
+            ui.add_space(GAP);
+            preview_column(app, ui, f, &doc, preview_side, &source_profile);
         });
+    }
+}
+
+const SETTINGS_WIDTH: f32 = 248.0;
+const PREVIEW_SIDE: f32 = 300.0;
+const GAP: f32 = 12.0;
+
+/// Left (or on top, on a narrow screen): the file settings and the image size, `width` points wide.
+fn settings_column(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<String, Value>, doc: &Arc<Document>, width: f32) {
+    let t = Tokens::get(ui.ctx());
+    ui.set_width(width);
+    ui.label(egui::RichText::new(tl!("File Settings")).font(crate::theme::semibold(12.0)).color(t.text));
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new(tl!("Format")).color(t.text_dim));
+        let mut fmt = s_fmt(f);
+        let opts: Vec<(String, &str)> = FORMATS.iter().map(|(k, l)| (k.to_string(), *l)).collect();
+        if crate::widgets::dropdown(ui, "export-format", tl!("Format"), &mut fmt, &opts, 130.0) {
+            set_format_defaults(f, &fmt, &app.session.prefs().export);
+        }
     });
+    let fmt = s_fmt(f);
+    if fmt == "webp" {
+        let mut ll = lossless(f);
+        crate::widgets::checkbox(ui, &mut ll, tl!("Lossless"));
+        f.insert("lossless".into(), json!(ll));
+    }
+    if fmt == "jpg" || (fmt == "webp" && !lossless(f)) {
+        let mut q = n(f, "quality", 85.0) as f32;
+        crate::widgets::slider_row(ui, tl!("Quality"), &mut q, 1.0..=100.0, "%", None);
+        f.insert("quality".into(), json!(q.round()));
+    }
+    if fmt == "tga" {
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new(tl!("Resolution")).color(t.text_dim));
+            let mut bits = s(f, "tgaBits");
+            let opts: Vec<(String, &str)> =
+                vec![("auto".into(), tl!("Auto")), ("24".into(), tl!("24 bits/pixel")), ("32".into(), tl!("32 bits/pixel"))];
+            if crate::widgets::dropdown(ui, "export-tga-bits", tl!("Depth"), &mut bits, &opts, 130.0) {
+                f.insert("tgaBits".into(), json!(bits));
+            }
+        });
+    }
+    if fmt != "jpg" {
+        let mut tr = f.get("transparency").and_then(Value::as_bool).unwrap_or(true);
+        crate::widgets::checkbox(ui, &mut tr, tl!("Transparency"));
+        f.insert("transparency".into(), json!(tr));
+    }
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new(tl!("Metadata")).color(t.text_dim));
+        let mut m = s(f, "metadata");
+        let opts: Vec<(String, &str)> = vec![("none".into(), tl!("None")), ("exif".into(), tl!("EXIF")), ("all".into(), tl!("All"))];
+        if crate::widgets::dropdown(ui, "export-metadata", tl!("Metadata"), &mut m, &opts, 130.0) {
+            f.insert("metadata".into(), json!(m));
+        }
+    });
+    ui.horizontal(|ui| {
+        ui.label(egui::RichText::new(tl!("Color Profile")).color(t.text_dim));
+        let mut profile = s(f, "profile");
+        if profile != "srgb" {
+            profile = "document".into();
+        }
+        let opts: Vec<(String, &str)> = vec![("document".into(), tl!("Document Profile")), ("srgb".into(), tl!("Convert to sRGB"))];
+        if crate::widgets::dropdown(ui, "export-profile", tl!("Color Profile"), &mut profile, &opts, 130.0) {
+            f.insert("profile".into(), json!(profile));
+        }
+    });
+    let mut embed = f.get("embedProfile").and_then(Value::as_bool).unwrap_or(true);
+    crate::widgets::checkbox(ui, &mut embed, tl!("Embed Color Profile"));
+    f.insert("embedProfile".into(), json!(embed));
+    ui.add_space(8.0);
+    ui.label(egui::RichText::new(tl!("Image Size")).font(crate::theme::semibold(12.0)).color(t.text));
+    let (bw, bh) = (n(f, "__w", f64::from(doc.size.width)), n(f, "__h", f64::from(doc.size.height)));
+    size_fields(ui, f, bw, bh);
+    resample_field(ui, f);
+    let (w, h) = (n(f, "width", bw), n(f, "height", bh));
+    ui.label(egui::RichText::new(format!("{w} × {h} px")).color(t.text_dim).size(11.5));
+    if fmt == "ico" && (w > 256.0 || h > 256.0) {
+        ui.label(egui::RichText::new(tl!("ICO is limited to 256 × 256 pixels")).color(t.warning));
+    }
+    preset_fields(app, ui, f, bw, bh);
+}
+
+/// The preview (`side` points square) and the estimated file size.
+fn preview_column(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &Map<String, Value>, doc: &Arc<Document>, side: f32, source_profile: &Arc<Profile>) {
+    let t = Tokens::get(ui.ctx());
+    let layer = f.get("__layer").and_then(Value::as_u64);
+    let key = egui::Id::unique(("export-preview", doc.id.0, app.session.active().map_or(0, |s| s.revision), layer));
+    let sig = format!(
+        "{}{}{}{}{}{}{}{}{}{}{}{}{}",
+        s_fmt(f),
+        n(f, "quality", 85.0),
+        lossless(f),
+        f.get("transparency").map(|v| v.to_string()).unwrap_or_default(),
+        n(f, "scale", 100.0),
+        n(f, "width", 0.0),
+        n(f, "height", 0.0),
+        s(f, "metadata"),
+        s(f, "tgaBits"),
+        s(f, "profile"),
+        f.get("embedProfile").and_then(Value::as_bool).unwrap_or(true),
+        s(f, "sizing"),
+        s(f, "resample")
+    );
+    let sig = format!("{sig}:{}", source_profile.content_hash());
+    let cached: Option<CachedPreview> = ui.data(|d| d.get_temp(key));
+    let preview = match cached.filter(|cached| cached.signature == sig) {
+        Some(cached) => Some(cached),
+        None => {
+            #[cfg(not(target_arch = "wasm32"))]
+            let result = if background_preview_needed(doc) {
+                poll_or_start_preview(ui, key, &sig, doc.clone(), f, source_profile.clone())
+            } else {
+                let source = source_document(app, f).unwrap_or_else(|_| doc.clone());
+                Some(preview_sync(app, &source, f, &source_profile))
+            };
+            #[cfg(target_arch = "wasm32")]
+            let result = {
+                let source = source_document(app, f).unwrap_or_else(|_| doc.clone());
+                Some(preview_sync(app, &source, f, &source_profile))
+            };
+            let filter = preview_filter(f);
+            result.map(|result| cache_preview(ui, key, sig.clone(), result, filter))
+        }
+    };
+    let (r, _) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::hover());
+    crate::widgets::checker(ui.painter(), r, 8.0);
+    if let Some(tex) = preview.as_ref().and_then(|preview| preview.texture.as_ref()) {
+        let ts = tex.size_vec2();
+        let k = (side / ts.x.max(ts.y)).min(1.0e3);
+        let ir = egui::Rect::from_center_size(r.center(), ts * k);
+        ui.painter().image(tex.id(), ir, egui::Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+    } else if preview.is_none() {
+        ui.put(egui::Rect::from_center_size(r.center(), egui::vec2(24.0, 24.0)), egui::Spinner::new());
+    } else {
+        ui.painter().text(r.center(), egui::Align2::CENTER_CENTER, tl!("Preview"), egui::FontId::proportional(12.0), t.text_dim);
+    }
+    ui.painter().rect_stroke(r, 0.0, egui::Stroke::new(1.0, t.separator), egui::StrokeKind::Outside);
+    #[cfg(not(target_arch = "wasm32"))]
+    let exact = poll_or_start_exact_estimate(ui, key, &sig, doc.clone(), f, source_profile.clone()).flatten();
+    #[cfg(target_arch = "wasm32")]
+    let exact: Option<u64> = None;
+    let est =
+        exact.or_else(|| preview.as_ref().and_then(|preview| preview.estimate)).map_or("—".to_string(), |b| crate::sizing::human_bytes(b as f64));
+    ui.label(egui::RichText::new(format!("{}  ≈ {est}", s_fmt(f).to_uppercase())).color(t.text_dim).size(11.5));
 }
 
 /// Export with the dialog's settings: choose a path, render, encode, write.
