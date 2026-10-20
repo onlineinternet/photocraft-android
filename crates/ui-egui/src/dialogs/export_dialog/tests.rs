@@ -1063,3 +1063,27 @@ fn applying_a_preset_restores_its_size_mode() {
     assert_eq!(f.get("height"), Some(&json!(50.0)));
     assert_eq!(f.get("sizing"), Some(&json!("scale")));
 }
+
+/// Export As fits a phone, held upright or sideways: every control and the Export and Cancel
+/// buttons are on screen (the preview goes under the settings, and the body scrolls).
+#[test]
+fn export_as_fits_a_phone_screen() {
+    use egui_kittest::kittest::Queryable;
+    for size in [egui::vec2(360.0, 740.0), egui::vec2(740.0, 360.0)] {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.session.prefs.edit(|p| p.interface.language = "en".into());
+        app.run("file.new", json!({"width": 64, "height": 48})).unwrap();
+        let mut h = egui_kittest::Harness::builder().with_size(size).build_ui_state(|ui, app| crate::dialogs::show(app, ui.ctx()), app);
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::ALL[0]);
+        open(h.state_mut()).unwrap();
+        h.run_steps(8);
+        for label in ["Export", "Cancel", "File Settings", "Image Size"] {
+            let r = h.get_by_label(label).rect();
+            assert!(r.left() >= 0.0 && r.right() <= size.x && r.top() >= 0.0 && r.bottom() <= size.y, "{label} is off a {size:?} screen at {r:?}");
+        }
+        if size.x < size.y {
+            let settings = h.get_by_label("File Settings").rect();
+            assert!(settings.right() <= size.x, "the settings fit across an upright phone: {settings:?}");
+        }
+    }
+}
