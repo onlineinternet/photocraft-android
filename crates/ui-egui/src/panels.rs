@@ -108,6 +108,7 @@ pub(crate) use properties::selection_mode_buttons;
 #[cfg(test)]
 use properties::{adjustments_grid, properties_body};
 pub use status_bar::{status_bar, status_bar_heights};
+pub(crate) use status_bar::{status_room, status_text};
 #[cfg(test)]
 use title_bar::title_x;
 pub use title_bar::{sync_window_title, system_title_bar, title_bar, window_title};

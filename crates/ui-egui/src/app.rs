@@ -219,6 +219,7 @@ impl PhotocraftApp {
             last_frame_start_ms: 0.0,
             touch_drag_slop: 0.0,
             touch_ui: false,
+            hardware_keyboard: false,
             touch_rotate: false,
             jobs: Default::default(),
             #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]

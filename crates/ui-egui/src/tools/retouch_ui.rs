@@ -515,7 +515,7 @@ pub fn draw_source_marker(app: &PhotocraftApp, painter: &egui::Painter, xf: &Vie
 
 fn opt(ui: &mut egui::Ui, text: &str) {
     let t = Tokens::get(ui.ctx());
-    let label = ui.label(egui::RichText::new(tl!(&text)).color(t.text_dim).size(12.0));
+    let label = ui.label(egui::RichText::new(crate::shortcuts::strip_key_hints(tl!(&text))).color(t.text_dim).size(12.0));
     // The caption scrubs and names the field or dropdown drawn right after it.
     crate::widgets::scrub_option_label(ui, &label);
 }
@@ -555,11 +555,11 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui, tool: Tool) -> bo
             if !app.remove_pending.is_empty() {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if crate::widgets::primary_button(ui, "✓", 32.0)
-                        .on_hover_text(crate::i18n::fmt(tl!("Apply the removal ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))]))
+                        .on_hover_text(crate::shortcuts::strip_key_hints(&crate::i18n::fmt(tl!("Apply the removal ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])))
                         .clicked()
                     {
                         remove_pending_commit(app);
-                    } else if crate::widgets::secondary_button(ui, "⊘", 32.0).on_hover_text(tl!("Cancel (Esc)")).clicked() {
+                    } else if crate::widgets::secondary_button(ui, "⊘", 32.0).on_hover_text(crate::shortcuts::strip_key_hints(tl!("Cancel (Esc)"))).clicked() {
                         remove_pending_cancel(app);
                     }
                 });

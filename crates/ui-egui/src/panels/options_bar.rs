@@ -378,12 +378,17 @@ fn lasso_options(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         widgets::vline(ui, 22.0);
     }
     select_and_mask_button(app, ui);
-    if crate::lasso_ui::active(app) || (app.ui.tool == Tool::PolygonLasso && !app.ui.polygon.is_empty()) {
+    if (crate::lasso_ui::active(app) || (app.ui.tool == Tool::PolygonLasso && !app.ui.polygon.is_empty())) && !crate::shortcuts::key_hints() {
+        // No keyboard: neither Enter nor Esc to mention.
+        hint(ui, tl!("Click the first point to close"));
+    } else if crate::lasso_ui::active(app) || (app.ui.tool == Tool::PolygonLasso && !app.ui.polygon.is_empty()) {
         hint(ui, &crate::i18n::fmt(tl!("Click the first point or press {key} to close · Esc cancels"), &[("key", &crate::shortcuts::pretty("Enter"))]));
     } else if app.ui.tool == Tool::Lasso {
         hint(ui, tl!("Hold Alt while drawing for straight segments"));
     }
-    if app.ui.tool == Tool::MagneticLasso && app.ui.magnetic.active() {
+    if app.ui.tool == Tool::MagneticLasso && app.ui.magnetic.active() && !crate::shortcuts::key_hints() {
+        hint(ui, tl!("Click the first point to close"));
+    } else if app.ui.tool == Tool::MagneticLasso && app.ui.magnetic.active() {
         hint(
             ui,
             &crate::i18n::fmt(
@@ -851,5 +856,5 @@ fn whole_percent_field(ui: &mut egui::Ui, label: &str, value: &mut f32, range: s
 
 fn hint(ui: &mut egui::Ui, s: &str) {
     let t = Tokens::get(ui.ctx());
-    ui.label(RichText::new(s).color(t.text_faint));
+    ui.label(RichText::new(crate::shortcuts::strip_key_hints(s)).color(t.text_faint));
 }

@@ -373,6 +373,45 @@ pub fn popup_value_field(ui: &mut Ui, name: &str, value: &mut f32, range: std::o
 
 pub(super) const NUMERIC_INPUT_LIMIT: usize = 128;
 
+fn numeric_focus_id() -> egui::Id {
+    egui::Id::new("pc-numeric-focus")
+}
+
+/// Is the text being edited this frame a number field's? A touch shell shows the number pad
+/// for it instead of the letter keyboard. Read after the frame's UI is drawn.
+pub fn numeric_focused(ctx: &egui::Context) -> bool {
+    let pass = ctx.cumulative_pass_nr();
+    ctx.data(|d| d.get_temp::<u64>(numeric_focus_id())) == Some(pass)
+}
+
+/// Can `c` be part of what a number field takes ([`crate::numeric_expression`]): digits,
+/// arithmetic, `pi`, an exponent, and, in a field with a unit or a suffix, unit names (`2in`,
+/// `5 mm`) and the suffix itself (`45°`)? Only ASCII is judged: an input method's characters
+/// (full-width digits, a composition in progress) are its own to turn into a number.
+pub(super) fn numeric_char(c: char, units: crate::numeric_expression::Units) -> bool {
+    const UNIT_LETTERS: &str = "picaxtnm";
+    !c.is_ascii()
+        || c.is_ascii_digit()
+        || c.is_whitespace()
+        || matches!(c, '.' | ',' | '+' | '-' | '−' | '*' | '/' | '(' | ')' | '%' | '^' | 'p' | 'i' | 'e' | 'E')
+        || ((units.unit.is_some() || !units.suffix.is_empty()) && UNIT_LETTERS.contains(c.to_ascii_lowercase()))
+        || units.suffix.contains(c)
+}
+
+/// Keeps only what a number, a sum or a unit can be made of in this frame's typed text: a letter
+/// typed into a number field (an on-screen keyboard has them all) never shows up in it.
+fn keep_numeric_input(ui: &Ui, units: crate::numeric_expression::Units) {
+    ui.input_mut(|input| {
+        input.events.retain_mut(|event| match event {
+            egui::Event::Text(text) | egui::Event::Paste(text) | egui::Event::Ime(egui::ImeEvent::Commit(text)) => {
+                text.retain(|c| numeric_char(c, units));
+                !text.is_empty()
+            }
+            _ => true,
+        });
+    });
+}
+
 /// Drops text events longer than [`NUMERIC_INPUT_LIMIT`] from this frame's input: oversized events
 /// must never reach text layout.
 fn drop_oversized_input(ui: &Ui) {
@@ -445,6 +484,7 @@ fn number_edit(
         });
     if editing {
         drop_oversized_input(ui);
+        keep_numeric_input(ui, units);
     }
     let held = id.with("arithmetic");
     let math = ui.memory(|m| m.has_focus(id)) && ui.data(|d| d.get_temp(held)).unwrap_or(false);
@@ -511,6 +551,10 @@ fn number_edit(
             crate::zoom_field::request_invalid_entry(ui.ctx(), (*range.start(), *range.end()));
         }
         crate::zoom_field::after(ui, id, guard);
+    }
+    if resp.has_focus() {
+        let pass = ui.ctx().cumulative_pass_nr();
+        ui.data_mut(|d| d.insert_temp(numeric_focus_id(), pass));
     }
     if wrap_drag {
         crate::scrub_wrap::update(ui, &resp, value, before, range.clone(), speed, wrapping);

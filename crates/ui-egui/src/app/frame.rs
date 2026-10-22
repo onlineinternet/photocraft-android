@@ -35,6 +35,8 @@ impl PhotocraftApp {
     pub fn logic_frame(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.cap_frame_rate();
         i18n::set_current(i18n::Lang::from_pref(&self.session.prefs().interface.language));
+        // Shortcuts in menus and tooltips, and hints naming keys, only when there are keys.
+        shortcuts::set_key_hints(!self.touch_ui || self.hardware_keyboard);
         // Caps Lock state read from the OS once per frame (see `Services::caps_lock`): the canvas
         // cursor block needs it before the frame renders. `None` (Wayland/web) keeps `false`.
         self.caps_lock = self.services.caps_lock.as_mut().is_some_and(|f| f());
@@ -172,6 +174,8 @@ impl PhotocraftApp {
         // The contextual task bar reports itself again if this frame draws it (#10890).
         self.ui.task_bar_shown = None;
         i18n::set_current(i18n::Lang::from_pref(&self.session.prefs().interface.language));
+        // Shortcuts in menus and tooltips, and hints naming keys, only when there are keys.
+        shortcuts::set_key_hints(!self.touch_ui || self.hardware_keyboard);
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.
         if !self.fonts_ready {
             // egui consumed this pass's input without PhotoCraft handling it: keep the synthetic

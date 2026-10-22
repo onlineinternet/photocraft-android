@@ -75,7 +75,7 @@ echo "==> Packaging"
 "$TC/llvm-strip" --strip-unneeded -o "$work/lib/arm64-v8a/libphotocraft_android.so" "$so"
 "$BT/aapt2" link -o "$work/unsigned.apk" -I "$JAR" --manifest "$here/AndroidManifest.xml" \
   --min-sdk-version "$MIN_SDK" --target-sdk-version "$TARGET_SDK" \
-  --version-code "$VERSION_CODE" --version-name "$VERSION_NAME"
+  --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --replace-version
 (cd "$work" && zip -q -r unsigned.apk lib && cd dex && zip -q ../unsigned.apk classes.dex)
 "$BT/zipalign" -f 4 "$work/unsigned.apk" "$work/aligned.apk"
 

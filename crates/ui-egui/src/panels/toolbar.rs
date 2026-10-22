@@ -228,8 +228,8 @@ pub fn toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                                     let key = egui::Id::unique(("tool-slot", *slot_index));
                                     let tool = slot_tool(app.ui.tool, &app.ui.group_tools, slot);
                                     let sel = slot.contains(&app.ui.tool);
-                                    let tip = match crate::tool_shortcuts::shortcut(app, tool) {
-                                        Some(sc) => format!("{}  ({})", tl!(tool.label()), crate::shortcuts::pretty(&sc)),
+                                    let tip = match crate::tool_shortcuts::shortcut(app, tool).as_deref().and_then(crate::shortcuts::shown) {
+                                        Some(sc) => format!("{}  ({sc})", tl!(tool.label())),
                                         None => tl!(tool.label()).to_string(),
                                     };
                                     let resp =
@@ -371,11 +371,13 @@ pub fn toolbar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
                                                             egui::FontId::proportional(12.5),
                                                             t.text,
                                                         );
-                                                        if let Some(sc) = crate::tool_shortcuts::shortcut(app, item) {
+                                                        if let Some(sc) =
+                                                            crate::tool_shortcuts::shortcut(app, item).as_deref().and_then(crate::shortcuts::shown)
+                                                        {
                                                             ui.painter().text(
                                                                 pos2(r.right() - 8.0, r.center().y),
                                                                 Align2::RIGHT_CENTER,
-                                                                crate::shortcuts::pretty(&sc),
+                                                                sc,
                                                                 egui::FontId::proportional(12.0),
                                                                 t.text_dim,
                                                             );

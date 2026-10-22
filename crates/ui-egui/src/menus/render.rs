@@ -65,8 +65,8 @@ pub(super) fn render_level_rows(ui: &mut egui::Ui, items: &[&MenuItem], depth: u
             if let Some(tint) = it.color.as_deref().and_then(menu_tint) {
                 b = b.fill(tint.gamma_multiply(0.55));
             }
-            if let Some(sc) = &it.shortcut {
-                b = b.shortcut_text(crate::shortcuts::pretty(sc));
+            if let Some(sc) = it.shortcut.as_deref().and_then(crate::shortcuts::shown) {
+                b = b.shortcut_text(sc);
             }
             let hit = nav.row(ui, depth - 1, it.enabled, Some(&it.id), mnemonic, |ui, _| {
                 let r = ui.add_enabled(it.enabled, b);

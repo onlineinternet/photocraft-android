@@ -446,8 +446,8 @@ pub fn options_button(o: &mut ToolOptions, ui: &mut egui::Ui) {
             }
             atoms.push_right(label.to_owned());
             let mut b = egui::Button::new(atoms);
-            if let Some(k) = key {
-                b = b.shortcut_text(crate::shortcuts::pretty(k));
+            if let Some(k) = key.and_then(crate::shortcuts::shown) {
+                b = b.shortcut_text(k);
             }
             ui.add(b).clicked()
         };
@@ -470,7 +470,10 @@ pub fn options_button(o: &mut ToolOptions, ui: &mut egui::Ui) {
             ui.close();
         }
         let turns = o.crop_overlay.orientations() > 1;
-        let b = egui::Button::new(format!("   {}", tl!("Cycle Orientation"))).shortcut_text(crate::shortcuts::pretty("Shift+O"));
+        let mut b = egui::Button::new(format!("   {}", tl!("Cycle Orientation")));
+        if let Some(k) = crate::shortcuts::shown("Shift+O") {
+            b = b.shortcut_text(k);
+        }
         if ui.add_enabled(turns, b).clicked() {
             cycle_orientation(o);
             ui.close();
