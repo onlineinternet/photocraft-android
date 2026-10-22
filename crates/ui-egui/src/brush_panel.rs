@@ -510,12 +510,13 @@ pub fn window(app: &mut PhotocraftApp, ctx: &egui::Context) {
         .inner_margin(egui::Margin::same(10));
     let canvas = app.last_canvas_rect;
     let mut open = true;
-    egui::Window::new(tl!("Brush Settings"))
+    let window = egui::Window::new(tl!("Brush Settings"))
         .id(egui::Id::new("brush-settings"))
         .title_bar(false)
         .resizable(false)
         .frame(frame)
-        .default_pos(egui::pos2((canvas.right() - WIDTH - 30.0).max(canvas.left() + 8.0), canvas.top() + 24.0))
+        .default_pos(egui::pos2((canvas.right() - WIDTH - 30.0).max(canvas.left() + 8.0), canvas.top() + 24.0));
+    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx))
         .show(ctx, |ui| {
             ui.set_width(WIDTH);
             ui.horizontal(|ui| {

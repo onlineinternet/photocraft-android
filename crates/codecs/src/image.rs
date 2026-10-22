@@ -627,12 +627,22 @@ impl Image {
                 SampleType::F16 => f16::ONE.to_bits().to_ne_bytes().to_vec(),
                 SampleType::F32 => 1.0f32.to_ne_bytes().to_vec(),
             };
-            let mut out = Vec::with_capacity(self.data.len() / src * (src + bps));
-            for px in self.data.chunks_exact(src) {
-                out.extend_from_slice(px);
-                out.extend_from_slice(&one);
+            if sample == SampleType::U8 && src == 3 {
+                // 8-bit RGB, nearly every photo: fill opaque, then copy each pixel's three
+                // samples in place (no per-pixel growth checks).
+                let mut out = vec![u8::MAX; self.data.len() / 3 * 4];
+                for (o, i) in out.chunks_exact_mut(4).zip(self.data.chunks_exact(3)) {
+                    o[..3].copy_from_slice(i);
+                }
+                out
+            } else {
+                let mut out = Vec::with_capacity(self.data.len() / src * (src + bps));
+                for px in self.data.chunks_exact(src) {
+                    out.extend_from_slice(px);
+                    out.extend_from_slice(&one);
+                }
+                out
             }
-            out
         } else if let Some(fast) = self.convert_int_direct(layout, sample) {
             fast
         } else if layout == self.layout {

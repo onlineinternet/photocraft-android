@@ -6,8 +6,8 @@
 //! also builds and tests on a desktop host.
 //!
 //! Differences from the desktop app:
-//! - File › Open, Save As and folder choices use this shell's own touch-friendly picker over
-//!   filesystem paths ([`picker`]), which needs Android's "All files access" permission;
+//! - File › Open and Save As use Android's own pickers, folder choices this shell's own
+//!   touch-friendly picker over filesystem paths ([`picker`]);
 //! - preferences, brush presets, crash recovery and the window layout live in the app's private
 //!   storage ([`services::Dirs`]);
 //! - an edge keyboard with one-tap commands ([`edge_keys`]), and two- and three-finger taps for
@@ -358,7 +358,7 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
     let data = app.internal_data_path().unwrap_or_else(|| PathBuf::from("/data/local/tmp/photocraft"));
     let dirs = services::Dirs { data };
     let mut options = native_options(&dirs);
-    // For the All files access settings shortcut in the file picker.
+    // For the system calls (pickers, clipboard, share sheet, keyboard): android_system.rs.
     android_system::init(app.activity_as_ptr());
     let activity = app.clone();
     let content_rect: insets::ContentRectFn = Box::new(move || {

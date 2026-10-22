@@ -652,7 +652,10 @@ pub(crate) fn title_row(ui: &mut egui::Ui, title: &str) -> bool {
 pub(crate) fn panel_window(app: &PhotocraftApp, ctx: &egui::Context, id: &str, title: &str, offset: egui::Vec2, width: f32, body: impl FnOnce(&mut egui::Ui)) {
     let t = Tokens::get(ctx);
     let canvas = app.last_canvas_rect;
-    egui::Window::new(title)
+    let fit = crate::widgets::fit_small_screen(app.touch_ui, ctx);
+    // On a phone, as wide as the screen allows (the body scrolls sideways for the rest).
+    let width = if fit { width.min(ctx.content_rect().width() - 40.0).max(120.0) } else { width };
+    let window = egui::Window::new(title)
         .id(egui::Id::new(id))
         .title_bar(false)
         .resizable(false)
@@ -660,12 +663,14 @@ pub(crate) fn panel_window(app: &PhotocraftApp, ctx: &egui::Context, id: &str, t
         .min_width(width)
         .max_width(width)
         .frame(float_frame(&t))
-        .default_pos(pos2((canvas.right() - width - 16.0 + offset.x).max(canvas.left() + 8.0), canvas.top() + offset.y))
-        .show(ctx, |ui| {
+        .default_pos(pos2((canvas.right() - width - 16.0 + offset.x).max(canvas.left() + 8.0), canvas.top() + offset.y));
+    crate::widgets::fit_window(window, ctx, fit).show(ctx, |ui| {
+        if !fit {
             ui.set_width(width);
             ui.set_max_width(width);
-            body(ui);
-        });
+        }
+        body(ui);
+    });
 }
 
 /// Draws the open panels and dialogs.
@@ -886,12 +891,13 @@ fn dialog(app: &mut PhotocraftApp, ctx: &egui::Context) {
         _ => "Measurement Scale Marker",
     };
     let mut result: Option<bool> = None;
-    egui::Window::new(title)
+    let window = egui::Window::new(title)
         .id(egui::Id::new("analysis-dialog"))
         .collapsible(false)
         .resizable(false)
         .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
-        .frame(float_frame(&t))
+        .frame(float_frame(&t));
+    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx))
         .show(ctx, |ui| {
             ui.label(RichText::new(tl!(&title)).color(t.text).size(13.0).strong());
             crate::widgets::hairline(ui);

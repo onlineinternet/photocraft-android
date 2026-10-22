@@ -411,55 +411,74 @@ const FIELD: f32 = 200.0;
 const VALUE_W: f32 = 42.0;
 
 /// Draw the picker and its top-right actions. `Some(true)` confirms, `Some(false)` cancels.
+/// Narrower than [`CONTENT_WIDTH`] (a phone held upright), the swatches, buttons and number
+/// fields go under the colour field instead of beside it.
 pub fn body(ui: &mut egui::Ui, f: &mut Map<String, Value>) -> Option<bool> {
-    ui.set_width(CONTENT_WIDTH);
+    let narrow = ui.available_width() < CONTENT_WIDTH;
+    ui.set_width(if narrow { ui.available_width() } else { CONTENT_WIDTH });
     ui.spacing_mut().item_spacing.y = 4.0;
+    if narrow {
+        ui.vertical(|ui| {
+            field_column(ui, f);
+            ui.add_space(8.0);
+            action_column(ui, f)
+        })
+        .inner
+    } else {
+        ui.horizontal_top(|ui| {
+            ui.spacing_mut().item_spacing.x = 12.0;
+            ui.vertical(|ui| field_column(ui, f));
+            ui.vertical(|ui| action_column(ui, f)).inner
+        })
+        .inner
+    }
+}
+
+/// The colour field and its slider, Only Web Colors and the screen picker.
+fn field_column(ui: &mut egui::Ui, f: &mut Map<String, Value>) {
+    ui.horizontal_top(|ui| {
+        ui.spacing_mut().item_spacing.x = 6.0;
+        color_field(ui, f);
+    });
+    ui.add_space(8.0);
+    let mut web = f.get("__webOnly").and_then(Value::as_bool).unwrap_or(false);
+    if widgets::checkbox(ui, &mut web, tl!("Only Web Colors")).changed() {
+        f.insert("__webOnly".into(), json!(web));
+        set_rgb(f, current(f).rgb, Keep::Nothing);
+    }
+    // Under the colour field, not in the action column: the dialog must still fit a
+    // 760 x 480 window.
+    ui.add_space(4.0);
+    if let Some(rgb) = crate::screen_picker::button(ui, ui.id().with("screen-color")) {
+        set_rgb(f, rgb, Keep::Nothing);
+    }
+}
+
+/// The new / current swatches, OK, Cancel and Add to Swatches, and the number fields.
+fn action_column(ui: &mut egui::Ui, f: &mut Map<String, Value>) -> Option<bool> {
     let mut outcome = None;
     ui.horizontal_top(|ui| {
-        ui.spacing_mut().item_spacing.x = 12.0;
-        ui.vertical(|ui| {
-            ui.horizontal_top(|ui| {
-                ui.spacing_mut().item_spacing.x = 6.0;
-                color_field(ui, f);
-            });
-            ui.add_space(8.0);
-            let mut web = f.get("__webOnly").and_then(Value::as_bool).unwrap_or(false);
-            if widgets::checkbox(ui, &mut web, tl!("Only Web Colors")).changed() {
-                f.insert("__webOnly".into(), json!(web));
-                set_rgb(f, current(f).rgb, Keep::Nothing);
+        swatches(ui, f);
+        // As wide as the longest label, at the right edge like Photoshop's.
+        let button_width = widgets::button_width(ui, &[tl!("OK"), tl!("Cancel"), tl!("Add to Swatches")]).max(96.0);
+        ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
+            if widgets::primary_button(ui, tl!("OK"), button_width).clicked() {
+                outcome = Some(true);
             }
-            // Under the colour field, not in the action column: the dialog must still fit a
-            // 760 x 480 window.
             ui.add_space(4.0);
-            if let Some(rgb) = crate::screen_picker::button(ui, ui.id().with("screen-color")) {
-                set_rgb(f, rgb, Keep::Nothing);
+            if widgets::secondary_button(ui, tl!("Cancel"), button_width).clicked() {
+                outcome = Some(false);
             }
-        });
-        ui.vertical(|ui| {
-            ui.horizontal_top(|ui| {
-                swatches(ui, f);
-                // As wide as the longest label, at the right edge like Photoshop's.
-                let button_width = widgets::button_width(ui, &[tl!("OK"), tl!("Cancel"), tl!("Add to Swatches")]).max(96.0);
-                ui.with_layout(egui::Layout::top_down(egui::Align::Max), |ui| {
-                    if widgets::primary_button(ui, tl!("OK"), button_width).clicked() {
-                        outcome = Some(true);
-                    }
-                    ui.add_space(4.0);
-                    if widgets::secondary_button(ui, tl!("Cancel"), button_width).clicked() {
-                        outcome = Some(false);
-                    }
-                    ui.add_space(4.0);
-                    // Handled by the dialog host, which has the app (`take_add_swatch`).
-                    if widgets::secondary_button(ui, tl!("Add to Swatches"), button_width).clicked() {
-                        f.insert("__addSwatch".into(), json!(true));
-                    }
-                });
-            });
             ui.add_space(4.0);
-            let mode = f.get("__mode").and_then(Value::as_str).unwrap_or("h").to_string();
-            fields(ui, f, &mode, &current(f));
+            // Handled by the dialog host, which has the app (`take_add_swatch`).
+            if widgets::secondary_button(ui, tl!("Add to Swatches"), button_width).clicked() {
+                f.insert("__addSwatch".into(), json!(true));
+            }
         });
     });
+    ui.add_space(4.0);
+    let mode = f.get("__mode").and_then(Value::as_str).unwrap_or("h").to_string();
+    fields(ui, f, &mode, &current(f));
     outcome
 }
 

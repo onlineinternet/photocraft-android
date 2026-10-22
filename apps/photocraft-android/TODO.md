@@ -5,14 +5,18 @@ where they fit. Done items move to the bottom with the date.
 
 ## Now
 
+- [ ] Try on a phone (upright and sideways): the Color Picker, Preferences, Layer Style and a
+      filter dialog fit the screen; File › Save and Save As to a JPEG ask for the quality; a
+      24 MP photo opens faster than before (time it); File › Open, Save and Open Recent still
+      work with no All files access.
+- [ ] Preferences on a phone: fits, but its right half needs a sideways scroll; a one-column
+      layout would be better.
+- [ ] Opening a big photo: profile the first frame after it opens on a device (about 0.6 s on a
+      fast PC with the CPU canvas).
 - [ ] Try the 2026-10-22 fixes on a phone and the tablet: a quick finger swipe paints the whole
       line; number boxes bring up the number pad and refuse letters; Help › Search menus in
       landscape leaves the menu visible; About and Settings › Apps show 0.10.0; menus and
       tooltips show no shortcuts until a keyboard is attached (and show them once one is).
-- [ ] Drop the All files access permission (Google Play is strict about it): Open Recent and the
-      built-in file browser would rely on picker files only.
-- [ ] Big photos: a 24 MP photo takes about 25 s to open (tester's emulator).
-- [ ] Ask about JPEG quality when saving with File › Save (Export As already has it).
 - [ ] Try two-finger zoom/pan/rotate again with no snapping: still jerky? (Next suspects: the
       canvas draws one frame behind the fingers, and the GPU canvas rounds its position to whole
       pixels.)
@@ -52,6 +56,13 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-10-22: Every window fits a phone: on the touch app a dialog's body scrolls inside a window
+  capped at the screen (dialogs.rs), floating windows go through `widgets::fit_window`, the
+  Color Picker stacks under its field when narrow; `phone_fit_tests::every_window_fits_a_phone`
+  (--ignored, about 2 min) opens every menu command at 360×740 and 740×360. All files access
+  removed (manifest, picker, JNI). JPEG Options on Save / Save As (since
+  replaced by upstream's own JPEG Options, which every platform asks). Opening a photo converts it into tiles in parallel bands (io flat.rs) with a faster
+  8-bit RGB→RGBA copy (codecs): 255 → 50 ms for 24 MP on 2 cores.
 - 2026-10-22: From a tester's report: quick strokes that arrived whole in one frame painted
   nothing or a dot (the shell now holds the release back a frame, `split_stroke_end`); number
   fields show the number pad and take only number characters; the keyboard no longer fills a

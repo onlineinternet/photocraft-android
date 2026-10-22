@@ -404,7 +404,8 @@ fn dialog(app: &mut PhotocraftApp, ctx: &egui::Context) {
     let title = title(&kind);
     let names: Vec<String> = app.session.prefs().workspaces.keys().cloned().collect();
     let mut result: Option<bool> = None;
-    egui::Window::new(title).id(egui::Id::new("shell-dialog")).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0)).show(
+    let window = egui::Window::new(title).id(egui::Id::new("shell-dialog")).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0));
+    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx)).show(
         ctx,
         |ui| {
             ui.label(RichText::new(tl!(&title)).color(t.text).size(13.0).strong());

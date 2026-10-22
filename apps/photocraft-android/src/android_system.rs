@@ -1,9 +1,5 @@
 //! The Android system calls the shell makes through JNI:
 //!
-//! - whether the app has "All files access" (`Environment.isExternalStorageManager()`), and
-//! - opening Android's settings page where the user turns it on, straight at this app's switch
-//!   (`Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION`), so nobody has to dig for it under
-//!   Special app access;
 //! - Android's own document, photo and "save to" pickers, through the app's one Java class
 //!   (`android/java/.../PhotoCraftActivity.java`), which receives their answers; the shell polls
 //!   for them with [`take_picked`] and writes saves with [`write_uri`].
@@ -40,53 +36,6 @@ fn with_activity<T>(f: impl FnOnce(&mut Env, &JObject) -> jni::errors::Result<T>
         f(env, &activity)
     })
     .map_err(|e| e.to_string())
-}
-
-/// Whether the app may read and write all of shared storage. `None` when it can't be asked
-/// (not on Android, or the call failed).
-pub fn has_all_files_access() -> Option<bool> {
-    with_activity(|env, _| env.call_static_method(jni_str!("android/os/Environment"), jni_str!("isExternalStorageManager"), jni_sig!("()Z"), &[])?.z()).ok()
-}
-
-/// Open the settings page with this app's "All files access" switch (or, if a device lacks that
-/// page, the list of all apps with that access).
-pub fn open_all_files_settings() -> Result<(), String> {
-    with_activity(|env, activity| {
-        let start = |env: &mut Env, action: &str, package: Option<&JObject>| -> jni::errors::Result<()> {
-            let action = env.new_string(action)?;
-            let intent = match package {
-                Some(name) => {
-                    let scheme = env.new_string("package")?;
-                    let none = JObject::null();
-                    let uri = env
-                        .call_static_method(
-                            jni_str!("android/net/Uri"),
-                            jni_str!("fromParts"),
-                            jni_sig!("(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Landroid/net/Uri;"),
-                            &[JValue::Object(&scheme), JValue::Object(name), JValue::Object(&none)],
-                        )?
-                        .l()?;
-                    env.new_object(
-                        jni_str!("android/content/Intent"),
-                        jni_sig!("(Ljava/lang/String;Landroid/net/Uri;)V"),
-                        &[JValue::Object(&action), JValue::Object(&uri)],
-                    )?
-                }
-                None => env.new_object(jni_str!("android/content/Intent"), jni_sig!("(Ljava/lang/String;)V"), &[JValue::Object(&action)])?,
-            };
-            env.call_method(activity, jni_str!("startActivity"), jni_sig!("(Landroid/content/Intent;)V"), &[JValue::Object(&intent)])?;
-            Ok(())
-        };
-        let package = env.call_method(activity, jni_str!("getPackageName"), jni_sig!("()Ljava/lang/String;"), &[])?.l()?;
-        match start(env, "android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION", Some(&package)) {
-            Ok(()) => Ok(()),
-            // No per-app page on this device (the call threw): the list of apps instead.
-            Err(_) => {
-                env.exception_clear();
-                start(env, "android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION", None)
-            }
-        }
-    })
 }
 
 /// A file Android's picker handed over.
@@ -343,8 +292,6 @@ mod tests {
 
     #[test]
     fn off_android_the_calls_report_they_cant_run() {
-        assert_eq!(has_all_files_access(), None);
-        assert!(open_all_files_settings().is_err());
         assert!(open_document(true, &["image/png"]).is_err());
         assert!(pick_photos(false).is_err());
         assert!(create_document("a.png", "image/png").is_err());
@@ -356,7 +303,7 @@ mod tests {
         assert_eq!(clipboard_image(), None);
         assert!(write_uri("content://x", b"data").is_err());
         init(std::ptr::null_mut());
-        assert_eq!(has_all_files_access(), None, "a null activity is never registered");
+        assert!(read_uri("content://x").is_err(), "a null activity is never registered");
     }
 
     #[test]

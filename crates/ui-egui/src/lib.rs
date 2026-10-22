@@ -206,7 +206,10 @@ mod shape_options;
 mod shape_paint_ui;
 pub mod shape_stroke_ui;
 pub mod shortcut_dispatch;
+pub mod jpeg_options_ui;
 pub mod shortcuts;
+#[cfg(test)]
+mod phone_fit_tests;
 mod single_line_drag;
 mod sizing;
 pub mod slice_ui;

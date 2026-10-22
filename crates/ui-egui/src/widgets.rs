@@ -930,6 +930,24 @@ pub fn focus_first_field(ctx: &egui::Context, on: bool) {
 
 const NUMERIC_INPUT_LIMIT: usize = 128;
 
+/// Lay windows out for a small screen? The touch app (a phone or tablet), or any screen a
+/// desktop-sized dialog wouldn't fit: dialogs and floating windows then cap themselves at the
+/// screen's size and scroll what doesn't fit.
+pub fn fit_small_screen(touch_ui: bool, ctx: &egui::Context) -> bool {
+    let screen = ctx.content_rect().size();
+    touch_ui || screen.x < 700.0 || screen.y < 560.0
+}
+
+/// `window` no larger than the screen when `fit` ([`fit_small_screen`]): capped at its size, less
+/// room for the frame, its contents scrolling when they need more, and kept on it.
+pub fn fit_window<'a>(window: egui::Window<'a>, ctx: &egui::Context, fit: bool) -> egui::Window<'a> {
+    if !fit {
+        return window;
+    }
+    let screen = ctx.content_rect().size();
+    window.max_width((screen.x - 40.0).max(120.0)).max_height((screen.y - 40.0).max(120.0)).scroll(true).constrain(true)
+}
+
 fn numeric_focus_id() -> egui::Id {
     egui::Id::new("pc-numeric-focus")
 }

@@ -179,12 +179,13 @@ pub fn windows(app: &mut PhotocraftApp, ctx: &egui::Context) {
     }
     if app.ui.type_panels.glyphs {
         let mut close = false;
-        egui::Window::new(tl!("Glyphs"))
+        let window = egui::Window::new(tl!("Glyphs"))
             .id(egui::Id::new("glyphs-window"))
             .title_bar(false)
             .resizable(false)
             .frame(float_frame(&t))
-            .default_pos(pos2((canvas.right() - 314.0 - 372.0).max(canvas.left() + 8.0), canvas.top() + 40.0))
+            .default_pos(pos2((canvas.right() - 314.0 - 372.0).max(canvas.left() + 8.0), canvas.top() + 40.0));
+        crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx))
             .show(ctx, |ui| {
                 ui.set_width(340.0);
                 ui.horizontal(|ui| {
