@@ -5,6 +5,14 @@ where they fit. Done items move to the bottom with the date.
 
 ## Now
 
+- [ ] Try the 2026-10-22 fixes on a phone and the tablet: a quick finger swipe paints the whole
+      line; number boxes bring up the number pad and refuse letters; Help › Search menus in
+      landscape leaves the menu visible; About and Settings › Apps show 0.10.0; menus and
+      tooltips show no shortcuts until a keyboard is attached (and show them once one is).
+- [ ] Drop the All files access permission (Google Play is strict about it): Open Recent and the
+      built-in file browser would rely on picker files only.
+- [ ] Big photos: a 24 MP photo takes about 25 s to open (tester's emulator).
+- [ ] Ask about JPEG quality when saving with File › Save (Export As already has it).
 - [ ] Try two-finger zoom/pan/rotate again with no snapping: still jerky? (Next suspects: the
       canvas draws one frame behind the fingers, and the GPU canvas rounds its position to whole
       pixels.)
@@ -44,6 +52,12 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-10-22: From a tester's report: quick strokes that arrived whole in one frame painted
+  nothing or a dot (the shell now holds the release back a frame, `split_stroke_end`); number
+  fields show the number pad and take only number characters; the keyboard no longer fills a
+  landscape screen (PhotoCraftActivity's KeyboardTarget view); the APK's version follows the
+  workspace (it said 0.8.2); keyboard shortcuts and key hints hidden unless a hardware keyboard
+  is attached (`shortcuts::key_hints`); status bar text no longer runs under the job progress.
 - 2026-10-16: Pixel art phase 2: the document palette (`Document::palette`, `palette.*`
   commands, saved in `.pcraft`), palette-linked Recolor, Ramp, From Layer / From Swatches, and
   the Pencil's shading ink (`"shade"`) and Palette only (`"paletteLock"`).

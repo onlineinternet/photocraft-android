@@ -62,7 +62,11 @@ pub(crate) fn begin(app: &mut PhotocraftApp, offset: [i32; 2]) -> bool {
         skew_v: 0.0,
     };
     app.ui.cam_transform = Some(CamTransform { document, revision, offset, frame, gesture: None });
-    app.ui.status = crate::i18n::fmt(tl!("Scale or rotate the moved area, then press {key}"), &[("key", &crate::shortcuts::pretty("Enter"))]);
+    app.ui.status = if crate::shortcuts::key_hints() {
+        crate::i18n::fmt(tl!("Scale or rotate the moved area, then press {key}"), &[("key", &crate::shortcuts::pretty("Enter"))])
+    } else {
+        tl!("Scale or rotate the moved area").to_string()
+    };
     app.ui.status_error = false;
     true
 }

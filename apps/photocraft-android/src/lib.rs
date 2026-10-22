@@ -77,6 +77,12 @@ pub struct AndroidShell {
     layout_checked: bool,
     /// The activity's visible area, for the safe-area insets (`None` off Android).
     content_rect: Option<insets::ContentRectFn>,
+    /// Is a hardware keyboard attached? (`None` off Android: never.)
+    keyboard: Option<KeyboardFn>,
+    /// The on-screen keyboard last asked for.
+    keyboard_shown: android_system::Keyboard,
+    /// Input held back for the next frame (the release of a stroke that arrived whole).
+    held_events: Vec<egui::Event>,
     /// Pen and finger samples from winit's pointer hook, and what the shell makes of them.
     pen_queue: pen::Queue,
     pens: pen::Pens,
@@ -163,6 +169,8 @@ impl eframe::App for AndroidShell {
             log::warn!("couldn't save the touch settings: {e}");
         }
         self.app.touch_rotate = self.edge.settings.touch_rotate;
+        // Keyboard shortcuts and key hints show only while a keyboard is attached.
+        self.app.hardware_keyboard = self.keyboard.as_ref().is_some_and(|attached| attached());
         self.app.logic(ctx, frame);
     }
 
@@ -184,7 +192,15 @@ impl eframe::App for AndroidShell {
         let pens = self.pens.filter(samples, &mut raw_input.events, &self.app.stylus.feed, at);
         self.edge.transient_alt = pens.barrel_alt;
         let filtered = self.gate.filter(std::mem::take(&mut raw_input.events), now);
-        raw_input.events = filtered.events;
+        // A quick swipe that arrived whole in one frame ends in the next, so it's painted.
+        let mut events = std::mem::take(&mut self.held_events);
+        events.extend(filtered.events);
+        let (events, later) = gestures::split_stroke_end(events, self.app.last_canvas_rect);
+        raw_input.events = events;
+        if !later.is_empty() {
+            self.held_events = later;
+            ctx.request_repaint();
+        }
         if filtered.session_started {
             self.snapshot = snapshot(&self.app);
         }
@@ -215,6 +231,15 @@ impl eframe::App for AndroidShell {
             self.edge.show(&ctx, &mut self.app);
         }
         self.picker.borrow_mut().show(&ctx);
+        // The keyboard for what's being edited: the number pad for a number field.
+        let editing = ctx.output(|o| o.ime.is_some());
+        let keyboard = android_system::Keyboard::for_frame(editing, photocraft_ui_egui::widgets::numeric_focused(&ctx));
+        if keyboard != self.keyboard_shown {
+            self.keyboard_shown = keyboard;
+            if let Err(e) = android_system::set_keyboard(keyboard) {
+                log::info!("keyboard: {e}");
+            }
+        }
     }
 }
 
@@ -240,6 +265,7 @@ pub fn create_app(
     dirs: &services::Dirs,
     storage: PathBuf,
     content_rect: Option<insets::ContentRectFn>,
+    keyboard: Option<KeyboardFn>,
     pen_queue: pen::Queue,
 ) -> AndroidShell {
     let picker: services::SharedPicker = Rc::new(RefCell::new(picker::Host::new(storage)));
@@ -276,6 +302,9 @@ pub fn create_app(
         frame: 0,
         layout_checked: false,
         content_rect,
+        keyboard,
+        keyboard_shown: android_system::Keyboard::None,
+        held_events: Vec::new(),
         pen_queue,
         pens: pen::Pens::default(),
         touch_file: dirs.touch_file(),
@@ -291,19 +320,23 @@ fn install_panic_hook() {
     }));
 }
 
+/// Is a hardware keyboard attached (Android's configuration: a QWERTY keyboard, not hidden)?
+pub type KeyboardFn = Box<dyn Fn() -> bool>;
+
 /// Run the app: on Android with the activity's [`AndroidApp`](winit::platform::android::activity::AndroidApp).
 pub fn run(
     options: eframe::NativeOptions,
     dirs: services::Dirs,
     storage: PathBuf,
     content_rect: Option<insets::ContentRectFn>,
+    keyboard: Option<KeyboardFn>,
     pen_queue: pen::Queue,
 ) -> eframe::Result {
     install_panic_hook();
     if let Err(e) = std::fs::create_dir_all(&dirs.data) {
         log::warn!("couldn't create {}: {e}", dirs.data.display());
     }
-    eframe::run_native("PhotoCraft", options, Box::new(move |cc| Ok(Box::new(create_app(cc, &dirs, storage, content_rect, pen_queue)))))
+    eframe::run_native("PhotoCraft", options, Box::new(move |cc| Ok(Box::new(create_app(cc, &dirs, storage, content_rect, keyboard, pen_queue)))))
 }
 
 /// The active image as a flattened PNG and its name, for the share sheet.
@@ -332,12 +365,18 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
         let r = activity.content_rect();
         Some([r.left, r.top, r.right, r.bottom])
     });
+    let activity = app.clone();
+    let keyboard: KeyboardFn = Box::new(move || {
+        use winit::platform::android::activity::ndk::configuration::{Keyboard, KeysHidden};
+        let config = activity.config();
+        config.keyboard() == Keyboard::Qwerty && config.keys_hidden() != KeysHidden::Yes
+    });
     options.android_app = Some(app);
     // Pen or finger, tilt, barrel button, hover: from the vendored winit's pointer hook.
     let pen_queue = pen::Queue::default();
     let hook_queue = pen_queue.clone();
     winit::platform::android::pointer::set_pointer_hook(move |s| pen::push(&hook_queue, pen_sample_from_winit(s)));
-    if let Err(e) = run(options, dirs, PathBuf::from(SHARED_STORAGE), Some(content_rect), pen_queue) {
+    if let Err(e) = run(options, dirs, PathBuf::from(SHARED_STORAGE), Some(content_rect), Some(keyboard), pen_queue) {
         log::error!("PhotoCraft couldn't start: {e}");
     }
 }
