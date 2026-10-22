@@ -163,7 +163,9 @@ pub fn status_bar_pro(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         app.ui.views[i].fit_pending = false;
     }
     ui.add_space(12.0);
-    ui.label(RichText::new(tl!(&text)).color(t.text_dim).size(12.0));
+    // Cut short where the job progress begins on a narrow screen, keeping room for the chevron.
+    let room = crate::panels::status_room(ui) - 18.0 - ui.spacing().item_spacing.x;
+    crate::panels::status_text(ui, tl!(&text), t.text_dim, 12.0, room);
     let (r, resp) = ui.allocate_exact_size(vec2(18.0, 18.0), Sense::click());
     if resp.hovered() {
         ui.painter().rect_filled(r, t.radius_sm, t.hover);
@@ -205,13 +207,15 @@ pub fn gpu_memory_status(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
 
 /// The latest status message after a separator, in the warning colour when it is an error.
 fn status_message(app: &PhotocraftApp, ui: &mut egui::Ui, t: &Tokens) {
-    if app.ui.status.is_empty() {
+    if app.ui.status.is_empty() || crate::panels::status_room(ui) < 64.0 {
         return;
     }
     let (r, _) = ui.allocate_exact_size(vec2(17.0, 16.0), Sense::hover());
     ui.painter().line_segment([r.center_top(), r.center_bottom()], Stroke::new(1.0, t.separator));
     let is_err = app.ui.status_error || app.ui.status.starts_with("Couldn");
-    ui.label(RichText::new(&app.ui.status).color(if is_err { t.warning } else { t.text_faint }));
+    let text = crate::shortcuts::strip_key_hints(&app.ui.status);
+    let size = egui::TextStyle::Body.resolve(ui.style()).size;
+    crate::panels::status_text(ui, &text, if is_err { t.warning } else { t.text_faint }, size, crate::panels::status_room(ui));
 }
 
 /// Home button at the very start of Photoshop 2026's options bar: toggles the Home (start)

@@ -188,11 +188,11 @@ pub fn show(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             let galley = painter.layout_job(job);
             let text_pos = pos2(cell.right() + 10.0, rect.center().y - galley.size().y / 2.0);
             painter.galley(text_pos, galley, t.text);
-            if let Some(slot) = slot {
+            if let Some(sc) = slot.and_then(|slot| crate::shortcuts::shown(&format!("Cmd+{slot}"))) {
                 painter.text(
                     pos2(rect.right() - 8.0, rect.center().y),
                     Align2::RIGHT_CENTER,
-                    crate::shortcuts::pretty(&format!("Cmd+{slot}")),
+                    sc,
                     theme::mono(11.0),
                     t.text_faint,
                 );

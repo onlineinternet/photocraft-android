@@ -3647,3 +3647,5 @@ curves	Smooth	매끄럽게
 	Remove the selected color	선택한 색 제거
 	Change the selected color, and every pixel of it, to the foreground color	선택한 색과 그 색의 모든 픽셀을 전경색으로 변경
 	Add 4 steps from the selected color to the foreground color	선택한 색에서 전경색까지 4단계 추가
+	Click the first point to close	첫 점을 클릭하여 닫기
+	Scale or rotate the moved area	이동한 영역의 크기를 조절하거나 회전하세요

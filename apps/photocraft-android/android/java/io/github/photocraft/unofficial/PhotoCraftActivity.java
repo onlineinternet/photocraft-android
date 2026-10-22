@@ -10,8 +10,16 @@ import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.text.InputType;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -65,6 +73,78 @@ public class PhotoCraftActivity extends NativeActivity {
      */
     public Object[] takeAnswer() {
         return takeResult();
+    }
+
+    /** {@link #setKeyboard}: no on-screen keyboard. */
+    public static final int KEYBOARD_NONE = 0;
+    /** {@link #setKeyboard}: the letter keyboard, for a text field. */
+    public static final int KEYBOARD_TEXT = 1;
+    /** {@link #setKeyboard}: the number pad, for a number field. */
+    public static final int KEYBOARD_NUMBER = 2;
+
+    /**
+     * What the on-screen keyboard types into. NativeActivity's own view tells the keyboard
+     * nothing about the field, so it always shows letters, and on a phone held sideways it fills
+     * the screen with its own text box, hiding the app. This one says which kind of field is
+     * being edited and that the keyboard must stay beside the app. What's typed still reaches the
+     * app as key events, the way NativeActivity's keyboard sends it.
+     */
+    private static final class KeyboardTarget extends View {
+        int kind = KEYBOARD_TEXT;
+
+        KeyboardTarget(Context context) {
+            super(context);
+            setFocusable(true);
+            setFocusableInTouchMode(true);
+        }
+
+        @Override
+        public boolean onCheckIsTextEditor() {
+            return true;
+        }
+
+        @Override
+        public InputConnection onCreateInputConnection(EditorInfo out) {
+            out.inputType = kind == KEYBOARD_NUMBER
+                    ? InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL | InputType.TYPE_NUMBER_FLAG_SIGNED
+                    : InputType.TYPE_NULL;
+            out.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN | EditorInfo.IME_FLAG_NO_EXTRACT_UI
+                    | (kind == KEYBOARD_NUMBER ? EditorInfo.IME_ACTION_DONE : EditorInfo.IME_ACTION_NONE);
+            // Not a full editor: whatever the keyboard commits goes on as key events.
+            return new BaseInputConnection(this, false);
+        }
+    }
+
+    private KeyboardTarget keyboardTarget;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        keyboardTarget = new KeyboardTarget(this);
+        addContentView(keyboardTarget, new ViewGroup.LayoutParams(1, 1));
+        keyboardTarget.requestFocus();
+    }
+
+    /**
+     * Show the keyboard for a field of this kind ({@link #KEYBOARD_TEXT}, {@link #KEYBOARD_NUMBER})
+     * or hide it ({@link #KEYBOARD_NONE}). The native side calls it when the kind changes.
+     */
+    public void setKeyboard(final int kind) {
+        runOnUiThread(() -> {
+            KeyboardTarget t = keyboardTarget;
+            InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (t == null || imm == null) {
+                return;
+            }
+            if (kind == KEYBOARD_NONE) {
+                imm.hideSoftInputFromWindow(t.getWindowToken(), 0);
+                return;
+            }
+            t.kind = kind;
+            t.requestFocus();
+            imm.restartInput(t);
+            imm.showSoftInput(t, 0);
+        });
     }
 
     /** Android's document picker (thumbnails, recent files, Drive, USB storage). */

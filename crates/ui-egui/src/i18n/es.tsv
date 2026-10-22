@@ -4398,3 +4398,5 @@ navigator	Zoom	Zoom
 	Remove the selected color	Quitar el color seleccionado
 	Change the selected color, and every pixel of it, to the foreground color	Cambiar el color seleccionado, y todos sus píxeles, al color frontal
 	Add 4 steps from the selected color to the foreground color	Añadir 4 pasos del color seleccionado al color frontal
+	Click the first point to close	Haga clic en el primer punto para cerrar
+	Scale or rotate the moved area	Escale o gire el área movida

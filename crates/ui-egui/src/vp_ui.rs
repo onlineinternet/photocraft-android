@@ -580,11 +580,11 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     }
     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
         if crate::widgets::primary_button(ui, "✓", 32.0)
-            .on_hover_text(crate::i18n::fmt(tl!("Apply Vanishing Point ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))]))
+            .on_hover_text(crate::shortcuts::strip_key_hints(&crate::i18n::fmt(tl!("Apply Vanishing Point ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])))
             .clicked()
         {
             let _ = commit(app);
-        } else if crate::widgets::secondary_button(ui, "⊘", 32.0).on_hover_text(tl!("Cancel (Esc)")).clicked() {
+        } else if crate::widgets::secondary_button(ui, "⊘", 32.0).on_hover_text(crate::shortcuts::strip_key_hints(tl!("Cancel (Esc)"))).clicked() {
             app.distort.vanishing = None;
         }
     });

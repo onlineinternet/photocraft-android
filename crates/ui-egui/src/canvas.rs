@@ -8612,6 +8612,52 @@ mod tests {
         assert!(!alt_samples(Tool::Eraser, alt), "⌥ with the Eraser is not the Eyedropper");
     }
 
+    /// A quick swipe whose press and moves came in one frame and its release in the next paints
+    /// the whole line. (All in one frame it painted nothing: the touch shell holds such a release
+    /// back a frame, `split_stroke_end` in photocraft-android.)
+    #[test]
+    fn a_quick_stroke_released_the_next_frame_paints_all_of_it() {
+        {
+            let ctx = egui::Context::default();
+            let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), Default::default());
+            app.run("file.new", json!({"width": 400, "height": 300})).unwrap();
+            app.run("layer.new.layer", json!({})).unwrap();
+            app.run("tools.setBrush", json!({"brush": {"size": 10, "hardness": 1.0, "smoothing": {"amount": 0.0}}})).unwrap();
+            app.ui.tool = Tool::Brush;
+            app.sync_views();
+            let mut view = app.ui.views[0].clone();
+            view.zoom = 1.0;
+            view.center = [200.0, 150.0];
+            view.fit_pending = false;
+            view.fill_pending = false;
+            let rect = Rect::from_min_size(Pos2::ZERO, vec2(400.0, 300.0));
+            let mut frame = |app: &mut PhotocraftApp, events: Vec<egui::Event>| {
+                let input = egui::RawInput { screen_rect: Some(rect), events, ..Default::default() };
+                let mut out = ctx.run_ui(input, |ui| {
+                    view = canvas_view(app, ui, 0, rect, view.clone(), true);
+                });
+                out.textures_delta.clear();
+            };
+            let press =
+                |pos: Pos2, pressed: bool| egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: egui::Modifiers::NONE };
+            let start = Pos2::new(50.0, 150.0);
+            let end = Pos2::new(350.0, 150.0);
+            frame(&mut app, vec![egui::Event::PointerMoved(start)]);
+            let mut a = vec![press(start, true)];
+            for i in 1..=6 {
+                a.push(egui::Event::PointerMoved(start + vec2(50.0 * i as f32, 0.0)));
+            }
+            frame(&mut app, a);
+            frame(&mut app, vec![press(end, false), egui::Event::PointerGone]);
+            frame(&mut app, vec![]);
+            frame(&mut app, vec![]);
+            let st = app.session.active().unwrap();
+            let id = st.active_layer.unwrap();
+            let b = st.doc.layer(id).unwrap().surface().map(photocraft_compose::bounds::content_bounds).unwrap();
+            assert!(b.x0 <= 50 && b.x1 >= 350, "the whole line from 50 to 350 is painted: {b:?}");
+        }
+    }
+
     /// #2078: the opaque mask-view texture must show the live stroke, not cover it with
     /// the committed mask until the mouse is released.
     #[test]

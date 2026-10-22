@@ -708,7 +708,7 @@ pub fn status_progress(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         ui.painter().rect_filled(xr, t.radius_sm, t.hover);
     }
     crate::icons::paint(ui, xr, "x", 11.0, if xresp.hovered() { t.text } else { t.text_dim });
-    let xresp = xresp.on_hover_text(tl!("Cancel (Esc)"));
+    let xresp = xresp.on_hover_text(crate::shortcuts::strip_key_hints(tl!("Cancel (Esc)")));
     if !saving {
         ui.label(RichText::new(percent(&j)).color(t.text_dim).size(11.5).monospace());
     }
@@ -765,7 +765,9 @@ pub fn dialog(app: &mut PhotocraftApp, ctx: &egui::Context) {
         ui.add_space(12.0);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             cancel_it = crate::widgets::secondary_button(ui, tl!("Cancel"), 84.0).clicked();
-            ui.label(RichText::new(tl!("Esc to cancel")).color(t.text_faint).size(11.0));
+            if crate::shortcuts::key_hints() {
+                ui.label(RichText::new(tl!("Esc to cancel")).color(t.text_faint).size(11.0));
+            }
         });
     });
     // A click on the backdrop doesn't cancel the work; Esc is handled in `tick`.

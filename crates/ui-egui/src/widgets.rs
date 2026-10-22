@@ -930,6 +930,31 @@ pub fn focus_first_field(ctx: &egui::Context, on: bool) {
 
 const NUMERIC_INPUT_LIMIT: usize = 128;
 
+fn numeric_focus_id() -> egui::Id {
+    egui::Id::new("pc-numeric-focus")
+}
+
+/// Is the text being edited this frame a number field's? A touch shell shows the number pad
+/// for it instead of the letter keyboard. Read after the frame's UI is drawn.
+pub fn numeric_focused(ctx: &egui::Context) -> bool {
+    let pass = ctx.cumulative_pass_nr();
+    ctx.data(|d| d.get_temp::<u64>(numeric_focus_id())) == Some(pass)
+}
+
+/// Can `c` be part of what a number field takes ([`crate::numeric_expression`]): digits,
+/// arithmetic, `pi`, an exponent, and, in a field with a unit or a suffix, unit names (`2in`,
+/// `5 mm`) and the suffix itself (`45°`)? Only ASCII is judged: an input method's characters
+/// (full-width digits, a composition in progress) are its own to turn into a number.
+fn numeric_char(c: char, units: crate::numeric_expression::Units) -> bool {
+    const UNIT_LETTERS: &str = "picaxtnm";
+    !c.is_ascii()
+        || c.is_ascii_digit()
+        || c.is_whitespace()
+        || matches!(c, '.' | ',' | '+' | '-' | '−' | '*' | '/' | '(' | ')' | '%' | '^' | 'p' | 'i' | 'e' | 'E')
+        || ((units.unit.is_some() || !units.suffix.is_empty()) && UNIT_LETTERS.contains(c.to_ascii_lowercase()))
+        || units.suffix.contains(c)
+}
+
 /// The number in a [`value_field`]. A typed number applies as it's typed; arithmetic waits for
 /// Enter, Tab or click-away, because per keystroke `5/2` would land first and a caller that
 /// rounds it would cut `5/2*2` short. `changed()` means a new value, not just a keystroke.
@@ -967,6 +992,15 @@ fn number_edit(
                     _ => return true,
                 };
                 text.chars().nth(NUMERIC_INPUT_LIMIT).is_none()
+            });
+            // Only what a number, a sum or a unit can be made of: a letter typed into a number
+            // field (an on-screen keyboard has them all) never shows up in it.
+            input.events.retain_mut(|event| match event {
+                egui::Event::Text(text) | egui::Event::Paste(text) | egui::Event::Ime(egui::ImeEvent::Commit(text)) => {
+                    text.retain(|c| numeric_char(c, units));
+                    !text.is_empty()
+                }
+                _ => true,
             });
         });
     }
@@ -1006,6 +1040,10 @@ fn number_edit(
                 v
             }),
     );
+    if resp.has_focus() {
+        let pass = ui.ctx().cumulative_pass_nr();
+        ui.data_mut(|d| d.insert_temp(numeric_focus_id(), pass));
+    }
     if wrap_drag {
         crate::scrub_wrap::update(ui, &resp, value, before, range.clone(), speed, wrapping);
     }

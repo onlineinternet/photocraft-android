@@ -4136,3 +4136,5 @@ curves	Smooth	Εξομάλυνση
 	Remove the selected color	Αφαίρεση επιλεγμένου χρώματος
 	Change the selected color, and every pixel of it, to the foreground color	Αλλαγή του επιλεγμένου χρώματος και όλων των pixel του στο χρώμα προσκηνίου
 	Add 4 steps from the selected color to the foreground color	Προσθήκη 4 βημάτων από το επιλεγμένο χρώμα στο χρώμα προσκηνίου
+	Click the first point to close	Κάντε κλικ στο πρώτο σημείο για κλείσιμο
+	Scale or rotate the moved area	Αλλάξτε μέγεθος ή περιστρέψτε τη μετακινημένη περιοχή

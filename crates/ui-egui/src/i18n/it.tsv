@@ -4553,3 +4553,5 @@ shape	Appearance	Aspetto
 	Remove the selected color	Rimuovi il colore selezionato
 	Change the selected color, and every pixel of it, to the foreground color	Cambia il colore selezionato, e tutti i suoi pixel, nel colore di primo piano
 	Add 4 steps from the selected color to the foreground color	Aggiungi 4 passaggi dal colore selezionato al colore di primo piano
+	Click the first point to close	Fai clic sul primo punto per chiudere
+	Scale or rotate the moved area	Ridimensiona o ruota l'area spostata

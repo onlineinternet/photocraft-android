@@ -4053,3 +4053,5 @@ curves	Smooth	Wygładź
 	Remove the selected color	Usuń zaznaczony kolor
 	Change the selected color, and every pixel of it, to the foreground color	Zmień zaznaczony kolor i wszystkie jego piksele na kolor pierwszego planu
 	Add 4 steps from the selected color to the foreground color	Dodaj 4 kroki od zaznaczonego koloru do koloru pierwszego planu
+	Click the first point to close	Kliknij pierwszy punkt, aby zamknąć
+	Scale or rotate the moved area	Przeskaluj lub obróć przeniesiony obszar

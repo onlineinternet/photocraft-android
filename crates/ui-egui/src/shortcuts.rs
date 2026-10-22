@@ -75,9 +75,161 @@ pub fn pretty(s: &str) -> String {
 }
 
 /// The command's effective shortcut in the platform's notation (`Ctrl+N`), or `None` when
-/// the command has no binding (the user removed it in Edit › Keyboard Shortcuts).
+/// the command has no binding (the user removed it in Edit › Keyboard Shortcuts) or there is no
+/// keyboard to press it on ([`key_hints`]).
 pub fn shortcut_label(app: &PhotocraftApp, command: &str) -> Option<String> {
-    effective_shortcut(app, command, default_shortcut(command).as_deref()).map(|s| pretty(&s))
+    effective_shortcut(app, command, default_shortcut(command).as_deref()).and_then(|s| shown(&s))
+}
+
+thread_local! {
+    // Like the drawing language (i18n::set_current): per thread, so tests can't affect each other.
+    static KEY_HINTS: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+}
+
+/// Show keyboard shortcuts and key hints? The shell sets it every frame: on unless the app is
+/// driven by touch with no hardware keyboard attached (a phone or tablet on its own).
+pub fn set_key_hints(on: bool) {
+    KEY_HINTS.set(on);
+}
+
+/// Are keyboard shortcuts and key hints shown ([`set_key_hints`])?
+pub fn key_hints() -> bool {
+    KEY_HINTS.get()
+}
+
+/// Can `keys` (`Shift+Alt`, `Enter`, `Cmd+R`) be pressed now? Always with a keyboard; without
+/// one only modifiers can, which the touch shell's edge keyboard latches (Shift, Ctrl, Alt).
+pub fn can_press(keys: &str) -> bool {
+    key_hints() || (!keys.is_empty() && keys.split('+').all(|k| matches!(k, "Shift" | "Alt" | "Ctrl" | "Cmd")))
+}
+
+/// `keys` in the platform's notation ([`pretty`]) when they can be pressed now ([`can_press`]).
+pub fn shown(keys: &str) -> Option<String> {
+    can_press(keys).then(|| pretty(keys))
+}
+
+/// `text` without the key hints there's no keyboard for ([`key_hints`] off), unchanged otherwise:
+/// a parenthesised key (`Commit transform (Enter)`, `Cancel (Esc)`, `Rulers  (Ctrl+R)`), and, in
+/// a hint of several parts (`Drag a box · Enter commits · Esc cancels`, `(Enter applies, Esc
+/// cancels)`), the parts that name one. Modifier keys stay: the edge keyboard has them.
+pub fn strip_key_hints(text: &str) -> String {
+    if key_hints() {
+        return text.to_string();
+    }
+    let mut out = String::with_capacity(text.len());
+    let mut rest = text;
+    // Parenthesised groups: drop the parts naming a key, and the group if nothing is left.
+    while let Some(open) = rest.find(['(', '（']) {
+        let (before, after) = rest.split_at(open);
+        let open_len = after.chars().next().map_or(1, char::len_utf8);
+        let Some(close) = after.find([')', '）']) else { break };
+        let inner = after.get(open_len..close).unwrap_or("");
+        let close_len = after.get(close..).and_then(|s| s.chars().next()).map_or(1, char::len_utf8);
+        let kept = keep_parts(inner, &[", ", "，", "、"]);
+        if kept.is_empty() {
+            out.push_str(before.trim_end());
+        } else {
+            out.push_str(before);
+            out.push_str(after.get(..open_len).unwrap_or("("));
+            out.push_str(&kept);
+            out.push_str(after.get(close..close + close_len).unwrap_or(")"));
+        }
+        rest = after.get(close + close_len..).unwrap_or("");
+    }
+    out.push_str(rest);
+    // A hint of several parts loses the parts naming a key; a single sentence stays whole.
+    let parts: Vec<&str> = out.split(" · ").collect();
+    if parts.len() > 1 {
+        let kept = keep_parts(&out, &["  ·  ", " · "]);
+        if !kept.is_empty() {
+            return kept;
+        }
+    }
+    out
+}
+
+/// The parts of `text` (split at the first of `seps` it contains) that name no key, rejoined.
+fn keep_parts(text: &str, seps: &[&str]) -> String {
+    let Some(sep) = seps.iter().find(|s| text.contains(**s)) else {
+        return if names_unpressable_key(text, true) { String::new() } else { text.to_string() };
+    };
+    text.split(sep).filter(|p| !names_unpressable_key(p, false)).collect::<Vec<_>>().join(sep)
+}
+
+/// Does `part` name a key there's no keyboard for? A key is a word like `Esc`, `Enter`, `Space`
+/// or a combination like `Ctrl+R`; a lone capital letter counts only as a part's first word
+/// (`X swaps orientation`), or as the whole of it (`(B)`).
+fn names_unpressable_key(part: &str, whole: bool) -> bool {
+    let words: Vec<&str> = part.split_whitespace().collect();
+    words.iter().enumerate().any(|(i, w)| {
+        let w = w.trim_matches(|c: char| matches!(c, ':' | ',' | '.' | ';' | '“' | '”' | '"'));
+        let letter = w.len() == 1 && w.chars().all(|c| c.is_ascii_uppercase());
+        if letter {
+            return i == 0 && (whole || words.len() > 1);
+        }
+        is_key_name(w) && !can_press(&unpretty(w))
+    })
+}
+
+/// A key or key combination as [`pretty`] or a hint writes it (`Esc`, `Ctrl+R`, `⌘R`, `↑↓`).
+fn is_key_name(w: &str) -> bool {
+    const KEYS: &[&str] = &[
+        "Esc",
+        "esc",
+        "Escape",
+        "Enter",
+        "Return",
+        "Tab",
+        "Space",
+        "Delete",
+        "Backspace",
+        "Home",
+        "End",
+        "PageUp",
+        "PageDown",
+        "↑↓",
+        "←→",
+        "↩",
+        "⌫",
+        "⎋",
+        "⇥",
+    ];
+    if KEYS.contains(&w) || (w.len() <= 3 && w.starts_with('F') && w.get(1..).is_some_and(|n| !n.is_empty() && n.chars().all(|c| c.is_ascii_digit()))) {
+        return true;
+    }
+    // A combination: modifiers then one key (`Ctrl+Shift+N`, `Shift+Alt`, `⌘⇧N`).
+    let parts: Vec<&str> = w.split('+').collect();
+    if parts.len() > 1 {
+        return parts.iter().all(|p| matches!(*p, "Shift" | "Alt" | "Ctrl" | "Cmd") || is_key_name(p) || p.chars().count() == 1);
+    }
+    let mut chars = w.chars().peekable();
+    let mut mods = 0;
+    while chars.peek().is_some_and(|c| matches!(c, '⌘' | '⇧' | '⌥' | '⌃')) {
+        chars.next();
+        mods += 1;
+    }
+    mods > 0 && chars.count() <= 1
+}
+
+/// [`pretty`]'s notation back to the stored one, enough for [`can_press`].
+fn unpretty(w: &str) -> String {
+    if w.contains('+') {
+        return w.split('+').map(|p| if p == "Ctrl" { "Cmd" } else { p }).collect::<Vec<_>>().join("+");
+    }
+    let mut parts = Vec::new();
+    let mut key = String::new();
+    for c in w.chars() {
+        match c {
+            '⌘' | '⌃' => parts.push("Cmd".to_string()),
+            '⇧' => parts.push("Shift".to_string()),
+            '⌥' => parts.push("Alt".to_string()),
+            c => key.push(c),
+        }
+    }
+    if !key.is_empty() {
+        parts.push(key);
+    }
+    parts.join("+")
 }
 
 /// `label` (English, shown in the UI language) followed by the command's effective shortcut
@@ -773,6 +925,44 @@ pub fn handle(app: &mut PhotocraftApp, ctx: &egui::Context) {
     crate::opacity_keys::handle(app, ctx);
     // ⇧+ / ⇧− step the blend mode (`blend_keys`).
     crate::blend_keys::handle(app, ctx);
+}
+
+#[cfg(test)]
+mod key_hint_tests {
+    use super::*;
+
+    /// With a keyboard everything shows; without one only what the edge keyboard can press.
+    #[test]
+    fn key_hints_hide_what_there_is_no_keyboard_for() {
+        assert!(key_hints(), "on by default (desktops)");
+        assert_eq!(strip_key_hints("Cancel (Esc)"), "Cancel (Esc)");
+        set_key_hints(false);
+        assert!(can_press("Shift+Alt") && can_press("Cmd") && !can_press("Enter") && !can_press("Cmd+R") && !can_press(""));
+        assert_eq!(shown("Shift"), Some("Shift".to_string()));
+        assert_eq!(shown("Cmd+Z"), None);
+        let ctrl_r = pretty("Cmd+R");
+        let cases = [
+            ("Cancel (Esc)", "Cancel".to_string()),
+            ("Cancel transform（Esc）", "Cancel transform".to_string()),
+            (&*format!("Commit transform ({})", pretty("Enter")), "Commit transform".to_string()),
+            (&*format!("Rulers  ({ctrl_r})"), "Rulers".to_string()),
+            ("Brush Tool  (B)", "Brush Tool".to_string()),
+            (&*format!("Add to selection  ({})", pretty("Shift")), format!("Add to selection  ({})", pretty("Shift"))),
+            (&*format!("{}-click to set the source", pretty("Alt")), format!("{}-click to set the source", pretty("Alt"))),
+            ("Strokes to remove: 3 (Enter applies, Esc cancels)", "Strokes to remove: 3".to_string()),
+            ("Drag a box · Enter commits · Esc cancels", "Drag a box".to_string()),
+            ("Drag to pan  ·  hold Space with any tool", "Drag to pan".to_string()),
+            ("Drag a crop box · arrows nudge · X swaps orientation", "Drag a crop box · arrows nudge".to_string()),
+            ("Esc to cancel", "Esc to cancel".to_string()),
+            ("Delete removes the selected pin.", "Delete removes the selected pin.".to_string()),
+            ("Layer 1 (copy)", "Layer 1 (copy)".to_string()),
+            ("Opened Untitled (2)", "Opened Untitled (2)".to_string()),
+        ];
+        for (text, want) in cases {
+            assert_eq!(strip_key_hints(text), want, "{text}");
+        }
+        set_key_hints(true);
+    }
 }
 
 #[cfg(test)]

@@ -4639,3 +4639,5 @@ shape	Appearance	Оформление
 	Remove the selected color	Удалить выбранный цвет
 	Change the selected color, and every pixel of it, to the foreground color	Заменить выбранный цвет и все его пиксели основным цветом
 	Add 4 steps from the selected color to the foreground color	Добавить 4 шага от выбранного цвета к основному
+	Click the first point to close	Щёлкните первую точку, чтобы замкнуть
+	Scale or rotate the moved area	Масштабируйте или поверните перемещённую область

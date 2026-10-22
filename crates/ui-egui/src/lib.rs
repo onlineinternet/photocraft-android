@@ -1027,6 +1027,9 @@ pub struct PhotocraftApp {
     /// A touch screen is the main input (the Android shell): the Home screen shows no keyboard
     /// shortcuts or drag-and-drop hints, stacks its buttons and makes them finger-sized.
     pub touch_ui: bool,
+    /// A hardware keyboard is attached to a touch device (the touch shell sets it from the
+    /// system). Keyboard shortcuts and key hints show on touch only then ([`shortcuts::key_hints`]).
+    pub hardware_keyboard: bool,
     /// Two fingers twisting turn the canvas (touch_rotate.rs). The touch shell sets it from its
     /// own toggle; off on desktops.
     pub touch_rotate: bool,
@@ -1191,6 +1194,7 @@ impl PhotocraftApp {
             last_frame_start_ms: 0.0,
             touch_drag_slop: 0.0,
             touch_ui: false,
+            hardware_keyboard: false,
             touch_rotate: false,
             jobs: Default::default(),
             #[cfg(all(debug_assertions, not(target_arch = "wasm32")))]
@@ -2293,6 +2297,8 @@ impl eframe::App for PhotocraftApp {
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.cap_frame_rate();
         i18n::set_current(i18n::Lang::from_pref(&self.session.prefs().interface.language));
+        // Shortcuts in menus and tooltips, and hints naming keys, only when there are keys.
+        shortcuts::set_key_hints(!self.touch_ui || self.hardware_keyboard);
         // Caps Lock state read from the OS once per frame (see `Services::caps_lock`): the canvas
         // cursor block needs it before the frame renders. `None` (Wayland/web) keeps `false`.
         self.caps_lock = self.services.caps_lock.as_mut().is_some_and(|f| f());
@@ -2424,6 +2430,8 @@ impl eframe::App for PhotocraftApp {
         let ctx = ui.ctx().clone();
         self.hover_layer = None;
         i18n::set_current(i18n::Lang::from_pref(&self.session.prefs().interface.language));
+        // Shortcuts in menus and tooltips, and hints naming keys, only when there are keys.
+        shortcuts::set_key_hints(!self.touch_ui || self.hardware_keyboard);
         // Fonts registered via set_fonts only take effect next frame; named families would panic now.
         if !self.fonts_ready {
             ctx.request_repaint();

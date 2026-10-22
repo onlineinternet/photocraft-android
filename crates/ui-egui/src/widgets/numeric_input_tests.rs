@@ -193,3 +193,61 @@ fn tab_and_paste_in_one_frame_filter_only_the_receiving_numeric_field() {
     assert!(h.state().1.is_empty());
     assert_bounded(&h);
 }
+
+/// A letter that can't be part of a number, a sum or a unit never lands in the field (an
+/// on-screen keyboard offers them all); digits, arithmetic and unit names still do.
+#[test]
+fn number_fields_take_only_what_a_number_is_made_of() {
+    let mut h = focused();
+    select_all(&mut h);
+    for text in ["1", "q", "z", "H", "2", "*", "3"] {
+        h.event(Event::Text(text.into()));
+        h.run();
+    }
+    assert_eq!(numeric_text(&h), "12*3");
+    h.event(Event::Paste("zq9!".into()));
+    h.run();
+    assert_eq!(numeric_text(&h), "12*39");
+}
+
+#[test]
+fn numeric_characters_follow_the_field() {
+    use crate::numeric_expression::Units;
+    let plain = Units { unit: None, suffix: "", dpi: 72.0, ppi: 72.0 };
+    let degrees = Units { suffix: "°", ..plain };
+    let px = Units { unit: Some(photocraft_engine::prefs::Unit::Pixels), suffix: "px", ..plain };
+    for c in ['0', '9', '.', '-', '/', '(', 'p', 'i', 'e'] {
+        assert!(super::numeric_char(c, plain), "{c}");
+    }
+    for c in ['q', 'z', 'x', 'm', '!'] {
+        assert!(!super::numeric_char(c, plain), "{c} in a unitless field");
+    }
+    assert!(super::numeric_char('°', degrees) && super::numeric_char('１', plain), "an input method's characters are its own");
+    for c in ['m', 'c', 'x', 't', 'n'] {
+        assert!(super::numeric_char(c, px), "{c} in a px field");
+    }
+    assert!(!super::numeric_char('q', px));
+}
+
+/// A touch shell can tell a number field is being edited (to show the number pad), and only then.
+#[test]
+fn a_focused_number_field_is_known_as_one() {
+    // (number, text, number field focused at the end of the frame)
+    type State = (f32, String, bool);
+    let mut h = Harness::builder().with_size(egui::vec2(400.0, 180.0)).build_ui_state(
+        |ui, (number, text, numeric): &mut State| {
+            super::value_field(ui, number, 0.01..=12800.0, "%", 90.0);
+            ui.add(egui::TextEdit::singleline(text).hint_text("Name"));
+            *numeric = super::numeric_focused(ui.ctx());
+        },
+        (100.0, String::new(), false),
+    );
+    h.run();
+    assert!(!h.state().2, "nothing is focused");
+    h.get_by_role(Role::SpinButton).click();
+    h.run();
+    assert!(h.state().2, "the number field is being edited");
+    h.get_by_role(Role::TextInput).click();
+    h.run();
+    assert!(!h.state().2, "a text field is not a number field");
+}

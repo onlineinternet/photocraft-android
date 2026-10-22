@@ -4478,3 +4478,5 @@ shape	Appearance	Apparence
 	Remove the selected color	Supprimer la couleur sélectionnée
 	Change the selected color, and every pixel of it, to the foreground color	Remplacer la couleur sélectionnée, et tous ses pixels, par la couleur de premier plan
 	Add 4 steps from the selected color to the foreground color	Ajouter 4 étapes de la couleur sélectionnée à la couleur de premier plan
+	Click the first point to close	Cliquez sur le premier point pour fermer
+	Scale or rotate the moved area	Mettez à l'échelle ou faites pivoter la zone déplacée

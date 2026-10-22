@@ -4182,3 +4182,5 @@ cameraRaw	Dehaze	Odstranění oparu
 	Remove the selected color	Odebrat vybranou barvu
 	Change the selected color, and every pixel of it, to the foreground color	Změnit vybranou barvu a všechny její pixely na barvu popředí
 	Add 4 steps from the selected color to the foreground color	Přidat 4 kroky od vybrané barvy k barvě popředí
+	Click the first point to close	Kliknutím na první bod uzavřete
+	Scale or rotate the moved area	Změňte velikost nebo otočte přesunutou oblast

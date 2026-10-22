@@ -4509,3 +4509,5 @@ shape	Appearance	Izgled
 	Remove the selected color	Ukloni izabranu boju
 	Change the selected color, and every pixel of it, to the foreground color	Promeni izabranu boju, i sve njene piksele, u boju prvog plana
 	Add 4 steps from the selected color to the foreground color	Dodaj 4 koraka od izabrane boje do boje prvog plana
+	Click the first point to close	Kliknite prvu tačku da zatvorite
+	Scale or rotate the moved area	Skalirajte ili rotirajte pomerenu oblast

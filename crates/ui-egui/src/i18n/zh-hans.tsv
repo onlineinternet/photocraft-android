@@ -3106,3 +3106,5 @@ curves	Smooth	平滑
 	Change the selected color, and every pixel of it, to the foreground color	将所选颜色及其所有像素改为前景色
 	Add 4 steps from the selected color to the foreground color	从所选颜色到前景色添加 4 个渐变阶
 	Simple	简单
+	Click the first point to close	单击起点闭合
+	Scale or rotate the moved area	缩放或旋转移动的区域

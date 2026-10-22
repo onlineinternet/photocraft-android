@@ -3450,3 +3450,5 @@ curves	Smooth	Glätten
 	Change the selected color, and every pixel of it, to the foreground color	Ausgewählte Farbe und alle ihre Pixel in die Vordergrundfarbe ändern
 	Add 4 steps from the selected color to the foreground color	4 Stufen von der ausgewählten Farbe zur Vordergrundfarbe hinzufügen
 	Simple	Einfach
+	Click the first point to close	Klicke auf den ersten Punkt zum Schließen
+	Scale or rotate the moved area	Verschobenen Bereich skalieren oder drehen

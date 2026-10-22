@@ -1511,8 +1511,8 @@ fn help_search(ui: &mut egui::Ui, items: &[MenuItem], opening: bool, clicked: &m
             let mut trail: Vec<String> = it.path.iter().map(|p| crate::i18n::tr(lang, p).to_string()).collect();
             trail.push(translated_menu_label(lang, it));
             let mut b = egui::Button::new(trail.join(" › "));
-            if let Some(sc) = &it.shortcut {
-                b = b.shortcut_text(crate::shortcuts::pretty(sc));
+            if let Some(sc) = it.shortcut.as_deref().and_then(crate::shortcuts::shown) {
+                b = b.shortcut_text(sc);
             }
             let hit = nav.row(ui, 0, it.enabled, Some(&it.id), None, |ui, _| {
                 let r = ui.add_enabled(it.enabled, b);
@@ -1591,8 +1591,8 @@ fn render_level_rows(ui: &mut egui::Ui, items: &[&MenuItem], depth: usize, click
             if let Some(tint) = it.color.as_deref().and_then(menu_tint) {
                 b = b.fill(tint.gamma_multiply(0.55));
             }
-            if let Some(sc) = &it.shortcut {
-                b = b.shortcut_text(crate::shortcuts::pretty(sc));
+            if let Some(sc) = it.shortcut.as_deref().and_then(crate::shortcuts::shown) {
+                b = b.shortcut_text(sc);
             }
             let hit = nav.row(ui, depth - 1, it.enabled, Some(&it.id), mnemonic, |ui, _| {
                 let r = ui.add_enabled(it.enabled, b);
