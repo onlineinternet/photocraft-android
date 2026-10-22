@@ -104,7 +104,7 @@ fn recent_hits(recents: &[String], menus: &[crate::menus::MenuItem], lang: crate
                 1000 - i as i32,
                 m.id.clone(),
                 label.trim_end_matches('…').to_string(),
-                Some(path + &m.shortcut.as_ref().map(|s| format!("   {}", crate::shortcuts::pretty(s))).unwrap_or_default()),
+                Some(path + &m.shortcut.as_deref().and_then(crate::shortcuts::shown).map(|s| format!("   {s}")).unwrap_or_default()),
                 m.enabled,
             ))
         })
@@ -127,7 +127,7 @@ fn menu_hits(menus: Vec<crate::menus::MenuItem>, q: &str, lang: crate::i18n::Lan
                 s,
                 m.id,
                 label.trim_end_matches('…').to_string(),
-                Some(path + &m.shortcut.map(|s| format!("   {}", crate::shortcuts::pretty(&s))).unwrap_or_default()),
+                Some(path + &m.shortcut.as_deref().and_then(crate::shortcuts::shown).map(|s| format!("   {s}")).unwrap_or_default()),
                 m.enabled,
             ))
         })
@@ -251,11 +251,14 @@ pub fn show(app: &mut PhotocraftApp, ctx: &egui::Context) {
                         app.ui.palette_open = false;
                     }
                     ui.add_space(4.0);
-                    ui.label(
-                        RichText::new(crate::i18n::fmt(tl!("↑↓ navigate   {key} run   esc close"), &[("key", &crate::shortcuts::pretty("Enter"))]))
-                            .small()
-                            .color(t.text_faint),
-                    );
+                    // Keys to drive the list: only when there is a keyboard.
+                    if crate::shortcuts::key_hints() {
+                        ui.label(
+                            RichText::new(crate::i18n::fmt(tl!("↑↓ navigate   {key} run   esc close"), &[("key", &crate::shortcuts::pretty("Enter"))]))
+                                .small()
+                                .color(t.text_faint),
+                        );
+                    }
                     ui.data_mut(|d| {
                         d.insert_temp(qid, q);
                         d.insert_temp(sel_id, sel);

@@ -384,7 +384,7 @@ fn loupe(ui: &egui::Ui, image: &ScreenImage, screen: Rect, pos: Pos2, pixel: (us
     let pixel = image.pixel(x, y).unwrap_or(Color32::BLACK);
     let color = rgb.map(crate::color_picker_ui::hex).unwrap_or_else(|| format!("#{:02x}{:02x}{:02x}", pixel.r(), pixel.g(), pixel.b()));
     let label = p.layout_no_wrap(format!("{}   {}×", color.to_uppercase(), zoom), egui::FontId::monospace(12.0), t.text);
-    let hint = p.layout_no_wrap(tl!("Click to pick · Esc to cancel").to_owned(), egui::FontId::proportional(11.0), t.text);
+    let hint = p.layout_no_wrap(crate::shortcuts::strip_key_hints(tl!("Click to pick · Esc to cancel")), egui::FontId::proportional(11.0), t.text);
     let wheel = p.layout_no_wrap(tl!("Scroll to zoom").to_owned(), egui::FontId::proportional(11.0), t.text);
     let width = (11.0 * cell + 12.0).max(label.size().x + 16.0).max(hint.size().x + 16.0).max(wheel.size().x + 16.0);
     let size = vec2(width, 11.0 * cell + 76.0);

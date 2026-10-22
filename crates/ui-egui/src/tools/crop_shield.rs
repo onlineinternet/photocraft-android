@@ -175,7 +175,9 @@ pub fn options_button(s: &mut CropShield, ui: &mut egui::Ui) -> bool {
         // shows as on, which is how it acts there).
         ui.horizontal(|ui| {
             crate::widgets::checkbox(ui, &mut s.classic_mode, tl!("Use Classic Mode"));
-            ui.weak(crate::shortcuts::pretty("P"));
+            if let Some(k) = crate::shortcuts::shown("P") {
+                ui.weak(k);
+            }
         });
         let classic = s.classic_mode;
         ui.add_enabled_ui(!classic, |ui| {
@@ -185,7 +187,9 @@ pub fn options_button(s: &mut CropShield, ui: &mut egui::Ui) -> bool {
                 } else {
                     crate::widgets::checkbox(ui, &mut s.show_cropped_area, tl!("Show Cropped Area"));
                 }
-                ui.weak(crate::shortcuts::pretty("H"));
+                if let Some(k) = crate::shortcuts::shown("H") {
+                    ui.weak(k);
+                }
             });
             crate::widgets::checkbox(ui, &mut s.auto_center_preview, tl!("Auto Center Preview"));
         });

@@ -278,6 +278,41 @@ pub fn share_image(png: &[u8], name: &str) -> Result<(), String> {
     why.map_or(Ok(()), |e| Err(format!("couldn't share: {e}")))
 }
 
+/// The on-screen keyboard to show: none, letters for a text field, or the number pad.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Keyboard {
+    #[default]
+    None,
+    Text,
+    Number,
+}
+
+impl Keyboard {
+    /// What the frame's UI is editing: nothing, a number field or another text field.
+    pub fn for_frame(editing_text: bool, number_field: bool) -> Self {
+        match (editing_text, number_field) {
+            (false, _) => Self::None,
+            (true, true) => Self::Number,
+            (true, false) => Self::Text,
+        }
+    }
+}
+
+/// Show or hide the on-screen keyboard for this kind of field (`PhotoCraftActivity.setKeyboard`):
+/// its own input view tells the keyboard the field's kind and keeps it from filling a landscape
+/// screen, which NativeActivity's view doesn't.
+pub fn set_keyboard(kind: Keyboard) -> Result<(), String> {
+    let code = match kind {
+        Keyboard::None => 0,
+        Keyboard::Text => 1,
+        Keyboard::Number => 2,
+    };
+    with_activity(|env, activity| {
+        env.call_method(activity, jni_str!("setKeyboard"), jni_sig!("(I)V"), &[JValue::Int(code)])?;
+        Ok(())
+    })
+}
+
 /// Put a PNG on Android's clipboard.
 pub fn set_clipboard_image(png: &[u8]) -> Result<(), String> {
     let why = with_activity(|env, activity| {
@@ -313,6 +348,7 @@ mod tests {
         assert!(open_document(true, &["image/png"]).is_err());
         assert!(pick_photos(false).is_err());
         assert!(create_document("a.png", "image/png").is_err());
+        assert!(set_keyboard(Keyboard::Number).is_err());
         assert_eq!(take_picked(), None);
         assert!(read_uri("content://x").is_err());
         assert!(share_image(b"png", "a.png").is_err());
@@ -321,5 +357,13 @@ mod tests {
         assert!(write_uri("content://x", b"data").is_err());
         init(std::ptr::null_mut());
         assert_eq!(has_all_files_access(), None, "a null activity is never registered");
+    }
+
+    #[test]
+    fn the_keyboard_follows_what_is_edited() {
+        assert_eq!(Keyboard::for_frame(false, false), Keyboard::None);
+        assert_eq!(Keyboard::for_frame(false, true), Keyboard::None, "a stale number mark shows nothing");
+        assert_eq!(Keyboard::for_frame(true, false), Keyboard::Text);
+        assert_eq!(Keyboard::for_frame(true, true), Keyboard::Number);
     }
 }

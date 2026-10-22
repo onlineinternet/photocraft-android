@@ -146,6 +146,47 @@ impl Gate {
     }
 }
 
+/// Split a frame's events where a stroke that started on `canvas` in this same frame ends: the
+/// press and its moves now, the release and everything after it next frame.
+///
+/// On a slow frame a quick swipe arrives whole: press, moves and release together. By the time
+/// the canvas looks, the button is up, egui saw neither a drag nor a click (too far for one), and
+/// the stroke was never painted, or was just a dot. Held back a frame, the release ends a stroke
+/// that the canvas saw start and move. A tap (no move between press and release) and anything
+/// off the canvas pass unchanged.
+pub fn split_stroke_end(mut events: Vec<Event>, canvas: egui::Rect) -> (Vec<Event>, Vec<Event>) {
+    // `Some(moved)` from a primary press on the canvas until its release.
+    let mut stroke: Option<bool> = None;
+    let mut cut = None;
+    for (i, e) in events.iter().enumerate() {
+        match e {
+            Event::PointerButton { button: egui::PointerButton::Primary, pressed: true, pos, .. } => {
+                stroke = canvas.contains(*pos).then_some(false);
+            }
+            Event::PointerMoved(_) => {
+                if let Some(moved) = stroke.as_mut() {
+                    *moved = true;
+                }
+            }
+            Event::PointerButton { button: egui::PointerButton::Primary, pressed: false, .. } => {
+                if stroke == Some(true) {
+                    cut = Some(i);
+                    break;
+                }
+                stroke = None;
+            }
+            _ => {}
+        }
+    }
+    match cut {
+        Some(i) => {
+            let later = events.split_off(i);
+            (events, later)
+        }
+        None => (events, Vec::new()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,5 +270,40 @@ mod tests {
         let r = g.filter(vec![moved(1.0), press(true), press(false)], 0.0);
         assert_eq!(pointers(&r.events), 3);
         assert!(!r.cancel);
+    }
+
+    fn canvas() -> egui::Rect {
+        egui::Rect::from_min_max(pos2(0.0, 0.0), pos2(400.0, 400.0))
+    }
+
+    #[test]
+    fn a_whole_stroke_in_one_frame_ends_in_the_next() {
+        let (now, later) = split_stroke_end(vec![moved(10.0), press(true), moved(60.0), moved(120.0), press(false), Event::PointerGone], canvas());
+        assert_eq!(now, vec![moved(10.0), press(true), moved(60.0), moved(120.0)], "the press and its moves now");
+        assert_eq!(later, vec![press(false), Event::PointerGone], "the release next frame");
+        // Next frame: the held release, then that frame's own events.
+        let (now, later) = split_stroke_end(later, canvas());
+        assert_eq!((now.len(), later.len()), (2, 0), "a release alone passes");
+    }
+
+    #[test]
+    fn taps_strokes_across_frames_and_presses_off_the_canvas_pass() {
+        let tap = vec![press(true), press(false)];
+        assert_eq!(split_stroke_end(tap.clone(), canvas()), (tap, vec![]), "a tap is a click");
+        let ending = vec![moved(60.0), press(false), Event::PointerGone];
+        assert_eq!(split_stroke_end(ending.clone(), canvas()), (ending, vec![]), "a stroke that started earlier ends now");
+        let off = egui::Rect::from_min_max(pos2(100.0, 100.0), pos2(200.0, 200.0));
+        let menu = vec![press(true), moved(60.0), press(false)];
+        assert_eq!(split_stroke_end(menu.clone(), off), (menu, vec![]), "off the canvas");
+    }
+
+    #[test]
+    fn two_quick_strokes_in_one_frame_both_get_their_frames() {
+        let events = vec![press(true), moved(60.0), press(false), press(true), moved(90.0), press(false)];
+        let (now, later) = split_stroke_end(events, canvas());
+        assert_eq!(now.len(), 2);
+        let (now, later) = split_stroke_end(later, canvas());
+        assert_eq!(now, vec![press(false), press(true), moved(90.0)], "the first ends, the second starts and moves");
+        assert_eq!(later, vec![press(false)]);
     }
 }

@@ -239,8 +239,8 @@ fn draw(ctx: &Context, open: &Open) -> Option<Action> {
                     continue;
                 };
                 let mut item = egui::Button::new(tl!(label)).min_size(egui::vec2(170.0, 20.0));
-                if !keys.is_empty() {
-                    item = item.shortcut_text(crate::shortcuts::pretty(keys));
+                if let Some(sc) = crate::shortcuts::shown(keys) {
+                    item = item.shortcut_text(sc);
                 }
                 if ui.add_enabled(enabled(open, action), item).clicked() {
                     chosen = Some(action);
