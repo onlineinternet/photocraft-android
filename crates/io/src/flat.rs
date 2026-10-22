@@ -1084,7 +1084,10 @@ fn single_layer_document(
 }
 
 /// The pixels of a decoded image as a surface of `fmt`, converting layout and sample type a
-/// band of rows at a time so no second full-size copy of the image is made.
+/// band of rows at a time so no second full-size copy of the image is made. The bands are one
+/// row of tiles each and the cores take runs of them in parallel, each into a surface of its own
+/// whose tiles then move into the result (no tile spans two runs): a 24 MP photo opens several
+/// times faster.
 pub(crate) fn image_surface(img: &Image, target_layout: ChannelLayout, csample: CSample) -> Result<Surface, IoError> {
     image_surface_with(img, target_layout, csample, &Interrupt::NONE)
 }
@@ -3032,3 +3035,26 @@ mod fused_tile_tests {
 
 #[cfg(test)]
 mod png_stream_tests;
+
+#[cfg(test)]
+mod parallel_bands_tests {
+    use super::*;
+
+    /// Opening joins the row bands seamlessly: every pixel lands where it belongs, across
+    /// tile rows and in a last band shorter than a tile, for RGB (converted) and RGBA (copied).
+    #[test]
+    fn image_surface_bands_join_seamlessly() {
+        let (w, h) = (300u32, TILE_SIZE as u32 * 2 + 7);
+        for layout in [ChannelLayout::Rgb, ChannelLayout::Rgba] {
+            let ch = layout.channels();
+            let data: Vec<u8> = (0..(w * h) as usize * ch).map(|i| (i * 7 % 251) as u8).collect();
+            let img = Image::from_raw(w, h, layout, CSample::U8, data.clone()).unwrap();
+            let s = image_surface(&img, ChannelLayout::Rgba, CSample::U8).unwrap();
+            let out = s.to_interleaved(Rect::new(0, 0, w as i32, h as i32));
+            for (k, (px, src)) in out.chunks_exact(4).zip(data.chunks_exact(ch)).enumerate() {
+                let want = if ch == 4 { [src[0], src[1], src[2], src[3]] } else { [src[0], src[1], src[2], 255] };
+                assert_eq!(px, want, "{layout:?} pixel {} {}", k % w as usize, k / w as usize);
+            }
+        }
+    }
+}

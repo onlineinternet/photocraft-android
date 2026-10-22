@@ -722,6 +722,15 @@ fn convert_data(data: &[u8], from: ChannelLayout, from_sample: SampleType, layou
             SampleType::F16 => f16::ONE.to_bits().to_ne_bytes().to_vec(),
             SampleType::F32 => 1.0f32.to_ne_bytes().to_vec(),
         };
+        if sample == SampleType::U8 && src == 3 {
+            // 8-bit RGB, nearly every photo: fill opaque, then copy each pixel's three samples in
+            // place (no per-pixel growth checks).
+            let mut out = vec![u8::MAX; data.len() / 3 * 4];
+            for (o, i) in out.chunks_exact_mut(4).zip(data.chunks_exact(3)) {
+                o[..3].copy_from_slice(i);
+            }
+            return out;
+        }
         let mut out = Vec::with_capacity(data.len() / src * (src + bps));
         for px in data.chunks_exact(src) {
             out.extend_from_slice(px);

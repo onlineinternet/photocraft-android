@@ -802,6 +802,8 @@ mod shape_bounds_box_tests;
 
 #[cfg(test)]
 mod lifecycle_tests;
+#[cfg(test)]
+mod phone_fit_tests;
 
 #[cfg(test)]
 mod screenshot_tests;

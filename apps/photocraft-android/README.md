@@ -23,10 +23,9 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 
 1. Copy the APK to the device and open it (allow installing from that app when asked).
 2. Files: File › Open and Save As use Android's own pickers (thumbnails, recent files, Google
-   Drive, USB storage), which need no permission. Only the built-in folder browser (Choose
-   Folder, and the fallback when Android's picker can't open) needs "All files access": tap
-   **Allow access** in it, or turn it on at *Settings › Apps › ⋮ › Special access › All files
-   access* (it isn't on the app's Permissions page).
+   Drive, USB storage), which need no permission. The app asks for no "All files access": the
+   built-in folder browser (Choose Folder, and the fallback when Android's picker can't open)
+   sees only the folders and files PhotoCraft made itself in shared storage.
 3. Fonts: the Type tool lists Android's system fonts. To add your own, put `.ttf` / `.otf`
    files in a `Fonts` folder at the top of internal storage and restart the app.
 4. For pen pressure, check **Preferences › Tools › Use Tablet Pressure**, and set a brush's
@@ -117,7 +116,7 @@ that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
   backend) for Choose Folder and as the fallback. A file saved through Android's picker is a
   `content://` URI, carried as `<uri>/<name>` so its extension still picks the format.
 - `src/android_system.rs`: the Android calls made through JNI (the pickers, writing a picked
-  file, the All files access check and its settings page).
+  file, the clipboard, the share sheet, the on-screen keyboard).
 - `android/java/.../PhotoCraftActivity.java`: Android's NativeActivity plus what it can't do
   on its own: receiving the pickers' answers, the clipboard and the share sheet.
 - `android/java/.../ImageProvider.java`: serves copied and shared images to other apps
