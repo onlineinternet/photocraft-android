@@ -189,7 +189,10 @@ pub mod shape_dialog;
 pub(crate) mod shape_fill_ui;
 pub mod shape_stroke_ui;
 pub mod shortcut_dispatch;
+pub mod jpeg_options_ui;
 pub mod shortcuts;
+#[cfg(test)]
+mod phone_fit_tests;
 mod single_line_drag;
 mod sizing;
 pub mod slice_ui;
@@ -829,6 +832,13 @@ pub struct PhotocraftApp {
     pub(crate) disk_stamps: HashMap<photocraft_doc::DocId, (String, FileStamp)>,
     /// A save to an RGB Targa parked behind the Targa Options prompt (see `targa_options_ui`).
     pub(crate) targa_options: Option<targa_options_ui::Prompt>,
+    /// JPEG Options waiting on an answer before a JPEG is saved.
+    pub(crate) jpeg_options: Option<jpeg_options_ui::Prompt>,
+    /// The JPEG quality just chosen in JPEG Options, for the one save it answers.
+    pub(crate) jpeg_answer: Option<(photocraft_doc::DocId, u8)>,
+    /// File › Save and Save As to a JPEG ask for its quality first (JPEG Options). The touch
+    /// app turns it on; off, a JPEG is written at the quality it was opened with, as before.
+    pub ask_jpeg_quality: bool,
     /// Files read but not opened yet: the first waits on its profile prompt, the rest behind it
     /// (see `open_prompt`).
     pub(crate) held_opens: std::collections::VecDeque<open_prompt::Held>,
@@ -992,6 +1002,9 @@ impl PhotocraftApp {
             save_dirs: HashMap::new(),
             disk_stamps: HashMap::new(),
             targa_options: None,
+            jpeg_options: None,
+            jpeg_answer: None,
+            ask_jpeg_quality: false,
             held_opens: Default::default(),
             allow_close: false,
             stylus: Default::default(),
@@ -1530,6 +1543,11 @@ impl PhotocraftApp {
             tiff_options_ui::park(self, path.clone())?;
             return Ok(serde_json::json!({"path": path, "warnings": []}));
         }
+        // A JPEG asks for its quality first (the touch app); the save continues from the prompt.
+        if jpeg_options_ui::wants_prompt(self, &path) {
+            jpeg_options_ui::park(self, path.clone(), jpeg_options_ui::Then::SaveAs)?;
+            return Ok(serde_json::json!({"path": path, "warnings": []}));
+        }
         self.save_as_step(path, None, tga_bits)
     }
 
@@ -1537,6 +1555,11 @@ impl PhotocraftApp {
     pub(crate) fn save_in_place(&mut self, path: String) -> Result<Value, String> {
         if self.save_options_open() {
             return Err("Answer TIFF or Targa Options before starting another save".into());
+        }
+        // A JPEG asks for its quality first (the touch app); the save continues from the prompt.
+        if jpeg_options_ui::wants_prompt(self, &path) {
+            jpeg_options_ui::park(self, path.clone(), jpeg_options_ui::Then::Save)?;
+            return Ok(serde_json::json!({"path": path, "warnings": []}));
         }
         let r = self.write_save(path, None, None)?;
         self.session.journal.push(("file.save".into(), Value::Object(Default::default())));
@@ -1614,6 +1637,10 @@ impl PhotocraftApp {
         if let Some(st) = self.session.active() {
             let e = &st.doc.file_encoding;
             settings.jpeg_quality = e.jpeg_quality.map(|q| q.clamp(1, 100));
+            // JPEG Options just answered for this document.
+            if let Some((_, q)) = self.jpeg_answer.filter(|(doc, _)| *doc == st.doc.id) {
+                settings.jpeg_quality = Some(q.clamp(1, 100));
+            }
             settings.webp_lossless = e.webp_lossless.unwrap_or(settings.webp_lossless);
             settings.webp_quality = e.webp_quality.map(|q| q.min(100));
             settings.document_path = st.path.as_deref().map(std::path::PathBuf::from);
@@ -1748,7 +1775,7 @@ impl PhotocraftApp {
 
     /// TIFF Options or Targa Options is waiting on an answer before a save is written.
     pub(crate) fn save_options_open(&self) -> bool {
-        self.tiff_options.is_some() || self.targa_options.is_some()
+        self.tiff_options.is_some() || self.targa_options.is_some() || self.jpeg_options.is_some()
     }
 
     /// A print worker may still be handing a job to the system queue.
@@ -2097,6 +2124,7 @@ impl eframe::App for PhotocraftApp {
         discard_ui::show(self, &ctx);
         tiff_options_ui::show(self, &ctx);
         targa_options_ui::show(self, &ctx);
+        jpeg_options_ui::show(self, &ctx);
         distort_ui::show(self, &ctx);
         camera_raw_ui::show(self, &ctx);
         wide_angle_ui::show(self, &ctx);

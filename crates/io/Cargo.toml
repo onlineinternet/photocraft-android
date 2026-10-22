@@ -34,6 +34,8 @@ photocraft-format = { path = "../format" }
 craft-docpath = { workspace = true }
 thiserror = { workspace = true }
 serde_json = { workspace = true }
+# Opening a big photo converts it into tiles one band of tile rows per thread (flat.rs).
+rayon = { workspace = true }
 blake3 = { version = "1.8", default-features = false, features = ["pure"] }
 # svg.rs inflates `.svgz` itself (with a size cap) so the XML can be checked before it is parsed;
 # pdn.rs inflates Paint.NET's gzip pixel chunks.
