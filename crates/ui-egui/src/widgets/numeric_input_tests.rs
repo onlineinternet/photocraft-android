@@ -213,7 +213,7 @@ fn number_fields_take_only_what_a_number_is_made_of() {
 #[test]
 fn numeric_characters_follow_the_field() {
     use crate::numeric_expression::Units;
-    let plain = Units { unit: None, suffix: "", dpi: 72.0, ppi: 72.0 };
+    let plain = Units { unit: None, suffix: "", dpi: 72.0, ppi: 72.0, extent: None };
     let degrees = Units { suffix: "°", ..plain };
     let px = Units { unit: Some(photocraft_engine::prefs::Unit::Pixels), suffix: "px", ..plain };
     for c in ['0', '9', '.', '-', '/', '(', 'p', 'i', 'e'] {

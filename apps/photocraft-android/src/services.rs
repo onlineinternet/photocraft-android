@@ -116,10 +116,8 @@ pub fn android(dirs: &Dirs, picker: SharedPicker) -> Services {
     let prefs_load = dirs.prefs_file();
     let prefs_save = dirs.prefs_file();
     Services {
-        import: Some(Box::new(|name: &str, bytes: &[u8], max_svg_group_depth: usize| {
-            guard("Open", || {
-                photocraft_io::import_with_svg_group_depth(name, bytes, max_svg_group_depth).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string())
-            })
+        import: Some(Box::new(|name: &str, bytes: &[u8], opts: &photocraft_io::ImportOptions| {
+            guard("Open", || photocraft_io::import_with_options(name, bytes, opts).map(|r| (r.document, r.warnings)).map_err(|e| e.to_string()))
         })),
         export: Some(Box::new(|doc: &Document, path: &str, settings: &photocraft_ui_egui::ExportSettings| {
             let opts = export_options(settings);
@@ -136,10 +134,12 @@ pub fn android(dirs: &Dirs, picker: SharedPicker) -> Services {
                 photocraft_codecs::encode(&img, photocraft_codecs::Format::Png, &photocraft_codecs::EncodeOptions::default()).map_err(|e| e.to_string())?;
             crate::android_system::set_clipboard_image(&png)
         })),
+        // No image on the clipboard is `Ok(None)`; one that can't be decoded is an error, which
+        // leaves PhotoCraft's own copy alone.
         clipboard_get_image: Some(Box::new(|| {
-            let bytes = crate::android_system::clipboard_image()?;
-            let img = guard("Paste", || photocraft_codecs::decode(&bytes).map_err(|e| e.to_string())).ok()?;
-            Some((img.width(), img.height(), img.to_rgba8()))
+            let Some(bytes) = crate::android_system::clipboard_image() else { return Ok(None) };
+            let img = guard("Paste", || photocraft_codecs::decode(&bytes).map_err(|e| e.to_string()))?;
+            Ok(Some((img.width(), img.height(), img.to_rgba8())))
         })),
         // Files opened through Android's picker reopen by their URI (Open Recent).
         read_uri: Some(Box::new(|path: &str| match crate::picker::saf_uri(path) {
