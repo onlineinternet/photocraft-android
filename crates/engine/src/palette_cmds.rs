@@ -175,7 +175,7 @@ fn palette_set(s: &mut Session, p: &Value) -> Result<Value> {
 
 fn palette_add(s: &mut Session, p: &Value) -> Result<Value> {
     const CMD: &str = "palette.add";
-    let c = rgb(color_param(p, "color", s.tools.foreground));
+    let c = rgb(color_param(CMD, p, "color", s.tools.foreground)?);
     let mut palette = current(s)?;
     if palette.iter().any(|e| same(*e, c)) {
         return Ok(palette_json(&palette));
@@ -258,7 +258,7 @@ fn recolor(s: &mut Session, p: &Value) -> Result<Value> {
     check_doc(CMD, &st.doc)?;
     let mut palette = st.doc.palette.clone();
     let i = index_param(CMD, p, palette.len())?;
-    let to = rgb(color_param(p, "color", s.tools.foreground));
+    let to = rgb(color_param(CMD, p, "color", s.tools.foreground)?);
     let whole = match p.get("scope").and_then(Value::as_str).unwrap_or("document") {
         "document" => true,
         "layer" => false,
@@ -284,7 +284,7 @@ fn ramp(s: &mut Session, p: &Value) -> Result<Value> {
     const CMD: &str = "palette.ramp";
     let mut palette = current(s)?;
     let i = index_param(CMD, p, palette.len())?;
-    let to = rgb(color_param(p, "color", s.tools.foreground));
+    let to = rgb(color_param(CMD, p, "color", s.tools.foreground)?);
     let steps = match p.get("steps") {
         None => 4,
         Some(v) => v.as_u64().filter(|n| (1..=32).contains(n)).ok_or_else(|| bad(CMD, "`steps` must be 1..32"))? as usize,

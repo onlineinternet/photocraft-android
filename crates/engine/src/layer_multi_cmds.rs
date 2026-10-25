@@ -920,6 +920,8 @@ pub fn selection_only_change(a: &Document, b: &Document) -> bool {
         variables,
         timeline,
         file_encoding,
+        pixel_art,
+        palette,
     } = a;
     // The ignored fields above are the pixel ones `pixels_equal_with` already compares.
     pixels_equal_with(a, b, video_frames_equal)
@@ -943,6 +945,8 @@ pub fn selection_only_change(a: &Document, b: &Document) -> bool {
         && *variables == b.variables
         && *timeline == b.timeline
         && *file_encoding == b.file_encoding
+        && *pixel_art == b.pixel_art
+        && *palette == b.palette
 }
 
 /// Pixels a single history step can have changed between `a` and `b` (the documents on either

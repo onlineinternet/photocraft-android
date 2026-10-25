@@ -17,7 +17,7 @@ fn harness(pixel_art: bool, rotate: bool) -> Harness<'static, PhotocraftApp> {
     app.touch_ui = true;
     app.touch_rotate = rotate;
     app.ui.extras.rulers = false;
-    app.ui.views = vec![View { zoom: 4.0, center: [32.0, 32.0], fit_pending: false, fill_pending: false, doc_size: [64, 64], rotation: 0.0, pixel_art }];
+    app.ui.views = vec![View { zoom: 4.0, center: [32.0, 32.0], fit_pending: false, fill_pending: false, doc_size: [64, 64], rotation: 0.0, pixel_art, ..View::default() }];
     let mut h = Harness::builder().with_size(egui::vec2(400.0, 400.0)).build_ui_state(
         |ui, app: &mut PhotocraftApp| {
             app.last_canvas_rect = ui.max_rect();
