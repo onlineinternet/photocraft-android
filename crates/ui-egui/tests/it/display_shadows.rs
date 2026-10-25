@@ -250,6 +250,7 @@ fn compare_display_paths_24mp() {
         rotation: 0.0,
         shadow: false,
         pixel_grid: false,
+        pixel_art: false,
         view_key: 0,
         display: 1,
         output: 1,
