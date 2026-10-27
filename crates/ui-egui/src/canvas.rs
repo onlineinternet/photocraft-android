@@ -62,7 +62,9 @@ pub mod zoom_window_fit;
 
 #[cfg(test)]
 pub(crate) use cursors::eyedropper_ring_colors;
-pub(crate) use cursors::{alt_picks, eyedropper_color, alt_samples, composite_color, paint_bucket_cursor, pen_cursor, pencil_cursor_rect, pencil_tip_is_round, pipette_cursor};
+pub(crate) use cursors::{
+    alt_picks, alt_samples, composite_color, eyedropper_color, paint_bucket_cursor, pen_cursor, pencil_cursor_rect, pencil_tip_is_round, pipette_cursor,
+};
 use cursors::{brush_tip_centre, eyedropper_ring, precise_other_cursor, visible_crosshair};
 pub(crate) use display::GPU_OUTPUT;
 use display::texture_key;
@@ -1144,7 +1146,7 @@ fn handle_canvas_tool_stroke(
         app.press_stroke = app.drag.is_some();
     }
     // A finger that rests on the canvas picks a colour instead of leaving a dab (studio chrome).
-    if app.studio_chrome && crate::studio_chrome::hold_eyedropper(app, ui, &xf, rect) {
+    if app.studio_chrome && crate::studio_chrome::hold_eyedropper(app, ui, xf, rect) {
         buttons.started = false;
         buttons.dragged = false;
         buttons.stopped = false;

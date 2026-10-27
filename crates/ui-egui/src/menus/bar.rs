@@ -277,7 +277,7 @@ pub fn touch_menu_button(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> egui::Re
     for dy in [-7.0, 0.0, 7.0] {
         ui.painter().line_segment([c + egui::vec2(-8.0, dy), c + egui::vec2(8.0, dy)], stroke);
     }
-    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Menu")));
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, tl!("Menu")));
     let resp = resp.on_hover_text(tl!("Menu"));
 
     let kept = std::cell::Cell::new(app.menu_cache.take());

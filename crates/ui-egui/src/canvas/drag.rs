@@ -43,6 +43,10 @@ pub struct Drag {
     pub selection_at_press: bool,
     /// The document a press on the canvas started the drag on (`retouch_ui::cancel_stale`).
     pub document: Option<DragDocument>,
+    /// Studio chrome: square or circle, and draw from the centre, without holding Shift or Alt.
+    /// Those keys at the press still choose the selection mode, so the toggles are separate.
+    pub studio_square: bool,
+    pub studio_from_center: bool,
 }
 
 impl Drag {
@@ -66,6 +70,8 @@ impl Drag {
             pen_owner: None,
             selection_at_press: true,
             document: None,
+            studio_square: false,
+            studio_from_center: false,
         }
     }
 
@@ -123,7 +129,19 @@ impl Drag {
     pub fn marquee_mods(&self) -> (bool, bool) {
         let picks_mode = self.selection_at_press;
         let fresh = |now: bool, at_press: bool, released: bool| now && (!at_press || released || !picks_mode);
-        (fresh(self.live.shift, self.modifiers.shift, self.released.shift), fresh(self.live.alt, self.modifiers.alt, self.released.alt))
+        (
+            fresh(self.live.shift, self.modifiers.shift, self.released.shift) || self.studio_square,
+            fresh(self.live.alt, self.modifiers.alt, self.released.alt) || self.studio_from_center,
+        )
+    }
+
+    /// Modifiers for shape geometry: the live keys, plus the studio chrome's constrain and
+    /// from-centre toggles. Selection mode keeps the modifiers from the press.
+    pub fn geometry_mods(&self) -> egui::Modifiers {
+        let mut m = self.live;
+        m.shift |= self.studio_square;
+        m.alt |= self.studio_from_center;
+        m
     }
 
     /// ⇧ held since the press with no selection: the square takes the drag's shorter side, as the

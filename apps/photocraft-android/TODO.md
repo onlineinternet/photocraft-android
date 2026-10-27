@@ -23,7 +23,7 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
 - [ ] Try File › Open and Save As through Android's pickers (Drive, Downloads, thumbnails),
       then File › Save on a file opened that way and Open Recent after restarting the app.
-- [ ] Try the Open Photo and Share edge keys, and Copy/Paste to and from another app.
+- [ ] Try Open Photo and Share in tool properties, and Copy/Paste to and from another app.
 - [ ] Try the palette (Swatches panel in Pixel Art Mode): Recolor, Ramp, the Pencil's Ink and
       Palette only.
 
@@ -34,7 +34,9 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Dialogs as bottom sheets. They fit a phone today; they are still floating windows.
 - [x] Phone and tablet layout (2026-10-27): command bar, left tool rail, sub-tool list, bottom
       colour/brush strip, and Layers / colour wheel / tool-properties palettes. Docked on a
-      landscape tablet, sheets on a phone. See `studio_chrome`.
+      landscape tablet, sheets on a phone. See `studio_chrome`. The right-edge tab is not drawn;
+      its actions are labeled buttons, and the selected tool shows its own options (selection
+      mode, constrain, sample) above the bottom strip. Slider values sit off the track.
 - [ ] Palm rejection beyond "Finger draws" off.
 - [ ] Load system fonts for non-Latin scripts.
 - [ ] Get rid of the one-frame flash of a dab before a two-finger gesture takes it back.

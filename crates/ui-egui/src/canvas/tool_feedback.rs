@@ -53,11 +53,22 @@ pub fn is_selection_tool(tool: Tool) -> bool {
 /// The effective selection mode of `tool` for the options-bar mode `bar` (0 New, 1 Add,
 /// 2 Subtract, 3 Intersect) and the held modifiers: exactly what the tool's gesture will use.
 pub fn selection_mode(tool: Tool, bar: u8, m: egui::Modifiers) -> &'static str {
+    effective_selection_mode(tool, bar, m, false)
+}
+
+/// [`selection_mode`], and when `studio` is set the options-bar mode applies to Quick Selection
+/// and Object Selection too (their labeled New / Add / Subtract / Intersect buttons). A held
+/// Shift or Alt still overrides the bar. Quick Selection has no intersect mode.
+pub fn effective_selection_mode(tool: Tool, bar: u8, m: egui::Modifiers, studio: bool) -> &'static str {
+    let bar_mode = ["replace", "add", "subtract", "intersect"][usize::from(bar.min(3))];
     match tool {
         // Quick Selection always adds (⌥ subtracts), like Photoshop's after the first stroke.
+        // Studio chrome uses the labeled mode when no modifier is held.
         Tool::QuickSelection => {
             if m.alt {
                 "subtract"
+            } else if studio && !m.shift && bar_mode != "intersect" {
+                bar_mode
             } else {
                 "add"
             }
@@ -68,6 +79,8 @@ pub fn selection_mode(tool: Tool, bar: u8, m: egui::Modifiers) -> &'static str {
                 "subtract"
             } else if m.shift {
                 "add"
+            } else if studio {
+                bar_mode
             } else {
                 "replace"
             }
@@ -80,7 +93,7 @@ pub fn selection_mode(tool: Tool, bar: u8, m: egui::Modifiers) -> &'static str {
             } else if m.alt {
                 "subtract"
             } else {
-                ["replace", "add", "subtract", "intersect"][bar.min(3) as usize]
+                bar_mode
             }
         }
     }
@@ -90,11 +103,15 @@ pub fn selection_mode(tool: Tool, bar: u8, m: egui::Modifiers) -> &'static str {
 /// subtract from or intersect with, so it draws a new selection, as in Photoshop (where ⌥ then
 /// only draws a marquee from its centre). An options-bar Subtract or Intersect is kept (#1106).
 pub fn document_selection_mode(app: &PhotocraftApp, tool: Tool, m: egui::Modifiers) -> &'static str {
-    let mode = selection_mode(tool, app.ui.selection_mode, m);
+    let mode = effective_selection_mode(tool, app.ui.selection_mode, m, app.studio_chrome);
     // Asked last, and from the bounds the selection outline caches (same key): the canvas asks
     // every frame while a Patch lasso is drawn or hovered with ⌥.
     let selected = || app.session.active().is_some_and(|st| st.doc.selection.as_ref().is_some_and(|s| !app.known_bounds(u64::MAX - st.doc.id.0, s).is_empty()));
-    if m.alt && matches!(mode, "subtract" | "intersect") && selection_mode(tool, app.ui.selection_mode, egui::Modifiers::NONE) == "replace" && !selected() {
+    if m.alt
+        && matches!(mode, "subtract" | "intersect")
+        && effective_selection_mode(tool, app.ui.selection_mode, egui::Modifiers::NONE, app.studio_chrome) == "replace"
+        && !selected()
+    {
         "replace"
     } else {
         mode
@@ -140,7 +157,7 @@ pub fn badge(app: &PhotocraftApp, tool: Tool, m: egui::Modifiers) -> Option<Badg
     if matches!(tool, Tool::Lasso | Tool::PolygonLasso) && app.drag.is_none() && app.session.active().is_none_or(|st| st.doc.selection.is_none()) {
         m.alt = false;
     }
-    Badge::from_mode(selection_mode(tool, app.ui.selection_mode, m))
+    Badge::from_mode(effective_selection_mode(tool, app.ui.selection_mode, m, app.studio_chrome))
 }
 
 /// The badge's glyph as line segments around `c` (half-size `h`).

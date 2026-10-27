@@ -547,6 +547,8 @@ pub fn tool_event(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers)
             drag.capture_vector_owners(app);
             drag.capture_selection_at_press(app);
             drag.document = super::drag::DragDocument::capture(app);
+            drag.studio_square = app.studio_chrome && app.studio_constrain;
+            drag.studio_from_center = app.studio_chrome && app.studio_from_center;
             app.drag = Some(drag);
             app.trail = None;
             app.stylus.begin_stroke();
