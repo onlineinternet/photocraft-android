@@ -161,28 +161,30 @@ fn hole_id() -> Id {
     Id::new("studio-chrome-hole")
 }
 
-/// Ask the next frame's chrome to open a palette (`layers`, `color`, `properties`, `subtools`, `none`).
-/// Used by the offscreen snapshot.
+/// Ask a later frame's chrome to open a palette (`layers`, `color`, `properties`, `subtools`, `none`).
+/// Used by the offscreen snapshot. The first frame may already have run, so this is read every
+/// frame until a chrome pass consumes it.
 pub fn request_open(ctx: &egui::Context, what: &str) {
     ctx.data_mut(|d| d.insert_temp(Id::new("studio-open-request"), what.to_string()));
 }
 
-fn init_chrome(ctx: &egui::Context, kind: LayoutKind) -> Chrome {
-    let mut chrome =
-        Chrome { subtools: kind == LayoutKind::Tablet, palette: (kind == LayoutKind::Tablet).then_some(Palette::Layers), ready: true, color_primed: false };
-    if let Some(req) = ctx.data_mut(|d| d.remove_temp::<String>(Id::new("studio-open-request"))) {
-        chrome.subtools = false;
-        chrome.palette = None;
-        match req.as_str() {
-            "layers" => chrome.palette = Some(Palette::Layers),
-            "color" => chrome.palette = Some(Palette::Color),
-            "properties" => chrome.palette = Some(Palette::Properties),
-            "subtools" => chrome.subtools = true,
-            "none" => {}
-            _ => {}
-        }
+fn init_chrome(kind: LayoutKind) -> Chrome {
+    Chrome { subtools: kind == LayoutKind::Tablet, palette: (kind == LayoutKind::Tablet).then_some(Palette::Layers), ready: true, color_primed: false }
+}
+
+/// A snapshot can ask for a palette after the first frame has already built the default chrome.
+fn apply_open_request(ctx: &egui::Context, chrome: &mut Chrome) {
+    let Some(req) = ctx.data_mut(|d| d.remove_temp::<String>(Id::new("studio-open-request"))) else { return };
+    chrome.subtools = false;
+    chrome.palette = None;
+    match req.as_str() {
+        "layers" => chrome.palette = Some(Palette::Layers),
+        "color" => chrome.palette = Some(Palette::Color),
+        "properties" => chrome.palette = Some(Palette::Properties),
+        "subtools" => chrome.subtools = true,
+        "none" => {}
+        _ => {}
     }
-    chrome
 }
 
 fn toggle_palette(chrome: &mut Chrome, palette: Palette, kind: LayoutKind) {
@@ -299,8 +301,9 @@ pub(crate) fn bars(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let kind = layout_kind(ctx.content_rect().size());
     let mut chrome = load_chrome(&ctx);
     if !chrome.ready {
-        chrome = init_chrome(&ctx, kind);
+        chrome = init_chrome(kind);
     }
+    apply_open_request(&ctx, &mut chrome);
     prime_color(app, &mut chrome);
     let wide = ctx.content_rect().width() >= 720.0;
     let t = Tokens::get(&ctx);
@@ -980,6 +983,20 @@ mod tests {
         assert!(drawn(&tablet, "studio-subtools"));
         assert!(drawn(&tablet, "studio-palette"));
         assert!(!drawn(&tablet, "toolbar"));
+    }
+
+    #[test]
+    fn an_open_request_after_the_first_frame_shows_that_palette() {
+        use egui_kittest::kittest::Queryable;
+        let mut tablet = harness(vec2(1280.0, 800.0));
+        request_open(&tablet.ctx, "color");
+        tablet.run_steps(3);
+        let _ = tablet.get_by_label("Wheel");
+
+        let mut phone = harness(vec2(390.0, 844.0));
+        request_open(&phone.ctx, "subtools");
+        phone.run_steps(3);
+        let _ = phone.get_by_label("Close");
     }
 
     fn harness(size: Vec2) -> egui_kittest::Harness<'static, PhotocraftApp> {
