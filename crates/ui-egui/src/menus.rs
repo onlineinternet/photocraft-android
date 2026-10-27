@@ -1352,24 +1352,85 @@ pub fn menu_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> f32 {
     }
     if let Some(id) = clicked {
         let ctx = ui.ctx().clone();
-        let alt = ctx.input(|i| i.modifiers.alt);
-        // ⌥ while choosing an Image › Adjustments item opens it at its last settings (#8900).
-        let r = if alt && crate::adjust_dialog::has_dialog(&id) {
-            let opened = crate::adjust_dialog::open_last(app, &id).map(|_| Value::Null).ok_or_else(|| "no document".to_string());
-            // Edit › Search's recents, as `invoke` notes a plain click.
-            if opened.is_ok() {
-                crate::palette::note_recent(&ctx, &id);
-            }
-            opened
-        } else {
-            invoke(app, &ctx, &alt_click(id, alt), json!({}))
-        };
-        if let Err(e) = r {
-            app.ui.status = e;
-            app.ui.status_error = true;
-        }
+        dispatch_menu_click(app, &ctx, id);
     }
     edge
+}
+
+/// Run a menu item chosen from the bar or the touch command menu.
+fn dispatch_menu_click(app: &mut PhotocraftApp, ctx: &egui::Context, id: String) {
+    let alt = ctx.input(|i| i.modifiers.alt);
+    // ⌥ while choosing an Image › Adjustments item opens it at its last settings (#8900).
+    let r = if alt && crate::adjust_dialog::has_dialog(&id) {
+        let opened = crate::adjust_dialog::open_last(app, &id).map(|_| Value::Null).ok_or_else(|| "no document".to_string());
+        if opened.is_ok() {
+            crate::palette::note_recent(ctx, &id);
+        }
+        opened
+    } else {
+        invoke(app, ctx, &alt_click(id, alt), json!({}))
+    };
+    if let Err(e) = r {
+        app.ui.status = e;
+        app.ui.status_error = true;
+    }
+}
+
+/// The touch command bar's Menu button: every top-level menu, with the same items as the desktop bar.
+pub fn touch_menu_button(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> egui::Response {
+    let t = crate::theme::Tokens::get(ui.ctx());
+    let (rect, resp) = ui.allocate_exact_size(egui::vec2(44.0, 44.0), egui::Sense::click());
+    if resp.hovered() || resp.is_pointer_button_down_on() {
+        let fill = if resp.is_pointer_button_down_on() { t.pressed } else { t.hover };
+        ui.painter().rect_filled(rect, t.radius_sm, fill);
+    }
+    let c = rect.center();
+    let stroke = egui::Stroke::new(2.0, t.text);
+    for dy in [-7.0, 0.0, 7.0] {
+        ui.painter().line_segment([c + egui::vec2(-8.0, dy), c + egui::vec2(8.0, dy)], stroke);
+    }
+    resp.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, tl!("Menu")));
+    let resp = resp.on_hover_text(tl!("Menu"));
+
+    let kept = std::cell::Cell::new(app.menu_cache.take());
+    let built: std::cell::OnceCell<ItemCache> = std::cell::OnceCell::new();
+    let app_ref: &PhotocraftApp = app;
+    let mut clicked: Option<String> = None;
+    let mut nav = crate::menu_nav::Nav::load(ui.ctx());
+    let lang = crate::i18n::current();
+    let bar = egui::containers::menu::MenuConfig::find(ui);
+    let config = egui::containers::menu::MenuConfig::new().close_behavior(bar.close_behavior).style(bar.style.clone());
+    egui::Popup::menu(&resp)
+        .align(crate::direction::below())
+        .close_behavior(config.close_behavior)
+        .style(config.style.clone())
+        .info(egui::UiStackInfo::new(egui::UiKind::Menu).with_tag_value(egui::containers::menu::MenuConfig::MENU_CONFIG_TAG, config))
+        .show(|ui| {
+            ui.set_min_width(220.0);
+            ui.spacing_mut().button_padding = egui::vec2(14.0, 12.0);
+            let items = &built
+                .get_or_init(|| {
+                    let state = crate::native_menu::state_hash(app_ref, None);
+                    let input = crate::native_menu::had_input(ui.ctx());
+                    let items = kept.take().and_then(|c| c.reuse(state, input)).unwrap_or_else(|| menu_items(app_ref));
+                    ItemCache { state, items }
+                })
+                .items;
+            for top in TOP_MENUS {
+                ui.menu_button(egui::RichText::new(crate::i18n::tr(lang, top)).size(16.0), |ui| {
+                    let mine: Vec<&MenuItem> = items.iter().filter(|i| i.path.first().map(String::as_str) == Some(top)).collect();
+                    ui.set_min_width(240.0);
+                    render_level(ui, &mine, 1, &mut clicked, &mut nav);
+                });
+            }
+        });
+    nav.store(ui.ctx());
+    app.menu_cache = built.into_inner();
+    if let Some(id) = clicked {
+        let ctx = ui.ctx().clone();
+        dispatch_menu_click(app, &ctx, id);
+    }
+    resp
 }
 
 fn press_gesture_id() -> egui::Id {

@@ -4413,6 +4413,14 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
             tool_event(app, ToolEvent::Down { x: d[0], y: d[1], pressure: app.stylus.pressure() }, press_mods);
             app.press_stroke = app.drag.is_some();
         }
+        // A finger that rests on the canvas picks a colour instead of leaving a dab (studio chrome).
+        if app.studio_chrome && crate::studio_chrome::hold_eyedropper(app, ui, &xf, rect) {
+            buttons.started = false;
+            buttons.dragged = false;
+            buttons.stopped = false;
+            buttons.clicked = false;
+            app.press_stroke = false;
+        }
         let press_stroke = app.press_stroke;
         // A live tool's press that went to the ⌥ eyedropper keeps sampling for the whole press: the
         // drag recognised later must not decide again with ⌥ already let go and paint (#7802).

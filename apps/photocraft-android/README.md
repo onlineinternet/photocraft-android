@@ -33,6 +33,15 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 
 ## Touch features
 
+- **Clip Studio layout:** a dark command bar along the top (menu, New, Open, Save, Undo, Redo,
+  zoom), a tool rail down the left with a sub-tool list, and a strip along the bottom with the
+  foreground colour and a brush-size slider. **Layers**, the colour **wheel / sliders / cube**,
+  and **tool properties** dock beside the canvas on a landscape tablet and slide over it on a
+  phone. A finger held still on the canvas picks a colour. Brush size, opacity, hardness, flow,
+  smoothing and pen pressure edit the current brush; the full menus, layers panel, colour panel
+  and timeline are the desktop ones. Onion skin, frame tags, materials and a per-document
+  rotation lock are shown disabled — they are not in this build. Share, Open Photo and the
+  Shift/Ctrl/Alt latches stay on the edge keyboard.
 - **Edge keyboard:** tap the `‹` tab on the right edge for one-tap shortcuts: Undo, Redo,
   Copy, Paste, **Open Photo** (File › Open from Android's photo grid), **Share** (send the
   image as a PNG to another app), Select All, Deselect, Inverse, Transform, brush Size −/+, Swap colors, New Layer,
@@ -142,7 +151,9 @@ The plan and open work are in [TODO.md](TODO.md).
 - A photo opened with Open Photo is only lent to the app,
   so File › Save asks where to save it and Open Recent can't reopen it (files from File › Open
   can: the app keeps access to them).
-- The interface is the desktop layout; panels are still desktop-sized.
+- The layers, colour and tool-property palettes are the touch layout. The other panels (Navigator,
+  History, full Brush Settings) still open as desktop windows. Dialogs fit the screen; they are
+  not bottom sheets.
 - Text in non-Latin scripts may not render, since their system fonts aren't loaded.
 - Starting a two-finger gesture can flash the first finger's dab for a frame before it's taken
   back.
