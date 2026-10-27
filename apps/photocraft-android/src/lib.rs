@@ -305,10 +305,9 @@ pub fn create_app(
         let interface = &app.session.prefs().interface;
         if interface.appearance_mode != photocraft_engine::prefs::AppearanceMode::Light
             && interface.dark_theme == photocraft_engine::prefs::DarkTheme::ProMedium
+            && let Err(e) = app.run("prefs.set", serde_json::json!({"values": {"interface.darkTheme": "studio", "interface.theme": "studio"}}))
         {
-            if let Err(e) = app.run("prefs.set", serde_json::json!({"values": {"interface.darkTheme": "studio", "interface.theme": "studio"}})) {
-                log::info!("studio theme: {e}");
-            }
+            log::info!("studio theme: {e}");
         }
     }
     AndroidShell {
