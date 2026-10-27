@@ -688,6 +688,8 @@ pub(super) fn tool_event_with_view(app: &mut PhotocraftApp, ev: ToolEvent, mods:
             drag.history_params = crate::retouch_ui::history_params_at_press(app, tool, mods.alt);
             drag.capture_selection_at_press(app);
             drag.document = super::drag::DragDocument::capture(app);
+            drag.studio_square = app.studio_chrome && app.studio_constrain;
+            drag.studio_from_center = app.studio_chrome && app.studio_from_center;
             app.drag = Some(drag);
             app.trail = None;
             app.stylus.begin_stroke();

@@ -1333,7 +1333,7 @@ fn handle_canvas_tool_stroke(
         app.press_stroke = app.drag.is_some();
     }
     // A finger that rests on the canvas picks a colour instead of leaving a dab (studio chrome).
-    if app.studio_chrome && crate::studio_chrome::hold_eyedropper(app, ui, &xf, rect) {
+    if app.studio_chrome && crate::studio_chrome::hold_eyedropper(app, ui, xf, rect) {
         buttons.started = false;
         buttons.dragged = false;
         buttons.stopped = false;

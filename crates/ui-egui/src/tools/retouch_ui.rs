@@ -275,7 +275,15 @@ pub(crate) fn finish_stroke_with(app: &mut PhotocraftApp, tool: Tool, points: &[
         },
         Tool::QuickSelection => {
             let size = app.session.tools.brush.size;
-            let mode = if mods.alt { "subtract" } else { "add" };
+            let mode = if mods.alt {
+                "subtract"
+            } else if app.studio_chrome && !mods.shift {
+                // Quick Selection has no intersect; that labeled mode adds.
+                let mode = crate::tool_feedback::effective_selection_mode(Tool::QuickSelection, app.ui.selection_mode, egui::Modifiers::NONE, true);
+                if mode == "intersect" { "add" } else { mode }
+            } else {
+                "add"
+            };
             let xy: Vec<[f64; 2]> = points.iter().map(|q| [q[0], q[1]]).collect();
             let (sample_all, enhance) = (o.sample_all.quick_selection, o.enhance_edge);
             let r = app.run("select.quick", json!({"points": xy, "size": size, "mode": mode, "enhanceEdge": enhance, "sampleAllLayers": sample_all}));
