@@ -117,17 +117,25 @@ pub struct TouchSettings {
     pub finger_pressure: bool,
     /// Twisting two fingers turns the canvas (pixel art turns in 90° steps).
     pub touch_rotate: bool,
+    /// The one-time switch to the Studio dark theme has already been offered.
+    pub studio_theme_applied: bool,
 }
 
 impl Default for TouchSettings {
     fn default() -> Self {
-        Self { finger_draws: true, finger_pressure: true, touch_rotate: true }
+        Self { finger_draws: true, finger_pressure: true, touch_rotate: true, studio_theme_applied: false }
     }
 }
 
 impl TouchSettings {
     pub fn to_json(self) -> String {
-        serde_json::json!({"fingerDraws": self.finger_draws, "fingerPressure": self.finger_pressure, "touchRotate": self.touch_rotate}).to_string()
+        serde_json::json!({
+            "fingerDraws": self.finger_draws,
+            "fingerPressure": self.finger_pressure,
+            "touchRotate": self.touch_rotate,
+            "studioThemeApplied": self.studio_theme_applied,
+        })
+        .to_string()
     }
 
     pub fn from_json(text: &str) -> Self {
@@ -137,6 +145,7 @@ impl TouchSettings {
             finger_draws: v.get("fingerDraws").and_then(serde_json::Value::as_bool).unwrap_or(d.finger_draws),
             finger_pressure: v.get("fingerPressure").and_then(serde_json::Value::as_bool).unwrap_or(d.finger_pressure),
             touch_rotate: v.get("touchRotate").and_then(serde_json::Value::as_bool).unwrap_or(d.touch_rotate),
+            studio_theme_applied: v.get("studioThemeApplied").and_then(serde_json::Value::as_bool).unwrap_or(false),
         }
     }
 }
@@ -433,12 +442,12 @@ mod tests {
 
     #[test]
     fn settings_round_trip_and_survive_junk() {
-        let s = TouchSettings { finger_draws: false, finger_pressure: true, touch_rotate: false };
+        let s = TouchSettings { finger_draws: false, finger_pressure: true, touch_rotate: false, studio_theme_applied: true };
         assert_eq!(TouchSettings::from_json(&s.to_json()), s);
         assert_eq!(TouchSettings::from_json("not json"), TouchSettings::default());
         assert_eq!(
             TouchSettings::from_json("{\"fingerDraws\": false}"),
-            TouchSettings { finger_draws: false, finger_pressure: true, touch_rotate: true },
+            TouchSettings { finger_draws: false, finger_pressure: true, touch_rotate: true, studio_theme_applied: false },
             "older files keep rotation on"
         );
     }

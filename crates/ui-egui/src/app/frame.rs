@@ -299,23 +299,32 @@ impl PhotocraftApp {
         }
         // In Full Screen Mode, Tab shows the menu bar, options bar, toolbar and dock (#6760).
         let tabbed_in = !chrome && self.ui.panels.full_screen_chrome;
-        if (chrome || tabbed_in) && self.ui.panels.menu_bar {
-            panels::title_bar(self, ui);
-        }
         // Home is only the menu bar and the Home content; the saved panel prefs are untouched.
         let home = self.home_screen_up();
-        if ((chrome && self.ui.panels.options_bar) || tabbed_in) && !home {
-            panels::options_bar(self, ui);
-        } else {
-            // Its Fill help modal is gone with the bar: do not let a stale flag hold the crop's keys.
+        // The touch shell replaces the desktop chrome with the Clip Studio layout. Floating
+        // windows and dialogs below still open, so menu commands keep working.
+        let studio = self.studio_chrome && (chrome || tabbed_in);
+        if studio {
+            crate::studio_chrome::bars(self, ui);
+            // No options bar: do not let a stale Fill help flag hold the crop's keys.
             panels::options_bar::close_fill_help(ui.ctx());
+        } else {
+            if (chrome || tabbed_in) && self.ui.panels.menu_bar {
+                panels::title_bar(self, ui);
+            }
+            if ((chrome && self.ui.panels.options_bar) || tabbed_in) && !home {
+                panels::options_bar(self, ui);
+            } else {
+                // Its Fill help modal is gone with the bar: do not let a stale flag hold the crop's keys.
+                panels::options_bar::close_fill_help(ui.ctx());
+            }
+            if chrome && self.ui.panels.status_bar && !home {
+                panels::status_bar(self, ui);
+            }
         }
-        if chrome && self.ui.panels.status_bar && !home {
-            panels::status_bar(self, ui);
-        }
-        let toolbar_shown = ((chrome && self.ui.panels.toolbar) || tabbed_in) && !home;
+        let toolbar_shown = ((chrome && self.ui.panels.toolbar) || tabbed_in) && !home && !studio;
         // craft-ui's layout holds the canvas as its protected `canvas` panel.
-        let docking = ((chrome && self.ui.panels.dock) || tabbed_in) && !home;
+        let docking = ((chrome && self.ui.panels.dock) || tabbed_in) && !home && !studio;
         let toolbar_side = self.ui.panels.toolbar_side.resolve();
         let toolbar_right = toolbar_side == crate::state::ToolbarSide::Right;
         // The compact layout stacks the dock, rail and toolbar on the dock's physical edge.
@@ -352,6 +361,9 @@ impl PhotocraftApp {
                     panels::properties_window(self, &ctx);
                 }
             }
+        }
+        if studio {
+            crate::studio_chrome::overlays(self, &ctx);
         }
         // The floating editor windows belong to the editor: Home covers them (dialogs and notices
         // below stay).

@@ -67,7 +67,7 @@ pub mod zoom_window_fit;
 #[cfg(test)]
 pub(crate) use cursors::eyedropper_ring_colors;
 pub(crate) use cursors::{
-    alt_picks, alt_samples, color_sampler_cursor, composite_color, paint_bucket_cursor, pen_cursor, pencil_cursor_rect, pencil_tip_is_round, pipette_cursor,
+    alt_picks, alt_samples, eyedropper_color, color_sampler_cursor, composite_color, paint_bucket_cursor, pen_cursor, pencil_cursor_rect, pencil_tip_is_round, pipette_cursor,
     precise_other_cursor, sampler_hover_cursor,
 };
 use cursors::{brush_tip_centre, eyedropper_ring, preview_locator_cursor, visible_crosshair};
@@ -1331,6 +1331,14 @@ fn handle_canvas_tool_stroke(
             Some(tool_input::ToolViewContext::new(xf, Some(input.ctx.viewport_id()))),
         );
         app.press_stroke = app.drag.is_some();
+    }
+    // A finger that rests on the canvas picks a colour instead of leaving a dab (studio chrome).
+    if app.studio_chrome && crate::studio_chrome::hold_eyedropper(app, ui, &xf, rect) {
+        buttons.started = false;
+        buttons.dragged = false;
+        buttons.stopped = false;
+        buttons.clicked = false;
+        app.press_stroke = false;
     }
     let press_stroke = app.press_stroke;
     // A live tool's press that went to the ⌥ eyedropper keeps sampling for the whole press: the
