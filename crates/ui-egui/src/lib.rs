@@ -223,6 +223,7 @@ pub mod stroke_constraint;
 pub mod stroke_trace;
 pub mod stroke_trail;
 pub mod stroke_ui;
+pub mod studio_chrome;
 pub mod stylus;
 pub mod swap_arrow;
 pub mod swatches_ui;
@@ -1029,6 +1030,16 @@ pub struct PhotocraftApp {
     /// A touch screen is the main input (the Android shell): the Home screen shows no keyboard
     /// shortcuts or drag-and-drop hints, stacks its buttons and makes them finger-sized.
     pub touch_ui: bool,
+    /// Clip Studio-style touch chrome (the Android shell). The desktop menu, toolbar, options
+    /// bar and dock stay hidden; [`studio_chrome`] draws the command bar, tool rail and palettes.
+    pub studio_chrome: bool,
+    /// Square or circle, from the studio chrome's labeled toggle. Not Shift: a Shift held from
+    /// the press chooses the selection mode, so the toggle is stored on the drag by itself.
+    pub studio_constrain: bool,
+    /// Draw a marquee or shape from its centre, from the studio chrome's labeled toggle. Not Alt.
+    pub studio_from_center: bool,
+    /// Share, Open Photo and the finger toggles the touch shell used to keep on the edge keyboard.
+    pub studio_shell: studio_chrome::StudioShell,
     /// A hardware keyboard is attached to a touch device (the touch shell sets it from the
     /// system). Keyboard shortcuts and key hints show on touch only then ([`shortcuts::key_hints`]).
     pub hardware_keyboard: bool,
@@ -1196,6 +1207,10 @@ impl PhotocraftApp {
             last_frame_start_ms: 0.0,
             touch_drag_slop: 0.0,
             touch_ui: false,
+            studio_chrome: false,
+            studio_constrain: false,
+            studio_from_center: false,
+            studio_shell: studio_chrome::StudioShell::default(),
             hardware_keyboard: false,
             touch_rotate: false,
             jobs: Default::default(),
@@ -2485,26 +2500,36 @@ impl eframe::App for PhotocraftApp {
         }
         // In Full Screen Mode, Tab shows the menu bar, options bar, toolbar and dock (#6760).
         let tabbed_in = !chrome && self.ui.panels.full_screen_chrome;
-        if (chrome || tabbed_in) && self.ui.panels.menu_bar {
-            panels::title_bar(self, ui);
-        }
-        if (chrome && self.ui.panels.options_bar) || tabbed_in {
-            panels::options_bar(self, ui);
-        }
-        if chrome && self.ui.panels.status_bar {
-            panels::status_bar(self, ui);
-        }
-        if (chrome && self.ui.panels.toolbar) || tabbed_in {
-            panels::toolbar(self, ui);
-        }
-        if (chrome && self.ui.panels.dock) || tabbed_in {
-            panels::right_dock(self, ui);
+        // The touch shell replaces that desktop chrome with the Clip Studio layout. Floating
+        // windows and dialogs below still open, so menu commands keep working.
+        let studio = self.studio_chrome && (chrome || tabbed_in);
+        if studio {
+            studio_chrome::bars(self, ui);
+        } else {
+            if (chrome || tabbed_in) && self.ui.panels.menu_bar {
+                panels::title_bar(self, ui);
+            }
+            if (chrome && self.ui.panels.options_bar) || tabbed_in {
+                panels::options_bar(self, ui);
+            }
+            if chrome && self.ui.panels.status_bar {
+                panels::status_bar(self, ui);
+            }
+            if (chrome && self.ui.panels.toolbar) || tabbed_in {
+                panels::toolbar(self, ui);
+            }
+            if (chrome && self.ui.panels.dock) || tabbed_in {
+                panels::right_dock(self, ui);
+            }
         }
         let t = theme::Tokens::get(&ctx);
         let backdrop = if chrome { prefs_ui::pasteboard_color(self).unwrap_or(t.canvas) } else { egui::Color32::BLACK };
         egui::CentralPanel::default().frame(egui::Frame::NONE.fill(backdrop)).show(ui, |ui| {
             canvas::document_area(self, ui);
         });
+        if studio {
+            studio_chrome::overlays(self, &ctx);
+        }
         panels::properties_window(self, &ctx);
         brush_panel::window(self, &ctx);
         preset_panels::windows(self, &ctx);

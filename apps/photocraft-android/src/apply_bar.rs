@@ -30,7 +30,9 @@ pub fn show(ctx: &egui::Context, app: &mut PhotocraftApp, keys: &mut EdgeKeys) {
         Pending::Crop => "Crop",
     };
     let mut apply = None;
-    egui::Area::new(egui::Id::new("android_apply_bar")).order(egui::Order::Foreground).anchor(egui::Align2::CENTER_BOTTOM, [0.0, -28.0]).show(ctx, |ui| {
+    // Sit above the Clip Studio quick strip when that chrome is on.
+    let lift = if app.studio_chrome { -photocraft_ui_egui::studio_chrome::bottom_clearance(ctx) } else { -28.0 };
+    egui::Area::new(egui::Id::new("android_apply_bar")).order(egui::Order::Foreground).anchor(egui::Align2::CENTER_BOTTOM, [0.0, lift]).show(ctx, |ui| {
         egui::Frame::popup(ui.style()).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label(label);

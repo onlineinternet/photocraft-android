@@ -13,6 +13,8 @@
 //! `--wayland-notice` previews the native file drag-and-drop guidance shown in Wayland sessions.
 //! `--update-notice` previews a newer release without contacting the network.
 //! `--custom-titlebar` draws the Windows/Linux title bar (caption buttons in the top bar).
+//! `--studio` draws the Clip Studio touch chrome. `--studio-open layers|color|properties|subtools|none`
+//! opens that palette on the first frame.
 //!
 //! `--monitor 1366x768 --window-top 31` simulates the display the window is on (in points) and
 //! where its content starts on it, e.g. a window running under a Windows taskbar.
@@ -69,6 +71,8 @@ fn main() {
     // `--background-jobs`: long commands run as background jobs, as in the desktop app (#210).
     let background_jobs = args.iter().any(|a| a == "--background-jobs");
     let custom_titlebar = args.iter().any(|a| a == "--custom-titlebar");
+    // `--studio`: the Clip Studio touch chrome (command bar, tool rail, palettes).
+    let studio = args.iter().any(|a| a == "--studio");
     // `--settle-ms N`: keep rendering frames for N ms before the capture (e.g. mid-job).
     let settle_ms: u64 = arg(&args, "--settle-ms").and_then(|s| s.parse().ok()).unwrap_or(0);
     let mut render_options = eframe::egui_wgpu::RendererOptions::PREDICTABLE;
@@ -95,6 +99,14 @@ fn main() {
             }
             app.background_jobs = background_jobs;
             app.custom_titlebar = custom_titlebar;
+            if studio {
+                app.studio_chrome = true;
+                app.touch_ui = true;
+                let _ = app.run(
+                    "prefs.set",
+                    serde_json::json!({"values": {"interface.appearanceMode": "dark", "interface.darkTheme": "studio", "interface.theme": "studio"}}),
+                );
+            }
             // `--safe-gpu`: the CPU canvas, as the desktop app's `--safe-gpu` launch.
             if safe_gpu {
                 app.perf.gpu_info.selected = "cpu".into();
@@ -128,6 +140,9 @@ fn main() {
                 std::process::exit(2);
             }
         };
+    }
+    if let Some(which) = arg(&args, "--studio-open") {
+        photocraft_ui_egui::studio_chrome::request_open(&harness.ctx, &which);
     }
     harness.run_steps(4);
     let ctx = harness.ctx.clone();

@@ -23,15 +23,20 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
 - [ ] Try File › Open and Save As through Android's pickers (Drive, Downloads, thumbnails),
       then File › Save on a file opened that way and Open Recent after restarting the app.
-- [ ] Try the Open Photo and Share edge keys, and Copy/Paste to and from another app.
+- [ ] Try Open Photo and Share in tool properties, and Copy/Paste to and from another app.
 - [ ] Try the palette (Swatches panel in Pixel Art Mode): Recolor, Ramp, the Pencil's Ink and
       Palette only.
 
 ## Touch and layout (Clip Studio Paint style)
 
 - [ ] A per-document "no rotation" setting, if the global Touch rotate toggle isn't enough.
-- [ ] Phone layout: bottom toolbar, tool groups that pop out, dialogs as bottom sheets.
-- [ ] Panels on phones and the tablet: undecided how they should work yet.
+      The tool-properties palette shows the row disabled.
+- [ ] Dialogs as bottom sheets. They fit a phone today; they are still floating windows.
+- [x] Phone and tablet layout (2026-10-27): command bar, left tool rail, sub-tool list, bottom
+      colour/brush strip, and Layers / colour wheel / tool-properties palettes. Docked on a
+      landscape tablet, sheets on a phone. See `studio_chrome`. The right-edge tab is not drawn;
+      its actions are labeled buttons, and the selected tool shows its own options (selection
+      mode, constrain, sample) above the bottom strip. Slider values sit off the track.
 - [ ] Palm rejection beyond "Finger draws" off.
 - [ ] Load system fonts for non-Latin scripts.
 - [ ] Get rid of the one-frame flash of a dab before a two-finger gesture takes it back.
@@ -56,6 +61,10 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-10-27: Clip Studio touch chrome (`crates/ui-egui/src/studio_chrome.rs`), on for the Android
+  shell. Studio dark theme the first time the stock dark theme is still selected. Long-press
+  eyedropper on a brush tool. Onion skin, frame tags, materials and per-document rotation lock
+  are visible stubs.
 - 2026-10-22: Every window fits a phone: on the touch app a dialog's body scrolls inside a window
   capped at the screen (dialogs.rs), floating windows go through `widgets::fit_window`, the
   Color Picker stacks under its field when narrow; `phone_fit_tests::every_window_fits_a_phone`

@@ -148,7 +148,15 @@ pub fn finish_stroke(app: &mut PhotocraftApp, tool: Tool, points: &[[f64; 3]], m
         },
         Tool::QuickSelection => {
             let size = app.session.tools.brush.size;
-            let mode = if mods.alt { "subtract" } else { "add" };
+            let mode = if mods.alt {
+                "subtract"
+            } else if app.studio_chrome && !mods.shift {
+                // Quick Selection has no intersect; that labeled mode adds.
+                let mode = crate::tool_feedback::effective_selection_mode(Tool::QuickSelection, app.ui.selection_mode, egui::Modifiers::NONE, true);
+                if mode == "intersect" { "add" } else { mode }
+            } else {
+                "add"
+            };
             let xy: Vec<[f64; 2]> = points.iter().map(|q| [q[0], q[1]]).collect();
             let (sample_all, enhance) = (o.sample_all.quick_selection, o.enhance_edge);
             let r = app.run("select.quick", json!({"points": xy, "size": size, "mode": mode, "enhanceEdge": enhance, "sampleAllLayers": sample_all}));
@@ -392,6 +400,9 @@ pub fn finish_object_selection(app: &mut PhotocraftApp, start: [f64; 2], end: [f
             (true, true) => "intersect",
             (true, false) => "add",
             (false, true) => "subtract",
+            (false, false) if app.studio_chrome => {
+                crate::tool_feedback::effective_selection_mode(Tool::ObjectSelection, app.ui.selection_mode, egui::Modifiers::NONE, true)
+            }
             (false, false) => "replace",
         };
         let r = app.run("select.object", json!({"point": [end[0], end[1]], "mode": mode, "sampleAllLayers": sample_all}));
@@ -401,7 +412,14 @@ pub fn finish_object_selection(app: &mut PhotocraftApp, start: [f64; 2], end: [f
     }
     if w < 2.0 || h < 2.0 {
         let size = app.session.tools.brush.size;
-        let mode = if mods.alt { "subtract" } else { "add" };
+        let mode = if mods.alt {
+            "subtract"
+        } else if app.studio_chrome && !mods.shift {
+            let mode = crate::tool_feedback::effective_selection_mode(Tool::QuickSelection, app.ui.selection_mode, egui::Modifiers::NONE, true);
+            if mode == "intersect" { "add" } else { mode }
+        } else {
+            "add"
+        };
         let r = app.run("select.quick", json!({"points": [[end[0], end[1]]], "size": size, "mode": mode, "sampleAllLayers": sample_all}));
         report_smart_result(app, r, tl!("Quick Selection found nothing there"));
         return;
@@ -410,6 +428,8 @@ pub fn finish_object_selection(app: &mut PhotocraftApp, start: [f64; 2], end: [f
         "subtract"
     } else if mods.shift {
         "add"
+    } else if app.studio_chrome {
+        crate::tool_feedback::effective_selection_mode(Tool::ObjectSelection, app.ui.selection_mode, egui::Modifiers::NONE, true)
     } else {
         "replace"
     };
@@ -501,11 +521,15 @@ pub fn options_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui, tool: Tool) -> bo
             if !app.remove_pending.is_empty() {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     if crate::widgets::primary_button(ui, "✓", 32.0)
-                        .on_hover_text(crate::shortcuts::strip_key_hints(&crate::i18n::fmt(tl!("Apply the removal ({key})"), &[("key", &crate::shortcuts::pretty("Enter"))])))
+                        .on_hover_text(crate::shortcuts::strip_key_hints(&crate::i18n::fmt(
+                            tl!("Apply the removal ({key})"),
+                            &[("key", &crate::shortcuts::pretty("Enter"))],
+                        )))
                         .clicked()
                     {
                         remove_pending_commit(app);
-                    } else if crate::widgets::secondary_button(ui, "⊘", 32.0).on_hover_text(crate::shortcuts::strip_key_hints(tl!("Cancel (Esc)"))).clicked() {
+                    } else if crate::widgets::secondary_button(ui, "⊘", 32.0).on_hover_text(crate::shortcuts::strip_key_hints(tl!("Cancel (Esc)"))).clicked()
+                    {
                         remove_pending_cancel(app);
                     }
                 });

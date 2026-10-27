@@ -10,8 +10,12 @@
 //!   touch-friendly picker over filesystem paths ([`picker`]);
 //! - preferences, brush presets, crash recovery and the window layout live in the app's private
 //!   storage ([`services::Dirs`]);
-//! - an edge keyboard with one-tap commands ([`edge_keys`]), and two- and three-finger taps for
-//!   Undo and Redo ([`gestures`]);
+//! - Clip Studio-style touch chrome ([`photocraft_ui_egui::studio_chrome`]): a command bar, a tool
+//!   rail with sub-tools, a colour and brush strip, labeled options for the selected tool, and
+//!   palettes that dock on a tablet and slide over the canvas on a phone. The edge-keyboard tab
+//!   is not drawn; copy, share, Open Photo and the finger toggles live in tool properties;
+//! - two- and three-finger taps for Undo and Redo ([`gestures`]). The edge keyboard type
+//!   ([`edge_keys`]) still latches keys and runs queued commands when something else asks it to;
 //! - Apply / Cancel buttons while a transform or crop is pending ([`apply_bar`]), and a drag
 //!   threshold so a tap doesn't nudge the transform box ([`TOUCH_DRAG_SLOP`]);
 //! - the interface stays inside the area the status and navigation bars leave ([`insets`]);
@@ -117,6 +121,36 @@ fn take_back(app: &mut PhotocraftApp, snapshot: Option<&Snapshot>) {
     }
 }
 
+/// Copy the studio chrome's share, Open Photo and finger toggles onto the edge-keyboard state
+/// the shell already saves and acts on. The chrome does not draw that keyboard.
+fn apply_studio_shell(app: &mut PhotocraftApp, edge: &mut edge_keys::EdgeKeys) {
+    let shell = &mut app.studio_shell;
+    if let Some(v) = shell.set_finger_draws.take()
+        && edge.settings.finger_draws != v
+    {
+        edge.settings.finger_draws = v;
+        edge.settings_changed = true;
+    }
+    if let Some(v) = shell.set_finger_pressure.take()
+        && edge.settings.finger_pressure != v
+    {
+        edge.settings.finger_pressure = v;
+        edge.settings_changed = true;
+    }
+    if let Some(v) = shell.set_touch_rotate.take()
+        && edge.settings.touch_rotate != v
+    {
+        edge.settings.touch_rotate = v;
+        edge.settings_changed = true;
+    }
+    if std::mem::take(&mut shell.share) {
+        edge.share = true;
+    }
+    if std::mem::take(&mut shell.open_photos) {
+        edge.open_photos = true;
+    }
+}
+
 /// Undo (two fingers) or redo (three), after taking back what the gesture's first finger did.
 fn run_tap(app: &mut PhotocraftApp, ctx: &egui::Context, tap: gestures::Tap, snapshot: Option<Snapshot>) {
     take_back(app, snapshot.as_ref());
@@ -133,6 +167,7 @@ impl eframe::App for AndroidShell {
     fn logic(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.frame += 1;
         self.edge.sync(&mut self.app);
+        apply_studio_shell(&mut self.app, &mut self.edge);
         if !self.layout_checked {
             self.layout_checked = true;
             if ctx.content_rect().width() < NARROW_WIDTH {
@@ -169,12 +204,17 @@ impl eframe::App for AndroidShell {
             log::warn!("couldn't save the touch settings: {e}");
         }
         self.app.touch_rotate = self.edge.settings.touch_rotate;
+        self.app.studio_shell.finger_draws = self.edge.settings.finger_draws;
+        self.app.studio_shell.finger_pressure = self.edge.settings.finger_pressure;
+        self.app.studio_shell.touch_rotate = self.edge.settings.touch_rotate;
         // Keyboard shortcuts and key hints show only while a keyboard is attached.
         self.app.hardware_keyboard = self.keyboard.as_ref().is_some_and(|attached| attached());
         self.app.logic(ctx, frame);
     }
 
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        // The previous frame's tool-properties toggles, before fingers are classified.
+        apply_studio_shell(&mut self.app, &mut self.edge);
         // Keep the interface out from under the status and navigation bars.
         if let Some(read) = &self.content_rect
             && let Some(content) = read()
@@ -228,7 +268,9 @@ impl eframe::App for AndroidShell {
         self.app.ui(&mut inner, frame);
         if !self.picker.borrow().is_open() {
             apply_bar::show(&ctx, &mut self.app, &mut self.edge);
-            self.edge.show(&ctx, &mut self.app);
+            if !self.app.studio_chrome {
+                self.edge.show(&ctx, &mut self.app);
+            }
         }
         self.picker.borrow_mut().show(&ctx);
         // The keyboard for what's being edited: the number pad for a number field.
@@ -276,6 +318,8 @@ pub fn create_app(
     app.touch_drag_slop = TOUCH_DRAG_SLOP;
     // Touch first: no keyboard shortcuts on the Home screen's buttons, finger-sized controls.
     app.touch_ui = true;
+    // Clip Studio layout instead of the desktop menu, toolbar and dock.
+    app.studio_chrome = true;
     if let Some(rs) = cc.wgpu_render_state.clone() {
         let info = rs.adapter.get_info();
         log::info!("photocraft-android: wgpu {:?} on {} ({:?})", info.backend, info.name, info.device_type);
@@ -291,6 +335,19 @@ pub fn create_app(
     let mut edge = edge_keys::EdgeKeys::default();
     if let Ok(text) = std::fs::read_to_string(dirs.touch_file()) {
         edge.settings = pen::TouchSettings::from_json(&text);
+    }
+    // Once, and only while the dark theme is still the stock Photoshop gray: Studio is the dark
+    // Clip Studio-like theme. A theme the user already chose is left alone.
+    if !edge.settings.studio_theme_applied {
+        edge.settings.studio_theme_applied = true;
+        edge.settings_changed = true;
+        let interface = &app.session.prefs().interface;
+        if interface.appearance_mode != photocraft_engine::prefs::AppearanceMode::Light
+            && interface.dark_theme == photocraft_engine::prefs::DarkTheme::ProMedium
+            && let Err(e) = app.run("prefs.set", serde_json::json!({"values": {"interface.darkTheme": "studio", "interface.theme": "studio"}}))
+        {
+            log::info!("studio theme: {e}");
+        }
     }
     AndroidShell {
         app,

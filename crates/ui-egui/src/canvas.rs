@@ -277,6 +277,10 @@ pub struct Drag {
     /// keeps the locked direction stable between events. The Move tool's own drags use `move_mods`.
     pub sel_axis: Option<[f64; 2]>,
     pub lasso: Option<crate::lasso_ui::Lasso>,
+    /// Studio chrome: square or circle, and draw from the centre, without holding Shift or Alt.
+    /// Those keys at the press still choose the selection mode, so the toggles are separate.
+    pub studio_square: bool,
+    pub studio_from_center: bool,
 }
 
 impl Drag {
@@ -295,6 +299,8 @@ impl Drag {
             sel_move: None,
             sel_axis: None,
             lasso: None,
+            studio_square: false,
+            studio_from_center: false,
         }
     }
 
@@ -327,7 +333,19 @@ impl Drag {
     /// again, as in Photoshop.
     pub fn marquee_mods(&self) -> (bool, bool) {
         let fresh = |now: bool, at_press: bool, released: bool| now && (!at_press || released);
-        (fresh(self.live.shift, self.modifiers.shift, self.released.shift), fresh(self.live.alt, self.modifiers.alt, self.released.alt))
+        (
+            fresh(self.live.shift, self.modifiers.shift, self.released.shift) || self.studio_square,
+            fresh(self.live.alt, self.modifiers.alt, self.released.alt) || self.studio_from_center,
+        )
+    }
+
+    /// Modifiers for shape geometry: the live keys, plus the studio chrome's constrain and
+    /// from-centre toggles. Selection mode keeps the modifiers from the press.
+    pub fn geometry_mods(&self) -> egui::Modifiers {
+        let mut m = self.live;
+        m.shift |= self.studio_square;
+        m.alt |= self.studio_from_center;
+        m
     }
 }
 
@@ -4413,6 +4431,14 @@ pub fn canvas_view(app: &mut PhotocraftApp, ui: &mut egui::Ui, idx: usize, rect:
             tool_event(app, ToolEvent::Down { x: d[0], y: d[1], pressure: app.stylus.pressure() }, press_mods);
             app.press_stroke = app.drag.is_some();
         }
+        // A finger that rests on the canvas picks a colour instead of leaving a dab (studio chrome).
+        if app.studio_chrome && crate::studio_chrome::hold_eyedropper(app, ui, &xf, rect) {
+            buttons.started = false;
+            buttons.dragged = false;
+            buttons.stopped = false;
+            buttons.clicked = false;
+            app.press_stroke = false;
+        }
         let press_stroke = app.press_stroke;
         // A live tool's press that went to the ⌥ eyedropper keeps sampling for the whole press: the
         // drag recognised later must not decide again with ⌥ already let go and paint (#7802).
@@ -5770,7 +5796,7 @@ fn draw_drag_preview(app: &mut PhotocraftApp, painter: &egui::Painter, xf: &View
             }
             trail.draw(painter, doc_rect, xf.flip, col);
         }
-        t if crate::vector_ui::is_shape_tool(t) => crate::vector_ui::draw_shape_preview(app, painter, xf, t, d.start, last, d.live),
+        t if crate::vector_ui::is_shape_tool(t) => crate::vector_ui::draw_shape_preview(app, painter, xf, t, d.start, last, d.geometry_mods()),
         Tool::SingleRowMarquee | Tool::SingleColumnMarquee => {
             // Mapped corner by corner like the other marquees, so a rotated view shows the line
             // where the release commits it (#2512).
@@ -6358,7 +6384,11 @@ pub fn tool_event(app: &mut PhotocraftApp, ev: ToolEvent, mods: egui::Modifiers)
             }
             // ⌥ flips Dodge/Burn and Blur/Sharpen for this stroke.
             let tool = crate::retouch_ui::alt_flipped(tool, mods.alt);
-            app.drag = Some(Drag { clear, ..Drag::new(tool, from.map_or([x, y], |p| [p[0], p[1]]), points, mods, erase) });
+            let mut drag = Drag::new(tool, from.map_or([x, y], |p| [p[0], p[1]]), points, mods, erase);
+            drag.clear = clear;
+            drag.studio_square = app.studio_chrome && app.studio_constrain;
+            drag.studio_from_center = app.studio_chrome && app.studio_from_center;
+            app.drag = Some(drag);
             app.trail = None;
             app.stylus.begin_stroke();
             if from.is_some() {
@@ -6718,7 +6748,7 @@ pub(crate) fn finish_gesture(app: &mut PhotocraftApp, d: Drag) {
         t if crate::vector_ui::is_shape_tool(t)
             && crate::shape_dialog::is_click(d.start, &d.points, app.point_zoom())
             && crate::shape_dialog::open(app, t, d.start).is_some() => {}
-        t if crate::vector_ui::is_shape_tool(t) => crate::vector_ui::finish_shape(app, t, d.start, [end[0], end[1]], d.live),
+        t if crate::vector_ui::is_shape_tool(t) => crate::vector_ui::finish_shape(app, t, d.start, [end[0], end[1]], d.geometry_mods()),
         Tool::PathSelection => crate::vector_ui::path_selection_finish(app, d.start, [end[0], end[1]]),
         Tool::Type | Tool::VerticalType | Tool::HorizontalTypeMask | Tool::VerticalTypeMask => crate::type_tool::pointer_up(app, d.start, [end[0], end[1]]),
         Tool::Brush | Tool::Pencil | Tool::Eraser => commit_brush_stroke(app, &d),

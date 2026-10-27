@@ -9,6 +9,10 @@
 //!
 //! The strip also has the panel toggles that make a phone screen usable: **Panels** hides the
 //! right-hand dock (Shift+Tab) and **Hide UI** hides the toolbar, options bar and dock (Tab).
+//!
+//! The Clip Studio chrome does not draw this tab. Those actions are labeled buttons in tool
+//! properties, and selection options are their own toggles. This type still carries Open Photo,
+//! Share and the finger settings for the shell.
 
 use egui::{Event, Key, Modifiers};
 use photocraft_ui_egui::PhotocraftApp;
