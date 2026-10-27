@@ -1033,6 +1033,13 @@ pub struct PhotocraftApp {
     /// Clip Studio-style touch chrome (the Android shell). The desktop menu, toolbar, options
     /// bar and dock stay hidden; [`studio_chrome`] draws the command bar, tool rail and palettes.
     pub studio_chrome: bool,
+    /// Square or circle, from the studio chrome's labeled toggle. Not Shift: a Shift held from
+    /// the press chooses the selection mode, so the toggle is stored on the drag by itself.
+    pub studio_constrain: bool,
+    /// Draw a marquee or shape from its centre, from the studio chrome's labeled toggle. Not Alt.
+    pub studio_from_center: bool,
+    /// Share, Open Photo and the finger toggles the touch shell used to keep on the edge keyboard.
+    pub studio_shell: studio_chrome::StudioShell,
     /// A hardware keyboard is attached to a touch device (the touch shell sets it from the
     /// system). Keyboard shortcuts and key hints show on touch only then ([`shortcuts::key_hints`]).
     pub hardware_keyboard: bool,
@@ -1201,6 +1208,9 @@ impl PhotocraftApp {
             touch_drag_slop: 0.0,
             touch_ui: false,
             studio_chrome: false,
+            studio_constrain: false,
+            studio_from_center: false,
+            studio_shell: studio_chrome::StudioShell::default(),
             hardware_keyboard: false,
             touch_rotate: false,
             jobs: Default::default(),
