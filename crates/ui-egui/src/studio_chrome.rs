@@ -60,19 +60,13 @@ enum Palette {
     Properties,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Default)]
 struct Chrome {
     subtools: bool,
     palette: Option<Palette>,
     ready: bool,
     /// The colour palette has already been shown, so its mode is the user's choice.
     color_primed: bool,
-}
-
-impl Default for Chrome {
-    fn default() -> Self {
-        Self { subtools: false, palette: None, ready: false, color_primed: false }
-    }
 }
 
 struct ToolGroup {
