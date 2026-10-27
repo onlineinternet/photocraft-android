@@ -36,6 +36,7 @@ pub mod frame_stages;
 pub mod gpu_memo;
 pub mod gpu_status;
 pub mod home_recent_ui;
+pub mod studio_chrome;
 pub mod i18n;
 mod icon_data;
 pub mod icons;
@@ -757,6 +758,9 @@ pub struct PhotocraftApp {
     /// A touch screen is the main input (the Android shell): the Home screen shows no keyboard
     /// shortcuts or drag-and-drop hints, stacks its buttons and makes them finger-sized.
     pub touch_ui: bool,
+    /// Clip Studio-style touch chrome (the Android shell). The desktop menu, toolbar, options
+    /// bar and dock stay hidden; [`studio_chrome`] draws the command bar, tool rail and palettes.
+    pub studio_chrome: bool,
     /// A hardware keyboard is attached to a touch device (the touch shell sets it from the
     /// system). Keyboard shortcuts and key hints show on touch only then ([`shortcuts::key_hints`]).
     pub hardware_keyboard: bool,

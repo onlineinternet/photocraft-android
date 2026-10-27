@@ -20,7 +20,7 @@ mod state;
 pub mod view_cmds;
 pub mod workspace_ui;
 
-pub use bar::menu_bar;
+pub use bar::{menu_bar, touch_menu_button};
 #[cfg(test)]
 use bar::pointer_reaches_title;
 pub use invoke::{apply_workspace, invoke};

@@ -10,6 +10,9 @@
 //!   touch-friendly picker over filesystem paths ([`picker`]);
 //! - preferences, brush presets, crash recovery and the window layout live in the app's private
 //!   storage ([`services::Dirs`]);
+//! - Clip Studio-style touch chrome ([`photocraft_ui_egui::studio_chrome`]): a command bar, a tool
+//!   rail with sub-tools, a colour and brush strip, and palettes that dock on a tablet and slide
+//!   over the canvas on a phone;
 //! - an edge keyboard with one-tap commands ([`edge_keys`]), and two- and three-finger taps for
 //!   Undo and Redo ([`gestures`]);
 //! - Apply / Cancel buttons while a transform or crop is pending ([`apply_bar`]), and a drag
@@ -276,6 +279,8 @@ pub fn create_app(
     app.touch_drag_slop = TOUCH_DRAG_SLOP;
     // Touch first: no keyboard shortcuts on the Home screen's buttons, finger-sized controls.
     app.touch_ui = true;
+    // Clip Studio layout instead of the desktop menu, toolbar and dock.
+    app.studio_chrome = true;
     if let Some(rs) = cc.wgpu_render_state.clone() {
         let info = rs.adapter.get_info();
         log::info!("photocraft-android: wgpu {:?} on {} ({:?})", info.backend, info.name, info.device_type);
@@ -291,6 +296,20 @@ pub fn create_app(
     let mut edge = edge_keys::EdgeKeys::default();
     if let Ok(text) = std::fs::read_to_string(dirs.touch_file()) {
         edge.settings = pen::TouchSettings::from_json(&text);
+    }
+    // Once, and only while the dark theme is still the stock Photoshop gray: Studio is the dark
+    // Clip Studio-like theme. A theme the user already chose is left alone.
+    if !edge.settings.studio_theme_applied {
+        edge.settings.studio_theme_applied = true;
+        edge.settings_changed = true;
+        let interface = &app.session.prefs().interface;
+        if interface.appearance_mode != photocraft_engine::prefs::AppearanceMode::Light
+            && interface.dark_theme == photocraft_engine::prefs::DarkTheme::ProMedium
+        {
+            if let Err(e) = app.run("prefs.set", serde_json::json!({"values": {"interface.darkTheme": "studio", "interface.theme": "studio"}})) {
+                log::info!("studio theme: {e}");
+            }
+        }
     }
     AndroidShell {
         app,

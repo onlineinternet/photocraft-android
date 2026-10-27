@@ -293,22 +293,29 @@ impl PhotocraftApp {
         }
         // In Full Screen Mode, Tab shows the menu bar, options bar, toolbar and dock (#6760).
         let tabbed_in = !chrome && self.ui.panels.full_screen_chrome;
-        if (chrome || tabbed_in) && self.ui.panels.menu_bar {
-            panels::title_bar(self, ui);
-        }
         // Home is only the menu bar and the Home content; the saved panel prefs are untouched.
         let home = self.home_screen_up();
-        if ((chrome && self.ui.panels.options_bar) || tabbed_in) && !home {
-            panels::options_bar(self, ui);
-        }
-        if chrome && self.ui.panels.status_bar && !home {
-            panels::status_bar(self, ui);
-        }
-        if ((chrome && self.ui.panels.toolbar) || tabbed_in) && !home {
-            panels::toolbar(self, ui);
+        // The touch shell replaces the desktop chrome with the Clip Studio layout. Floating
+        // windows and dialogs below still open, so menu commands keep working.
+        let studio = self.studio_chrome && (chrome || tabbed_in);
+        if studio {
+            crate::studio_chrome::bars(self, ui);
+        } else {
+            if (chrome || tabbed_in) && self.ui.panels.menu_bar {
+                panels::title_bar(self, ui);
+            }
+            if ((chrome && self.ui.panels.options_bar) || tabbed_in) && !home {
+                panels::options_bar(self, ui);
+            }
+            if chrome && self.ui.panels.status_bar && !home {
+                panels::status_bar(self, ui);
+            }
+            if ((chrome && self.ui.panels.toolbar) || tabbed_in) && !home {
+                panels::toolbar(self, ui);
+            }
         }
         // craft-ui's layout holds the canvas as its protected `canvas` panel.
-        let docking = ((chrome && self.ui.panels.dock) || tabbed_in) && !home;
+        let docking = ((chrome && self.ui.panels.dock) || tabbed_in) && !home && !studio;
         if docking {
             panels::dock_area(self, ui);
         } else {
@@ -320,6 +327,9 @@ impl PhotocraftApp {
             if !home {
                 panels::properties_window(self, &ctx);
             }
+        }
+        if studio {
+            crate::studio_chrome::overlays(self, &ctx);
         }
         // The floating editor windows belong to the editor: Home covers them (dialogs and notices
         // below stay).
