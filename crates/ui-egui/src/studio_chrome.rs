@@ -5,16 +5,20 @@
 //! and this module lays out:
 //!
 //! - a top command bar (menu, file actions, undo, redo, zoom);
-//! - a left tool rail, with a sub-tool list beside it (docked on a landscape tablet, a sheet on a phone);
-//! - a bottom strip with the foreground colour, a brush-size slider, and a row of labeled options
-//!   for the selected tool (selection mode, constrain, sample, and so on);
-//! - palettes for layers, the colour wheel or sliders, and tool properties, docked on a tablet and
-//!   sliding over the canvas on a small screen. Tool properties repeat those options and hold the
-//!   actions that used to live on the edge keyboard (copy, share, finger toggles).
+//! - a left tool rail of ten groups, with a sub-tool list beside it (docked on a landscape tablet,
+//!   a sheet on a phone); rarely used tools are folded under "More tools";
+//! - a bottom strip with the foreground colour, a brush-size slider and buttons for Layers and
+//!   Tool properties (Quick access is a star at the end of the command bar). Above it, only for the options that stand in for Shift and Alt
+//!   (selection mode, constrain, from centre, free or proportional transform), a row of labeled
+//!   toggles;
+//! - palettes for layers, the colour wheel or sliders, the tool's properties, and Quick access
+//!   (Clip Studio's name for it): the shortcuts the edge keyboard used to hold, plus the touch
+//!   settings;
+//! - while a selection is up, a selection bar under the picture (Deselect, Invert, Transform,
+//!   Copy, Clear), after Clip Studio's selection launcher.
 //!
-//! Every control runs an existing command or edits the session brush. Rows that have no engine
-//! yet are drawn disabled and labelled as not in this build (onion skin, frame tags, materials,
-//! a per-document rotation lock). Shift, Ctrl and Alt are not buttons: each option is named.
+//! Every control runs an existing command or edits the session brush. Shift, Ctrl and Alt are not
+//! buttons: each option is named.
 
 use egui::{Align, Align2, Color32, FontId, Id, Layout, Pos2, Rect, Sense, Stroke, Vec2, pos2, vec2};
 use photocraft_engine::BrushSettings;
@@ -91,6 +95,8 @@ enum Palette {
     Layers,
     Color,
     Properties,
+    /// Clip Studio's Quick Access: the shortcuts the edge keyboard used to hold.
+    Quick,
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -105,46 +111,47 @@ struct Chrome {
 struct ToolGroup {
     label: &'static str,
     tools: &'static [Tool],
+    /// Tools listed under "More tools" in the sheet.
+    more: &'static [Tool],
     /// List brush presets under the tool variants.
     presets: bool,
 }
 
-const MOVE: &[Tool] = &[Tool::Move, Tool::Artboard, Tool::Hand, Tool::RotateView, Tool::Zoom];
-const SELECT: &[Tool] = &[
-    Tool::RectMarquee,
-    Tool::EllipseMarquee,
-    Tool::SingleRowMarquee,
-    Tool::SingleColumnMarquee,
-    Tool::Lasso,
-    Tool::PolygonLasso,
-    Tool::MagneticLasso,
-    Tool::MagicWand,
-    Tool::QuickSelection,
-    Tool::ObjectSelection,
-];
-const CROP: &[Tool] = &[Tool::Crop, Tool::PerspectiveCrop, Tool::Slice, Tool::SliceSelect, Tool::Frame];
-const SAMPLE: &[Tool] = &[Tool::Eyedropper, Tool::ColorSampler, Tool::Ruler, Tool::Note, Tool::Count];
-const BRUSH: &[Tool] = &[Tool::Brush, Tool::Pencil, Tool::MixerBrush, Tool::ColorReplacement];
-const ERASER: &[Tool] = &[Tool::Eraser, Tool::BackgroundEraser, Tool::MagicEraser];
+// Each group lists the tools most people reach for; the rest are under "More tools" in its
+// sub-tool sheet, so every tool stays reachable without a long list.
+const MOVE: &[Tool] = &[Tool::Move, Tool::Hand, Tool::RotateView, Tool::Zoom];
+const MOVE_MORE: &[Tool] = &[Tool::Artboard];
+const SELECT: &[Tool] =
+    &[Tool::RectMarquee, Tool::EllipseMarquee, Tool::Lasso, Tool::PolygonLasso, Tool::MagicWand, Tool::QuickSelection, Tool::ObjectSelection];
+const SELECT_MORE: &[Tool] = &[Tool::MagneticLasso, Tool::SingleRowMarquee, Tool::SingleColumnMarquee];
+const CROP: &[Tool] = &[Tool::Crop];
+const CROP_MORE: &[Tool] = &[Tool::PerspectiveCrop, Tool::Slice, Tool::SliceSelect, Tool::Frame];
+const SAMPLE: &[Tool] = &[Tool::Eyedropper];
+const SAMPLE_MORE: &[Tool] = &[Tool::ColorSampler, Tool::Ruler, Tool::Note, Tool::Count];
+const BRUSH: &[Tool] = &[Tool::Brush, Tool::Pencil];
+const BRUSH_MORE: &[Tool] = &[Tool::MixerBrush, Tool::ColorReplacement];
+const ERASER: &[Tool] = &[Tool::Eraser];
+const ERASER_MORE: &[Tool] = &[Tool::BackgroundEraser, Tool::MagicEraser];
 const FILL: &[Tool] = &[Tool::PaintBucket, Tool::Gradient];
-const RETOUCH: &[Tool] = &[
-    Tool::Remove,
-    Tool::SpotHealing,
+const RETOUCH: &[Tool] = &[Tool::Smudge, Tool::Blur, Tool::CloneStamp, Tool::SpotHealing, Tool::Remove];
+const RETOUCH_MORE: &[Tool] = &[
     Tool::Healing,
     Tool::Patch,
     Tool::ContentAwareMove,
     Tool::RedEye,
-    Tool::CloneStamp,
     Tool::PatternStamp,
     Tool::HistoryBrush,
-    Tool::Blur,
     Tool::Sharpen,
-    Tool::Smudge,
     Tool::Dodge,
     Tool::Burn,
     Tool::Sponge,
 ];
-const PEN: &[Tool] = &[
+const TYPE: &[Tool] = &[Tool::Type];
+const TYPE_MORE: &[Tool] = &[Tool::VerticalType, Tool::HorizontalTypeMask, Tool::VerticalTypeMask];
+const SHAPE: &[Tool] = &[Tool::Rectangle, Tool::EllipseShape, Tool::Line, Tool::Polygon];
+const SHAPE_MORE: &[Tool] = &[
+    Tool::Triangle,
+    Tool::CustomShape,
     Tool::Pen,
     Tool::FreeformPen,
     Tool::CurvaturePen,
@@ -154,28 +161,31 @@ const PEN: &[Tool] = &[
     Tool::PathSelection,
     Tool::DirectSelection,
 ];
-const TYPE: &[Tool] = &[Tool::Type, Tool::VerticalType, Tool::HorizontalTypeMask, Tool::VerticalTypeMask];
-const SHAPE: &[Tool] = &[Tool::Rectangle, Tool::EllipseShape, Tool::Triangle, Tool::Polygon, Tool::Line, Tool::CustomShape];
 
 fn groups() -> &'static [ToolGroup] {
     const GROUPS: &[ToolGroup] = &[
-        ToolGroup { label: "Move", tools: MOVE, presets: false },
-        ToolGroup { label: "Select", tools: SELECT, presets: false },
-        ToolGroup { label: "Crop", tools: CROP, presets: false },
-        ToolGroup { label: "Eyedropper", tools: SAMPLE, presets: false },
-        ToolGroup { label: "Brush", tools: BRUSH, presets: true },
-        ToolGroup { label: "Eraser", tools: ERASER, presets: true },
-        ToolGroup { label: "Fill", tools: FILL, presets: false },
-        ToolGroup { label: "Retouch", tools: RETOUCH, presets: false },
-        ToolGroup { label: "Pen", tools: PEN, presets: false },
-        ToolGroup { label: "Text", tools: TYPE, presets: false },
-        ToolGroup { label: "Shape", tools: SHAPE, presets: false },
+        ToolGroup { label: "Move", tools: MOVE, more: MOVE_MORE, presets: false },
+        ToolGroup { label: "Select", tools: SELECT, more: SELECT_MORE, presets: false },
+        ToolGroup { label: "Crop", tools: CROP, more: CROP_MORE, presets: false },
+        ToolGroup { label: "Eyedropper", tools: SAMPLE, more: SAMPLE_MORE, presets: false },
+        ToolGroup { label: "Brush", tools: BRUSH, more: BRUSH_MORE, presets: true },
+        ToolGroup { label: "Eraser", tools: ERASER, more: ERASER_MORE, presets: true },
+        ToolGroup { label: "Fill", tools: FILL, more: &[], presets: false },
+        ToolGroup { label: "Retouch", tools: RETOUCH, more: RETOUCH_MORE, presets: false },
+        ToolGroup { label: "Text", tools: TYPE, more: TYPE_MORE, presets: false },
+        ToolGroup { label: "Shape", tools: SHAPE, more: SHAPE_MORE, presets: false },
     ];
     GROUPS
 }
 
+impl ToolGroup {
+    fn has(&self, tool: Tool) -> bool {
+        self.tools.contains(&tool) || self.more.contains(&tool)
+    }
+}
+
 fn group_of(tool: Tool) -> Option<usize> {
-    groups().iter().position(|g| g.tools.contains(&tool))
+    groups().iter().position(|g| g.has(tool))
 }
 
 fn chrome_id() -> Id {
@@ -214,6 +224,7 @@ fn apply_open_request(ctx: &egui::Context, chrome: &mut Chrome) {
         "layers" => chrome.palette = Some(Palette::Layers),
         "color" => chrome.palette = Some(Palette::Color),
         "properties" => chrome.palette = Some(Palette::Properties),
+        "quick" => chrome.palette = Some(Palette::Quick),
         "subtools" => chrome.subtools = true,
         "none" => {}
         _ => {}
@@ -233,10 +244,10 @@ fn toggle_palette(chrome: &mut Chrome, palette: Palette, kind: LayoutKind) {
 
 fn shown_tool(ui: &egui::Ui, index: usize, current: Tool) -> Tool {
     let group = &groups()[index];
-    if group.tools.contains(&current) {
+    if group.has(current) {
         return current;
     }
-    ui.data(|d| d.get_temp::<Tool>(Id::new(("studio-slot", index)))).filter(|t| group.tools.contains(t)).unwrap_or(group.tools[0])
+    ui.data(|d| d.get_temp::<Tool>(Id::new(("studio-slot", index)))).filter(|t| group.has(*t)).unwrap_or(group.tools[0])
 }
 
 fn remember_tool(ui: &egui::Ui, tool: Tool) {
@@ -335,6 +346,9 @@ pub(crate) fn bars(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let mut chrome = load_chrome(&ctx);
     if !chrome.ready {
         chrome = init_chrome(kind);
+        // The Studio theme floats the desktop Properties panel over the canvas, which covers most
+        // of a phone; the palettes here do its job. Window › Properties still opens it.
+        app.ui.panels.properties = false;
     }
     apply_open_request(&ctx, &mut chrome);
     prime_color(app, &mut chrome);
@@ -343,9 +357,9 @@ pub(crate) fn bars(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let frame = egui::Frame::NONE.fill(t.chrome).inner_margin(egui::Margin::symmetric(8, 6));
 
     let command = egui::Panel::top("studio-command").resizable(false).frame(frame).show(ui, |ui| {
-        command_bar(app, ui, wide);
+        command_bar(app, ui, wide, &mut chrome, kind);
     });
-    let bottom_h = if context_chips(app).is_empty() { QUICK_H } else { QUICK_H + CONTEXT_H };
+    let bottom_h = if row_chips(app).is_empty() { QUICK_H } else { QUICK_H + CONTEXT_H };
     let quick = egui::Panel::bottom("studio-quick").resizable(false).exact_size(bottom_h).frame(frame).show(ui, |ui| {
         if bottom_h > QUICK_H {
             context_row(app, ui);
@@ -391,7 +405,62 @@ pub(crate) fn overlays(app: &mut PhotocraftApp, ctx: &egui::Context) {
     if kind == LayoutKind::Phone {
         phone_sheets(app, ctx);
     }
+    selection_bar(app, ctx, kind);
     sample_ring(ctx);
+}
+
+/// Whether the selection bar shows: a selection is up and nothing else is using the bottom of the
+/// canvas (a transform or crop's Apply bar, a stroke, a phone sheet).
+fn selection_bar_shown(app: &PhotocraftApp, chrome: &Chrome, kind: LayoutKind) -> bool {
+    let selected = app.session.active().is_some_and(|d| d.doc.selection.is_some());
+    let sheet = kind == LayoutKind::Phone && (chrome.subtools || chrome.palette.is_some());
+    selected && !sheet && app.drag.is_none() && app.ui.transform.is_none() && !crate::crop_ui::pending(app)
+}
+
+/// Clip Studio's selection launcher: the selection commands, under the picture while a selection
+/// is up, so Deselect or Transform is one tap instead of a trip through the menus.
+fn selection_bar(app: &mut PhotocraftApp, ctx: &egui::Context, kind: LayoutKind) {
+    if !selection_bar_shown(app, &load_chrome(ctx), kind) {
+        return;
+    }
+    let hole = ctx.data(|d| d.get_temp::<Rect>(hole_id())).unwrap_or(ctx.content_rect());
+    let all = [
+        (tl!("Deselect"), "select.deselect"),
+        (tl!("Invert"), "select.inverse"),
+        (tl!("Transform"), "edit.freeTransform"),
+        (tl!("Copy"), "edit.copy"),
+        (tl!("Clear"), "edit.clear"),
+    ];
+    // Clear only where five buttons keep their names whole.
+    let items = if hole.width() >= 400.0 { &all[..] } else { &all[..4] };
+    let t = Tokens::get(ctx);
+    let mut hit = None;
+    let area = egui::Area::new(Id::new("studio-selection-bar"))
+        .order(egui::Order::Foreground)
+        .pivot(Align2::CENTER_BOTTOM)
+        .fixed_pos(pos2(hole.center().x, hole.bottom() - 10.0))
+        .constrain_to(hole);
+    area.show(ctx, |ui| {
+        egui::Frame::popup(ui.style()).fill(t.chrome).inner_margin(egui::Margin::same(4)).show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                // Five buttons share the canvas width on a narrow phone.
+                let each = ((hole.width() - 24.0) / items.len() as f32).clamp(52.0, 96.0);
+                for &(label, id) in items {
+                    if hit_button(ui, each, label, false, |ui, rect, color| {
+                        paint_fit(ui, rect.center(), Align2::CENTER_CENTER, label, FontId::proportional(13.0), color, (rect.width() - 8.0).max(8.0));
+                    })
+                    .clicked()
+                    {
+                        hit = Some(id);
+                    }
+                }
+            });
+        });
+    });
+    if let Some(id) = hit {
+        run(app, ctx, id);
+    }
 }
 
 fn phone_sheets(app: &mut PhotocraftApp, ctx: &egui::Context) {
@@ -469,7 +538,7 @@ fn sample_ring(ctx: &egui::Context) {
     });
 }
 
-fn command_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui, wide: bool) {
+fn command_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui, wide: bool, chrome: &mut Chrome, kind: LayoutKind) {
     let t = Tokens::get(ui.ctx());
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
@@ -508,6 +577,10 @@ fn command_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui, wide: bool) {
         let fit = tl!("Fit on screen");
         ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
             ui.spacing_mut().item_spacing.x = 4.0;
+            // Quick access sits at the end of the command bar, as in Clip Studio on a phone.
+            if icons::button(ui, "star", 40.0, chrome.palette == Some(Palette::Quick), tl!("Quick access")).clicked() {
+                toggle_palette(chrome, Palette::Quick, kind);
+            }
             if wide {
                 let on = crate::pixel_mode::active(app);
                 let px = tl!("Pixel art");
@@ -601,6 +674,19 @@ fn subtool_list(app: &mut PhotocraftApp, ui: &mut egui::Ui) -> bool {
                 pick_tool = Some(*tool);
             }
         }
+        if !group.more.is_empty() {
+            // Folded unless the current tool is one of them.
+            egui::CollapsingHeader::new(tl!("More tools")).id_salt(("studio-more", index)).open(group.more.contains(&app.ui.tool).then_some(true)).show(
+                ui,
+                |ui| {
+                    for tool in group.more {
+                        if tool_row(ui, *tool, app.ui.tool == *tool).clicked() {
+                            pick_tool = Some(*tool);
+                        }
+                    }
+                },
+            );
+        }
         if group.presets {
             ui.add_space(8.0);
             ui.separator();
@@ -678,7 +764,7 @@ fn quick_strip(app: &mut PhotocraftApp, ui: &mut egui::Ui, chrome: &mut Chrome, 
         ui.spacing_mut().item_spacing.x = 6.0;
         color_chips(app, ui, chrome, kind);
         // Leave room for the Layers and Tool properties buttons, which follow.
-        let reserved = 96.0;
+        let reserved = 2.0 * 44.0 + 20.0;
         let rest = (ui.available_width() - reserved).max(48.0);
         if app.ui.tool.is_brushlike() {
             let before = app.session.tools.brush.clone();
@@ -816,6 +902,7 @@ fn palette_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, palette: Palette, ma
         Palette::Layers => tl!("Layers"),
         Palette::Color => tl!("Color"),
         Palette::Properties => tl!("Tool properties"),
+        Palette::Quick => tl!("Quick access"),
     };
     ui.horizontal(|ui| {
         ui.strong(title);
@@ -854,6 +941,11 @@ fn palette_body(app: &mut PhotocraftApp, ui: &mut egui::Ui, palette: Palette, ma
         Palette::Properties => {
             egui::ScrollArea::vertical().id_salt("studio-props").max_height(body_h).show(ui, |ui| {
                 tool_properties(app, ui);
+            });
+        }
+        Palette::Quick => {
+            egui::ScrollArea::vertical().id_salt("studio-quick").max_height(body_h).show(ui, |ui| {
+                quick_access(app, ui, close);
             });
         }
     }
@@ -1035,8 +1127,18 @@ fn show_chips(ui: &mut egui::Ui, chips: &[Chip]) -> Option<usize> {
     hit
 }
 
+/// The options that stand in for Shift and Alt (selection mode, constrain, from centre, free or
+/// proportional transform), which belong one tap away above the bottom strip. A tool's other
+/// options are in Tool properties.
+fn row_chips(app: &PhotocraftApp) -> Vec<Chip> {
+    context_chips(app)
+        .into_iter()
+        .filter(|c| matches!(c.kind, ChipKind::Mode(_) | ChipKind::Constrain | ChipKind::FromCenter | ChipKind::Transform(_)))
+        .collect()
+}
+
 fn context_row(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
-    let chips = context_chips(app);
+    let chips = row_chips(app);
     let hit = egui::ScrollArea::horizontal().id_salt("studio-context").max_height(44.0).auto_shrink([false, true]).show(ui, |ui| {
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x = 4.0;
@@ -1108,25 +1210,8 @@ fn tool_properties(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             app.ui.panels.brush_settings = true;
         }
     } else if chips.is_empty() {
-        ui.weak(tl!("Size, opacity and brush presets follow a brush, pencil or eraser."));
+        ui.weak(tl!("This tool has no options to set here."));
     }
-    ui.add_space(10.0);
-    ui.separator();
-    let pixel = crate::pixel_mode::active(app);
-    if flag_button(ui, tl!("Pixel art"), pixel).clicked() {
-        run(app, ui.ctx(), "view.pixelArtMode");
-    }
-    if text_row(ui, tl!("Timeline"), false).clicked() {
-        run(app, ui.ctx(), "window.panel.timeline");
-    }
-    action_rows(app, ui);
-    ui.add_space(12.0);
-    ui.label(egui::RichText::new(tl!("Not in this build")).color(t.text_dim));
-    ui.weak(tl!("These Clip Studio and Aseprite tools have no command yet. They do nothing."));
-    for label in [tl!("Onion skin"), tl!("Frame tags"), tl!("Materials"), tl!("Lock rotation for this document")] {
-        let _ = ui.add_enabled(false, egui::Button::new(label).min_size(vec2(ui.available_width().max(48.0), 36.0)));
-    }
-    ui.weak(tl!("Touch rotate in Actions turns two-finger rotation on or off for every document."));
 }
 
 fn prop_unit(ui: &mut egui::Ui, title: &str, value: &mut f32, caption: &str) {
@@ -1136,40 +1221,76 @@ fn prop_unit(ui: &mut egui::Ui, title: &str, value: &mut f32, caption: &str) {
     }
 }
 
-fn action_rows(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
-    ui.add_space(8.0);
-    ui.strong(tl!("Actions"));
-    ui.add_space(4.0);
-    for (label, id) in [
-        (tl!("Copy"), "edit.copy"),
-        (tl!("Paste"), "edit.paste"),
-        (tl!("Select All"), "select.all"),
-        (tl!("Deselect"), "select.deselect"),
-        (tl!("Inverse"), "select.inverse"),
-        (tl!("Free Transform"), "edit.freeTransform"),
-        (tl!("Search"), "edit.search"),
-        (tl!("New Layer"), "layer.new.layer"),
-    ] {
-        if text_row(ui, label, false).clicked() {
-            run(app, ui.ctx(), id);
+/// One Quick access shortcut.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Shortcut {
+    Run(&'static str),
+    Straighten,
+    OpenPhoto,
+    Share,
+}
+
+/// Quick access: the edge keyboard's shortcuts as a grid of labeled buttons, then the touch
+/// settings. A shortcut closes the sheet on a phone, so the canvas is in view for what follows.
+fn quick_access(app: &mut PhotocraftApp, ui: &mut egui::Ui, close: &mut bool) {
+    let pixel = crate::pixel_mode::active(app);
+    let items: [(&str, Shortcut, bool); 12] = [
+        (tl!("Copy"), Shortcut::Run("edit.copy"), false),
+        (tl!("Paste"), Shortcut::Run("edit.paste"), false),
+        (tl!("Select All"), Shortcut::Run("select.all"), false),
+        (tl!("Free Transform"), Shortcut::Run("edit.freeTransform"), false),
+        (tl!("New Layer"), Shortcut::Run("layer.new.layer"), false),
+        (tl!("Straighten"), Shortcut::Straighten, false),
+        (tl!("Open Photo"), Shortcut::OpenPhoto, false),
+        (tl!("Share"), Shortcut::Share, false),
+        (tl!("Search"), Shortcut::Run("edit.search"), false),
+        (tl!("Pixel art"), Shortcut::Run("view.pixelArtMode"), pixel),
+        (tl!("Timeline"), Shortcut::Run("window.panel.timeline"), false),
+        (tl!("Fit on screen"), Shortcut::Run("view.fitOnScreen"), false),
+    ];
+    let mut hit = None;
+    let cols = if ui.available_width() >= 300.0 { 3 } else { 2 };
+    let gap = 6.0;
+    let w = ((ui.available_width() - gap * (cols as f32 - 1.0)) / cols as f32).max(60.0);
+    for row in items.chunks(cols) {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = gap;
+            for (label, what, on) in row {
+                if quick_button(ui, label, w, *on).clicked() {
+                    hit = Some(*what);
+                }
+            }
+        });
+        ui.add_space(gap);
+    }
+    if let Some(what) = hit {
+        match what {
+            Shortcut::Run(id) => run(app, ui.ctx(), id),
+            Shortcut::Straighten => {
+                if let Err(e) = crate::menus::invoke(app, ui.ctx(), "view.rotateView", json!({"snap": 90})) {
+                    app.ui.status = e;
+                    app.ui.status_error = true;
+                }
+            }
+            Shortcut::OpenPhoto => {
+                app.studio_shell.open_photos = true;
+                app.ui.status = tl!("Opening the photo picker").into();
+                app.ui.status_error = false;
+            }
+            Shortcut::Share => {
+                app.studio_shell.share = true;
+                app.ui.status = tl!("Sharing the image").into();
+                app.ui.status_error = false;
+            }
+        }
+        // Pixel art is a switch; leave the sheet up to show it flip.
+        if what != Shortcut::Run("view.pixelArtMode") && layout_kind(ui.ctx().content_rect().size()) == LayoutKind::Phone {
+            *close = true;
         }
     }
-    if text_row(ui, tl!("Open Photo"), false).clicked() {
-        app.studio_shell.open_photos = true;
-        app.ui.status = tl!("Opening the photo picker").into();
-        app.ui.status_error = false;
-    }
-    if text_row(ui, tl!("Share"), false).clicked() {
-        app.studio_shell.share = true;
-        app.ui.status = tl!("Sharing the image").into();
-        app.ui.status_error = false;
-    }
-    if text_row(ui, tl!("Straighten"), false).clicked()
-        && let Err(e) = crate::menus::invoke(app, ui.ctx(), "view.rotateView", json!({"snap": 90}))
-    {
-        app.ui.status = e;
-        app.ui.status_error = true;
-    }
+    ui.add_space(6.0);
+    ui.strong(tl!("Touch"));
+    ui.add_space(4.0);
     finger_toggle(
         ui,
         tl!("Finger draws"),
@@ -1203,10 +1324,46 @@ fn action_rows(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     );
 }
 
+/// A Quick access button: a tile with its name, lit while `on`.
+fn quick_button(ui: &mut egui::Ui, label: &str, width: f32, on: bool) -> egui::Response {
+    let t = Tokens::get(ui.ctx());
+    let (rect, resp) = ui.allocate_exact_size(vec2(width, 52.0), Sense::click());
+    let fill = if on {
+        t.accent_soft
+    } else if resp.is_pointer_button_down_on() {
+        t.pressed
+    } else {
+        t.field
+    };
+    ui.painter().rect_filled(rect, t.radius_sm, fill);
+    let color = if on { t.accent_text } else { t.text };
+    paint_fit(ui, rect.center(), Align2::CENTER_CENTER, label, FontId::proportional(14.0), color, (rect.width() - 12.0).max(8.0));
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, true, on, label));
+    resp
+}
+
 fn finger_toggle(ui: &mut egui::Ui, label: &str, on: bool, set: impl FnOnce(&mut PhotocraftApp, bool), app: &mut PhotocraftApp) {
-    if text_row(ui, label, on).clicked() {
+    if switch_row(ui, label, on).clicked() {
         set(app, !on);
     }
+}
+
+/// A setting that is on or off: its name, and a switch at the far end.
+fn switch_row(ui: &mut egui::Ui, label: &str, on: bool) -> egui::Response {
+    let t = Tokens::get(ui.ctx());
+    let width = ui.available_width().max(96.0);
+    let (rect, resp) = ui.allocate_exact_size(vec2(width, 44.0), Sense::click());
+    if resp.is_pointer_button_down_on() {
+        ui.painter().rect_filled(rect, t.radius_sm, t.pressed);
+    }
+    let track = Rect::from_center_size(pos2(rect.right() - 30.0, rect.center().y), vec2(40.0, 22.0));
+    ui.painter().rect_filled(track, 11.0, if on { t.accent } else { t.field });
+    let knob_x = if on { track.right() - 11.0 } else { track.left() + 11.0 };
+    ui.painter().circle_filled(pos2(knob_x, track.center().y), 8.0, t.text);
+    let max_w = (track.left() - rect.left() - 20.0).max(8.0);
+    paint_fit(ui, rect.left_center() + vec2(10.0, 0.0), Align2::LEFT_CENTER, label, FontId::proportional(14.0), t.text, max_w);
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Checkbox, true, on, label));
+    resp
 }
 
 fn flag_button(ui: &mut egui::Ui, label: &str, on: bool) -> egui::Response {
@@ -1238,17 +1395,21 @@ pub(crate) fn hold_eyedropper(app: &mut PhotocraftApp, ui: &egui::Ui, xf: &crate
     }
     let Some(origin) = origin else { return false };
     let pos = pos.unwrap_or(origin);
+    // Only a finger: the S Pen often rests before a stroke or a dot (a 1 px pencil in pixel art),
+    // and Alt on its side button already samples.
+    let pen = app.stylus.feed.get().is_some();
     let mut hold = if pressed {
-        Hold { travel: 0.0, t0: time, sampling: false }
+        Hold { travel: 0.0, t0: time, sampling: false, pen }
     } else {
-        ui.ctx().data(|d| d.get_temp::<Hold>(Id::new("studio-hold"))).unwrap_or(Hold { travel: 0.0, t0: time, sampling: false })
+        ui.ctx().data(|d| d.get_temp::<Hold>(Id::new("studio-hold"))).unwrap_or(Hold { travel: 0.0, t0: time, sampling: false, pen })
     };
+    hold.pen |= pen;
     hold.travel = hold.travel.max(origin.distance(pos));
     let blocked = app.ui.transform.is_some() || crate::crop_ui::pending(app);
-    if hold_sample_ready(time - hold.t0, hold.travel, app.ui.tool.is_brushlike(), blocked) {
+    if !hold.pen && hold_sample_ready(time - hold.t0, hold.travel, app.ui.tool.is_brushlike(), blocked) {
         hold.sampling = true;
     }
-    if down && !hold.sampling && !hold.travel.is_nan() && hold.travel <= HOLD_SLOP {
+    if down && !hold.pen && !hold.sampling && !hold.travel.is_nan() && hold.travel <= HOLD_SLOP {
         let left = HOLD_SECS - (time - hold.t0);
         if left > 0.0 {
             ui.ctx().request_repaint_after(std::time::Duration::from_secs_f64(left));
@@ -1282,6 +1443,8 @@ struct Hold {
     travel: f32,
     t0: f64,
     sampling: bool,
+    /// The press is a pen's, which never samples.
+    pen: bool,
 }
 
 #[cfg(test)]
@@ -1299,7 +1462,7 @@ mod tests {
     #[test]
     fn every_tool_is_in_one_group() {
         for tool in Tool::ALL {
-            let n = groups().iter().filter(|g| g.tools.contains(&tool)).count();
+            let n = groups().iter().filter(|g| g.has(tool)).count();
             assert_eq!(n, 1, "{}", tool.label());
         }
     }
@@ -1326,6 +1489,7 @@ mod tests {
         assert!(!drawn(&phone, "toolbar"));
         assert!(!drawn(&phone, "options_bar"));
         assert!(!drawn(&phone, "dock"));
+        assert!(!phone.state().ui.panels.properties, "no floating Properties panel over a phone's canvas");
 
         let tablet = harness(vec2(1280.0, 800.0));
         assert!(drawn(&tablet, "studio-command"));
@@ -1416,6 +1580,81 @@ mod tests {
         h.get_by_label("Subtract").click();
         h.run_steps(2);
         assert_eq!(h.state().ui.selection_mode, 2);
+    }
+
+    #[test]
+    fn the_rail_is_short_and_the_rest_is_under_more_tools() {
+        assert!(groups().len() <= 10, "{}", groups().len());
+        assert!(groups().iter().all(|g| !g.tools.is_empty() && g.tools.len() <= 7));
+        // The paths tools went under Shape's More tools.
+        assert_eq!(group_of(Tool::Pen).and_then(|i| groups().get(i)).map(|g| g.label), Some("Shape"));
+    }
+
+    #[test]
+    fn the_option_row_only_stands_in_for_modifier_keys() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.ui.tool = Tool::MagicWand;
+        let row: Vec<&str> = row_chips(&app).iter().map(|c| c.label).collect();
+        assert_eq!(row, ["New", "Add", "Subtract", "Intersect"]);
+        assert!(context_chips(&app).iter().any(|c| c.label == "Contiguous"), "the rest stay in Tool properties");
+        app.ui.tool = Tool::Eyedropper;
+        assert!(row_chips(&app).is_empty(), "no row for the eyedropper");
+    }
+
+    #[test]
+    fn the_selection_bar_follows_the_selection() {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.run("file.new", json!({"width": 32, "height": 32})).unwrap();
+        let chrome = Chrome::default();
+        assert!(!selection_bar_shown(&app, &chrome, LayoutKind::Phone));
+        app.run("select.all", json!({})).unwrap();
+        assert!(selection_bar_shown(&app, &chrome, LayoutKind::Phone));
+        let sheet = Chrome { palette: Some(Palette::Layers), ..chrome };
+        assert!(!selection_bar_shown(&app, &sheet, LayoutKind::Phone), "a phone sheet covers it");
+        assert!(selection_bar_shown(&app, &sheet, LayoutKind::Tablet), "a docked palette doesn't");
+        app.run("select.deselect", json!({})).unwrap();
+        assert!(!selection_bar_shown(&app, &chrome, LayoutKind::Phone));
+    }
+
+    #[test]
+    fn the_selection_bar_deselects() {
+        use egui_kittest::kittest::Queryable;
+        let mut h = harness(vec2(390.0, 844.0));
+        h.state_mut().run("select.all", json!({})).unwrap();
+        h.run_steps(2);
+        h.get_by_label("Deselect").click();
+        h.run_steps(2);
+        assert!(h.state().session.active().is_some_and(|d| d.doc.selection.is_none()));
+    }
+
+    #[test]
+    fn quick_access_runs_a_shortcut_and_closes_on_a_phone() {
+        use egui_kittest::kittest::Queryable;
+        let mut h = harness(vec2(390.0, 844.0));
+        request_open(&h.ctx, "quick");
+        h.run_steps(3);
+        h.get_by_label("Select All").click();
+        h.run_steps(3);
+        assert!(h.state().session.active().is_some_and(|d| d.doc.selection.is_some()));
+        assert_eq!(load_chrome(&h.ctx).palette, None, "the sheet closes so the canvas shows");
+        // The touch toggles moved here from the edge keyboard.
+        request_open(&h.ctx, "quick");
+        h.run_steps(3);
+        let draws = h.state().studio_shell.finger_draws;
+        h.get_by_label("Finger draws").click();
+        h.run_steps(2);
+        assert_eq!(h.state().studio_shell.set_finger_draws, Some(!draws));
+    }
+
+    #[test]
+    fn tool_properties_hold_only_the_tool() {
+        use egui_kittest::kittest::Queryable;
+        let mut h = harness(vec2(390.0, 844.0));
+        request_open(&h.ctx, "properties");
+        h.run_steps(3);
+        assert!(h.query_by_label("Hardness").is_some() || h.query_by_label_contains("Hardness").is_some());
+        assert!(h.query_by_label("Copy").is_none(), "shortcuts are in Quick access");
+        assert!(h.query_by_label("Onion skin").is_none(), "no placeholder rows");
     }
 
     fn drawn(h: &egui_kittest::Harness<'_, PhotocraftApp>, panel: &str) -> bool {

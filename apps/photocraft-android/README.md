@@ -34,19 +34,22 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 ## Touch features
 
 - **Clip Studio layout:** a dark command bar along the top (menu, New, Open, Save, Undo, Redo,
-  zoom), a tool rail down the left with a sub-tool list, and a strip along the bottom with the
-  foreground colour, a brush-size slider (the value sits beside the track), and a row of labeled
-  options for the tool you have selected: New, Add, Subtract and Intersect for a selection,
-  Constrain proportions and From center, Free and Proportional while transforming, All Layers
-  and Current Layer for the eyedropper. **Layers**, the colour **wheel / sliders / cube**,
-  and **tool properties** dock beside the canvas on a landscape tablet and slide over it on a
-  phone. The sub-tool sheet is wide enough for the tool name; a name that still does not fit
-  ends in an ellipsis. A finger held still on the canvas picks a colour. Brush size, opacity,
-  hardness, flow, smoothing and pen pressure edit the current brush; the full menus, layers
-  panel, colour panel and timeline are the desktop ones. Onion skin, frame tags, materials and a
-  per-document rotation lock are shown disabled — they are not in this build. Copy, Paste,
-  Select All, Deselect, Inverse, Free Transform, Search, Open Photo, Share, Straighten, New
-  Layer, and the Finger draws, Finger pressure and Touch rotate toggles are in tool properties.
+  zoom), a tool rail of ten groups down the left (rarely used tools fold under **More tools** in
+  each group's list), and a strip along the bottom with the foreground colour, a brush-size slider
+  and buttons for **Layers** and **Tool properties**; a star at the end of the top bar opens
+  **Quick access**. These dock beside the
+  canvas on a landscape tablet and slide over it on a phone.
+  - **Quick access** holds the shortcuts: Copy, Paste, Select All, Free Transform, New Layer,
+    Straighten, Open Photo, Share, Search, Pixel art, Timeline and Fit on screen, then the
+    **Finger draws**, **Finger pressure** and **Touch rotate** switches.
+  - **Tool properties** holds only the selected tool's options and, for a brush, its size,
+    hardness, opacity, flow, smoothing and pen settings.
+  - The options that used to need Shift or Alt sit in a row above the bottom strip while they
+    apply: New, Add, Subtract and Intersect for a selection tool, Constrain proportions and From
+    center for a marquee or shape, Free and Proportional while transforming.
+  - While something is selected, a **selection bar** under the picture offers Deselect, Invert,
+    Transform, Copy and Clear.
+  - A finger (not the pen) held still on the canvas for half a second with a brush picks a colour.
 - **Edge keyboard:** not shown while the Clip Studio layout is on. The right-edge `‹` tab and
   the Shift, Ctrl and Alt hold buttons are gone; each of those jobs is a labeled control above.
 - **Apply / Cancel** buttons appear above the bottom strip while Free Transform or a crop is waiting,
@@ -55,14 +58,14 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 - **Pen and finger are told apart** (a pointer hook in the vendored winit,
   `third_party/winit/PATCHED.md`): the S Pen paints with pressure and tilt and starts at once;
   its side button holds Alt (Alt + tap picks a color); hovering moves the brush outline.
-- **Finger draws** (tool properties): on, a finger paints, with **Finger pressure**
+- **Finger draws** (Quick access): on, a finger paints, with **Finger pressure**
   simulated from speed; off, one finger pans the canvas and two pinch to zoom, so only the pen
   draws.
 - **Two-finger tap** undoes, **three-finger tap** redoes.
 - **Two fingers** pinch to zoom, move to pan and twist to rotate, all at once and around the
   point between them, so the picture stays under your fingers. The canvas follows your fingers
   exactly, with no snapping; View › Reset View straightens it. In Pixel Art Mode it only turns in 90° steps and zooms by whole pixels. The
-  **Touch rotate** in tool properties turns twisting off (pinch and pan still work), and **Straighten**
+  **Touch rotate** in Quick access turns twisting off (pinch and pan still work), and **Straighten**
   turns the canvas to the nearest 90°.
 - On screens narrower than 1000 points (phones), the right dock starts hidden, menus that don't
   fit the menu bar move into a **»** menu at its end, and dialogs fit the screen.
@@ -75,7 +78,7 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 
 ## Pixel Art Mode
 
-View › Pixel Art Mode (or **Pixel art** in tool properties, and on a wide screen the **Px** button) switches the open document to pixel work
+View › Pixel Art Mode (or **Pixel art** in Quick access, and on a wide screen the **Px** button) switches the open document to pixel work
 and back at any time; it's saved with the document in `.pcraft` and is one undo step. While it's
 on:
 

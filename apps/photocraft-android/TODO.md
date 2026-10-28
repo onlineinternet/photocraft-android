@@ -23,14 +23,16 @@ where they fit. Done items move to the bottom with the date.
 - [ ] Try importing a Lospec palette (.gpl, .pal or .hex) through File › Open or Swatches.
 - [ ] Try File › Open and Save As through Android's pickers (Drive, Downloads, thumbnails),
       then File › Save on a file opened that way and Open Recent after restarting the app.
-- [ ] Try Open Photo and Share in tool properties, and Copy/Paste to and from another app.
+- [ ] Try Open Photo and Share in Quick access, and Copy/Paste to and from another app.
 - [ ] Try the palette (Swatches panel in Pixel Art Mode): Recolor, Ramp, the Pencil's Ink and
       Palette only.
 
 ## Touch and layout (Clip Studio Paint style)
 
 - [ ] A per-document "no rotation" setting, if the global Touch rotate toggle isn't enough.
-      The tool-properties palette shows the row disabled.
+- [ ] Compare the two touch layouts on the phone and tablet: Grok's ("CSP chrome test 2") and
+      the simpler one (branch `csp-simple`), then keep one.
+- [ ] Translate the touch layout's new labels (none are in the 20 catalogs yet).
 - [ ] Dialogs as bottom sheets. They fit a phone today; they are still floating windows.
 - [x] Phone and tablet layout (2026-10-27): command bar, left tool rail, sub-tool list, bottom
       colour/brush strip, and Layers / colour wheel / tool-properties palettes. Docked on a
@@ -63,8 +65,10 @@ where they fit. Done items move to the bottom with the date.
 
 - 2026-10-27: Clip Studio touch chrome (`crates/ui-egui/src/studio_chrome.rs`), on for the Android
   shell. Studio dark theme the first time the stock dark theme is still selected. Long-press
-  eyedropper on a brush tool. Onion skin, frame tags, materials and per-document rotation lock
-  are visible stubs.
+  eyedropper on a brush tool (a finger only, not the pen). Simpler pass (branch `csp-simple`):
+  ten rail groups with the rest under More tools, a Quick access palette for the edge keyboard's
+  shortcuts and the touch switches, Tool properties with only the tool, the option row only for
+  the Shift/Alt stand-ins, a selection bar (Deselect, Invert, Transform, Copy, Clear), no stub rows.
 - 2026-10-22: Every window fits a phone: on the touch app a dialog's body scrolls inside a window
   capped at the screen (dialogs.rs), floating windows go through `widgets::fit_window`, the
   Color Picker stacks under its field when narrow; `phone_fit_tests::every_window_fits_a_phone`
