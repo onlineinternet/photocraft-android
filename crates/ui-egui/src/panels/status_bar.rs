@@ -1,4 +1,4 @@
-use super::{PhotocraftApp, RichText, Tokens, label, vec2, widgets};
+use super::{PhotocraftApp, Tokens, label, vec2, widgets};
 
 // ----------------------------------------------------------------------------- status bar
 
@@ -9,7 +9,7 @@ pub fn status_bar_heights(t: &Tokens) -> (f32, f32) {
 }
 
 fn status_trailing_id() -> egui::Id {
-    egui::Id::new("status-bar-trailing-w")
+    egui::Id::unique("status-bar-trailing-w")
 }
 
 /// The width left on the status bar's row before its trailing group (Fit, job progress) as wide

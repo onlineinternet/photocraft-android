@@ -174,7 +174,7 @@ mod tests {
         app.run("file.new", json!({"width": 32, "height": 32})).unwrap();
         app.sync_views();
         assert!(app.ui.tool_options.anti_alias);
-        assert_eq!(interpolation(&app), "bicubic");
+        assert_eq!(crate::transform_tool::default_interpolation(&app), "bicubic");
         app.ui.views[0].fit_pending = false;
         app.run("view.pixelArtMode", json!({"on": true})).unwrap();
         app.sync_views();
@@ -182,7 +182,7 @@ mod tests {
         assert_eq!(app.ui.tool, Tool::Pencil);
         assert_eq!(app.session.tools.brush.size, 1.0);
         assert!(!app.session.tools.brush.smoothing.enabled);
-        assert_eq!(interpolation(&app), "nearest");
+        assert_eq!(crate::transform_tool::default_interpolation(&app), "nearest");
         assert!(app.ui.views[0].fit_pending, "the view refits on whole pixels");
         app.run("view.pixelArtMode", json!({"on": false})).unwrap();
         app.sync_views();

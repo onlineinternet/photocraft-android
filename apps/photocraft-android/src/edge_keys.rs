@@ -243,8 +243,10 @@ impl EdgeKeys {
     /// areas, so the strip takes the height it needs (up to the screen's) instead of the tab's.
     pub fn show(&mut self, ctx: &egui::Context, app: &mut PhotocraftApp) {
         let any_latched = self.latched != Latched::default();
-        let tab_area =
-            egui::Area::new(egui::Id::new("android_edge_tab")).order(egui::Order::Foreground).anchor(egui::Align2::RIGHT_CENTER, [0.0, 0.0]).show(ctx, |ui| {
+        let tab_area = egui::Area::new(egui::Id::unique("android_edge_tab"))
+            .order(egui::Order::Foreground)
+            .anchor(egui::Align2::RIGHT_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
                 // Lit while a key is latched (from the Modifier Keys panel), so it's never forgotten.
                 let tab = egui::Button::new(if self.open { "›" } else { "‹" }).min_size(TAB_SIZE).selected(any_latched && !self.open);
                 if ui.add(tab).on_hover_text("Edge keyboard").clicked() {
@@ -255,7 +257,7 @@ impl EdgeKeys {
             return;
         }
         let max_h = (ctx.content_rect().height() - 24.0).max(200.0);
-        let strip = egui::Area::new(egui::Id::new("android_edge_keys"))
+        let strip = egui::Area::new(egui::Id::unique("android_edge_keys"))
             .order(egui::Order::Foreground)
             .anchor(egui::Align2::RIGHT_CENTER, [-(TAB_SIZE.x + 6.0), 0.0])
             .show(ctx, |ui| {
