@@ -195,21 +195,20 @@ pub fn windows(app: &mut PhotocraftApp, ctx: &egui::Context) {
             .resizable(false)
             .frame(float_frame(&t))
             .default_pos(pos2((canvas.right() - 314.0 - 372.0).max(canvas.left() + 8.0), canvas.top() + 40.0));
-        crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx))
-            .show(ctx, |ui| {
-                ui.set_width(340.0);
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(tl!("Glyphs")).color(t.text).size(12.0).strong());
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if crate::icons::button(ui, "x", 20.0, false, tl!("Close")).clicked() {
-                            close = true;
-                        }
-                    });
+        crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx)).show(ctx, |ui| {
+            ui.set_width(340.0);
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(tl!("Glyphs")).color(t.text).size(12.0).strong());
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if crate::icons::button(ui, "x", 20.0, false, tl!("Close")).clicked() {
+                        close = true;
+                    }
                 });
-                crate::widgets::hairline(ui);
-                ui.add_space(4.0);
-                glyphs_panel(app, ui);
             });
+            crate::widgets::hairline(ui);
+            ui.add_space(4.0);
+            glyphs_panel(app, ui);
+        });
         if close {
             app.ui.type_panels.glyphs = false;
         }

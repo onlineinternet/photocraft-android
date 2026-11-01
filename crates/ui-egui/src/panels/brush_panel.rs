@@ -516,47 +516,46 @@ pub fn window(app: &mut PhotocraftApp, ctx: &egui::Context) {
         .resizable(false)
         .frame(frame)
         .default_pos(egui::pos2((canvas.right() - WIDTH - 30.0).max(canvas.left() + 8.0), canvas.top() + 24.0));
-    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx))
-        .show(ctx, |ui| {
-            ui.set_width(WIDTH);
-            ui.horizontal(|ui| {
-                let mut tab = app.ui.brush_tab;
-                for (i, name) in [tl!("Brush Settings"), tl!("Brushes")].iter().enumerate() {
-                    if widgets::pill_tab(ui, name, tab == i).clicked() {
-                        tab = i;
-                    }
+    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx)).show(ctx, |ui| {
+        ui.set_width(WIDTH);
+        ui.horizontal(|ui| {
+            let mut tab = app.ui.brush_tab;
+            for (i, name) in [tl!("Brush Settings"), tl!("Brushes")].iter().enumerate() {
+                if widgets::pill_tab(ui, name, tab == i).clicked() {
+                    tab = i;
                 }
-                app.ui.brush_tab = tab;
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if icons::button(ui, "x", 20.0, false, tl!("Close")).clicked() {
+            }
+            app.ui.brush_tab = tab;
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if icons::button(ui, "x", 20.0, false, tl!("Close")).clicked() {
+                    open = false;
+                }
+                let menu_btn = widgets::panel_menu_button(ui);
+                egui::Popup::menu(&menu_btn).show(|ui| {
+                    widgets::style_spectrum_popup_menu(ui);
+                    ui.set_min_width(180.0);
+                    panel_menu(app, ui);
+                    ui.separator();
+                    if ui.button(tl!("Close")).clicked() {
                         open = false;
+                        ui.close();
                     }
-                    let menu_btn = widgets::panel_menu_button(ui);
-                    egui::Popup::menu(&menu_btn).show(|ui| {
-                        widgets::style_spectrum_popup_menu(ui);
-                        ui.set_min_width(180.0);
-                        panel_menu(app, ui);
-                        ui.separator();
-                        if ui.button(tl!("Close")).clicked() {
-                            open = false;
-                            ui.close();
-                        }
-                        if ui.button(tl!("Close Tab Group")).clicked() {
-                            open = false;
-                            ui.close();
-                        }
-                    });
+                    if ui.button(tl!("Close Tab Group")).clicked() {
+                        open = false;
+                        ui.close();
+                    }
                 });
             });
-            ui.add_space(6.0);
-            widgets::hairline(ui);
-            ui.add_space(6.0);
-            if app.ui.brush_tab == 1 {
-                crate::brushes_tab::show(app, ui);
-            } else {
-                settings_tab(app, ui);
-            }
         });
+        ui.add_space(6.0);
+        widgets::hairline(ui);
+        ui.add_space(6.0);
+        if app.ui.brush_tab == 1 {
+            crate::brushes_tab::show(app, ui);
+        } else {
+            settings_tab(app, ui);
+        }
+    });
     if !open {
         app.ui.panels.brush_settings = false;
     }

@@ -236,7 +236,7 @@ fn a_focused_number_field_is_known_as_one() {
     type State = (f32, String, bool);
     let mut h = Harness::builder().with_size(egui::vec2(400.0, 180.0)).build_ui_state(
         |ui, (number, text, numeric): &mut State| {
-            super::value_field(ui, number, 0.01..=12800.0, "%", 90.0);
+            super::value_field(ui, number, 0.01..=12800.0, "%", 90.0).accessible_name("Test number");
             ui.add(egui::TextEdit::singleline(text).hint_text("Name"));
             *numeric = super::numeric_focused(ui.ctx());
         },

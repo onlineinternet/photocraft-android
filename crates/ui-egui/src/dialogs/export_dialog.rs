@@ -950,8 +950,7 @@ fn settings_column(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &mut Map<Strin
         ui.horizontal(|ui| {
             ui.label(egui::RichText::new(tl!("Resolution")).color(t.text_dim));
             let mut bits = s(f, "tgaBits");
-            let opts: Vec<(String, &str)> =
-                vec![("auto".into(), tl!("Auto")), ("24".into(), tl!("24 bits/pixel")), ("32".into(), tl!("32 bits/pixel"))];
+            let opts: Vec<(String, &str)> = vec![("auto".into(), tl!("Auto")), ("24".into(), tl!("24 bits/pixel")), ("32".into(), tl!("32 bits/pixel"))];
             if crate::widgets::dropdown(ui, "export-tga-bits", tl!("Depth"), &mut bits, &opts, 130.0) {
                 f.insert("tgaBits".into(), json!(bits));
             }
@@ -1028,12 +1027,12 @@ fn preview_column(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &Map<String, Va
                 poll_or_start_preview(ui, key, &sig, doc.clone(), f, source_profile.clone())
             } else {
                 let source = source_document(app, f).unwrap_or_else(|_| doc.clone());
-                Some(preview_sync(app, &source, f, &source_profile))
+                Some(preview_sync(app, &source, f, source_profile))
             };
             #[cfg(target_arch = "wasm32")]
             let result = {
                 let source = source_document(app, f).unwrap_or_else(|_| doc.clone());
-                Some(preview_sync(app, &source, f, &source_profile))
+                Some(preview_sync(app, &source, f, source_profile))
             };
             let filter = preview_filter(f);
             result.map(|result| cache_preview(ui, key, sig.clone(), result, filter))
@@ -1056,8 +1055,7 @@ fn preview_column(app: &mut PhotocraftApp, ui: &mut egui::Ui, f: &Map<String, Va
     let exact = poll_or_start_exact_estimate(ui, key, &sig, doc.clone(), f, source_profile.clone()).flatten();
     #[cfg(target_arch = "wasm32")]
     let exact: Option<u64> = None;
-    let est =
-        exact.or_else(|| preview.as_ref().and_then(|preview| preview.estimate)).map_or("—".to_string(), |b| crate::sizing::human_bytes(b as f64));
+    let est = exact.or_else(|| preview.as_ref().and_then(|preview| preview.estimate)).map_or("—".to_string(), |b| crate::sizing::human_bytes(b as f64));
     ui.label(egui::RichText::new(format!("{}  ≈ {est}", s_fmt(f).to_uppercase())).color(t.text_dim).size(11.5));
 }
 

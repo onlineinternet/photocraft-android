@@ -268,7 +268,7 @@ impl Host {
         let height = (screen.height() * 0.82).min(900.0);
         let storage = self.storage.clone();
 
-        let modal = egui::Modal::new(egui::Id::new("android_file_picker")).show(ctx, |ui| {
+        let modal = egui::Modal::new(egui::Id::unique("android_file_picker")).show(ctx, |ui| {
             ui.set_width(width);
             let title = match picker.mode {
                 Mode::Open { .. } => "Open",

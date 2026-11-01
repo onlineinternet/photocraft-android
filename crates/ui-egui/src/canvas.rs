@@ -630,7 +630,15 @@ fn update_canvas_navigation(app: &mut PhotocraftApp, view: &mut View, input: Can
     // can't anchor a pinch.
     let xf = input.xf;
     let two_fingers = if app.touch_ui {
-        crate::touch_rotate::update(input.ctx, egui::Id::new(("pc-canvas-twist", input.idx)), xf.rect, view.rotation, app.touch_rotate, view.pixel_art, xf.flip)
+        crate::touch_rotate::update(
+            input.ctx,
+            egui::Id::unique(("pc-canvas-twist", input.idx)),
+            xf.rect,
+            view.rotation,
+            app.touch_rotate,
+            view.pixel_art,
+            xf.flip,
+        )
     } else {
         None
     };
@@ -638,7 +646,7 @@ fn update_canvas_navigation(app: &mut PhotocraftApp, view: &mut View, input: Can
         let before = xf.to_doc(nav.from);
         if nav.zoom != 1.0 {
             view.zoom = if view.pixel_art {
-                let key = egui::Id::new(("pc-pixel-pinch", input.idx));
+                let key = egui::Id::unique(("pc-pixel-pinch", input.idx));
                 let mut pinch = input.ctx.data(|d| d.get_temp::<crate::pixel_mode::PinchZoom>(key)).unwrap_or_default();
                 let size = view.doc_size;
                 let nz = pinch.scale(view.zoom, nav.zoom, |z| crate::zoom_levels::clamp(z, size));
@@ -686,7 +694,7 @@ fn update_canvas_navigation(app: &mut PhotocraftApp, view: &mut View, input: Can
                 // zooms nor slides the image towards the pointer.
                 let nz = if view.pixel_art {
                     // Whole pixels: the gesture's own zoom adds up across frames (pixel_mode.rs).
-                    let key = egui::Id::new(("pc-pixel-pinch", input.idx));
+                    let key = egui::Id::unique(("pc-pixel-pinch", input.idx));
                     let mut pinch = input.ctx.data(|d| d.get_temp::<crate::pixel_mode::PinchZoom>(key)).unwrap_or_default();
                     let size = view.doc_size;
                     let nz = pinch.scale(view.zoom, f, |z| crate::zoom_levels::clamp(z, size));

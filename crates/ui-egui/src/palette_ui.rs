@@ -34,7 +34,7 @@ fn hex(c: [f32; 3]) -> String {
 
 /// The selected palette entry of the active document, remembered per document for the session.
 fn selected_id(app: &PhotocraftApp) -> egui::Id {
-    egui::Id::new(("pc-palette-selected", app.session.active().map(|d| d.doc.id.0)))
+    egui::Id::unique(("pc-palette-selected", app.session.active().map(|d| d.doc.id.0)))
 }
 
 /// The palette strip at the top of the Swatches panel (Pixel Art Mode only).
@@ -127,7 +127,7 @@ pub fn pencil_options(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
     let mut ink = i64::from(o.pencil_shade.signum());
     let opts = [(0i64, tl!("Simple")), (1, tl!("Shade up")), (-1, tl!("Shade down"))];
     ui.label(tl!("Ink"));
-    if widgets::dropdown(ui, "pencil-ink", &mut ink, &opts, 110.0) {
+    if widgets::dropdown(ui, "pencil-ink", tl!("Ink"), &mut ink, &opts, 110.0) {
         o.pencil_shade = ink.clamp(-1, 1) as i8;
     }
     ui.add_enabled_ui(o.pencil_shade == 0, |ui| widgets::checkbox(ui, &mut o.pencil_palette_lock, tl!("Palette only")));

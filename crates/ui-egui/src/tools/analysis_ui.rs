@@ -927,89 +927,87 @@ fn dialog(app: &mut PhotocraftApp, ctx: &egui::Context) {
         .resizable(false)
         .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
         .frame(float_frame(&t));
-    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx))
-        .show(ctx, |ui| {
-            ui.label(RichText::new(tl!(&title)).color(t.text).size(13.0).strong());
-            crate::widgets::hairline(ui);
-            ui.add_space(6.0);
-            match kind.as_str() {
-                "scale" => {
-                    choice(ui, &mut f, "preset", tl!("Presets:"), &[("custom", tl!("Custom")), ("default", tl!("Default"))]);
-                    let custom = f.get("preset").and_then(Value::as_str) != Some("default");
-                    ui.add_enabled_ui(custom, |ui| {
-                        num_field(ui, &mut f, "pixelLength", tl!("Pixel Length:"), 0.001..=1e7, "");
-                        num_field(ui, &mut f, "logicalLength", tl!("Logical Length:"), 0.0001..=1e7, "");
-                        ui.horizontal(|ui| {
-                            let units_label =
-                                ui.add_sized(vec2(110.0, 18.0), egui::Label::new(RichText::new(tl!("Logical Units:")).color(t.text_dim).size(11.0)));
-                            let mut u = f.get("units").and_then(Value::as_str).unwrap_or("pixels").to_string();
-                            if ui.add(egui::TextEdit::singleline(&mut u).desired_width(80.0)).labelled_by(units_label.id).changed() {
-                                f.insert("units".into(), json!(u));
-                            }
-                        });
-                    });
-                    let (pl, ll) = (f.get("pixelLength").and_then(Value::as_f64).unwrap_or(1.0), f.get("logicalLength").and_then(Value::as_f64).unwrap_or(1.0));
-                    let u = f.get("units").and_then(Value::as_str).unwrap_or("pixels");
-                    let text = if custom { format!("{pl} pixels = {ll:.4} {u}") } else { "1 pixels = 1.0000 pixels".into() };
-                    ui.label(RichText::new(tl!(&text)).color(t.text_dim).size(11.0));
-                }
-                "dataPoints" => {
-                    ui.horizontal_top(|ui| {
-                        for (source, label) in [("selection", tl!("Selections")), ("ruler", tl!("Ruler Tool")), ("count", tl!("Count Tool"))] {
-                            ui.vertical(|ui| {
-                                ui.label(RichText::new(tl!(&label)).color(t.text).size(11.0).strong());
-                                let mut list: Vec<String> = f
-                                    .get(source)
-                                    .and_then(Value::as_array)
-                                    .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
-                                    .unwrap_or_default();
-                                let mut changed = false;
-                                for key in photocraft_engine::analysis_cmds::available(source) {
-                                    let name = photocraft_engine::analysis_cmds::COLUMNS.iter().find(|c| c.0 == key).map_or(key, |c| c.1);
-                                    let mut on = list.iter().any(|x| x == key);
-                                    if crate::widgets::checkbox(ui, &mut on, name).changed() {
-                                        list.retain(|x| x != key);
-                                        if on {
-                                            list.push(key.to_string());
-                                        }
-                                        changed = true;
-                                    }
-                                }
-                                if changed {
-                                    f.insert(source.into(), json!(list));
-                                }
-                            });
-                            ui.add_space(12.0);
+    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx)).show(ctx, |ui| {
+        ui.label(RichText::new(tl!(&title)).color(t.text).size(13.0).strong());
+        crate::widgets::hairline(ui);
+        ui.add_space(6.0);
+        match kind.as_str() {
+            "scale" => {
+                choice(ui, &mut f, "preset", tl!("Presets:"), &[("custom", tl!("Custom")), ("default", tl!("Default"))]);
+                let custom = f.get("preset").and_then(Value::as_str) != Some("default");
+                ui.add_enabled_ui(custom, |ui| {
+                    num_field(ui, &mut f, "pixelLength", tl!("Pixel Length:"), 0.001..=1e7, "");
+                    num_field(ui, &mut f, "logicalLength", tl!("Logical Length:"), 0.0001..=1e7, "");
+                    ui.horizontal(|ui| {
+                        let units_label = ui.add_sized(vec2(110.0, 18.0), egui::Label::new(RichText::new(tl!("Logical Units:")).color(t.text_dim).size(11.0)));
+                        let mut u = f.get("units").and_then(Value::as_str).unwrap_or("pixels").to_string();
+                        if ui.add(egui::TextEdit::singleline(&mut u).desired_width(80.0)).labelled_by(units_label.id).changed() {
+                            f.insert("units".into(), json!(u));
                         }
                     });
-                }
-                _ => {
-                    let units = f.get("units").and_then(Value::as_str).unwrap_or("pixels").to_string();
-                    num_field(ui, &mut f, "length", tl!("Length:"), 0.0001..=1e7, &units);
-                    num_field(ui, &mut f, "fontSize", tl!("Font Size:"), 1.0..=1000.0, "pt");
-                    let mut show = f.get("displayText").and_then(Value::as_bool).unwrap_or(true);
-                    if crate::widgets::checkbox(ui, &mut show, tl!("Display Text")).changed() {
-                        f.insert("displayText".into(), json!(show));
-                    }
-                    choice(ui, &mut f, "textPosition", tl!("Text Position:"), &[("bottom", tl!("Bottom")), ("top", tl!("Top"))]);
-                    choice(ui, &mut f, "color", tl!("Color:"), &[("black", tl!("Black")), ("white", tl!("White"))]);
-                }
+                });
+                let (pl, ll) = (f.get("pixelLength").and_then(Value::as_f64).unwrap_or(1.0), f.get("logicalLength").and_then(Value::as_f64).unwrap_or(1.0));
+                let u = f.get("units").and_then(Value::as_str).unwrap_or("pixels");
+                let text = if custom { format!("{pl} pixels = {ll:.4} {u}") } else { "1 pixels = 1.0000 pixels".into() };
+                ui.label(RichText::new(tl!(&text)).color(t.text_dim).size(11.0));
             }
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if let Some(role) = crate::widgets::dialog_buttons(
-                        ui,
-                        &[
-                            crate::widgets::DialogButton::new(crate::widgets::ButtonRole::Default, tl!("OK"), 70.0),
-                            crate::widgets::DialogButton::new(crate::widgets::ButtonRole::Cancel, tl!("Cancel"), 70.0),
-                        ],
-                    ) {
-                        result = Some(role == crate::widgets::ButtonRole::Default);
+            "dataPoints" => {
+                ui.horizontal_top(|ui| {
+                    for (source, label) in [("selection", tl!("Selections")), ("ruler", tl!("Ruler Tool")), ("count", tl!("Count Tool"))] {
+                        ui.vertical(|ui| {
+                            ui.label(RichText::new(tl!(&label)).color(t.text).size(11.0).strong());
+                            let mut list: Vec<String> = f
+                                .get(source)
+                                .and_then(Value::as_array)
+                                .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
+                                .unwrap_or_default();
+                            let mut changed = false;
+                            for key in photocraft_engine::analysis_cmds::available(source) {
+                                let name = photocraft_engine::analysis_cmds::COLUMNS.iter().find(|c| c.0 == key).map_or(key, |c| c.1);
+                                let mut on = list.iter().any(|x| x == key);
+                                if crate::widgets::checkbox(ui, &mut on, name).changed() {
+                                    list.retain(|x| x != key);
+                                    if on {
+                                        list.push(key.to_string());
+                                    }
+                                    changed = true;
+                                }
+                            }
+                            if changed {
+                                f.insert(source.into(), json!(list));
+                            }
+                        });
+                        ui.add_space(12.0);
                     }
                 });
+            }
+            _ => {
+                let units = f.get("units").and_then(Value::as_str).unwrap_or("pixels").to_string();
+                num_field(ui, &mut f, "length", tl!("Length:"), 0.0001..=1e7, &units);
+                num_field(ui, &mut f, "fontSize", tl!("Font Size:"), 1.0..=1000.0, "pt");
+                let mut show = f.get("displayText").and_then(Value::as_bool).unwrap_or(true);
+                if crate::widgets::checkbox(ui, &mut show, tl!("Display Text")).changed() {
+                    f.insert("displayText".into(), json!(show));
+                }
+                choice(ui, &mut f, "textPosition", tl!("Text Position:"), &[("bottom", tl!("Bottom")), ("top", tl!("Top"))]);
+                choice(ui, &mut f, "color", tl!("Color:"), &[("black", tl!("Black")), ("white", tl!("White"))]);
+            }
+        }
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if let Some(role) = crate::widgets::dialog_buttons(
+                    ui,
+                    &[
+                        crate::widgets::DialogButton::new(crate::widgets::ButtonRole::Default, tl!("OK"), 70.0),
+                        crate::widgets::DialogButton::new(crate::widgets::ButtonRole::Cancel, tl!("Cancel"), 70.0),
+                    ],
+                ) {
+                    result = Some(role == crate::widgets::ButtonRole::Default);
+                }
             });
         });
+    });
     match result {
         Some(true) => {
             app.ui.analysis.dialog = None;

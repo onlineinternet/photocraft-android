@@ -680,6 +680,7 @@ fn space_on_the_canvas_moves_the_frame_not_the_view() {
         zoom_anchor: None,
         display_camera: None,
         zoom_transition: None,
+        pixel_art: false,
     };
     a.ui.views = vec![view.clone()];
     let mut h = egui_kittest::Harness::builder().with_size(egui::vec2(600.0, 400.0)).build_ui_state(

@@ -374,7 +374,7 @@ pub fn popup_value_field(ui: &mut Ui, name: &str, value: &mut f32, range: std::o
 pub(super) const NUMERIC_INPUT_LIMIT: usize = 128;
 
 fn numeric_focus_id() -> egui::Id {
-    egui::Id::new("pc-numeric-focus")
+    egui::Id::unique("pc-numeric-focus")
 }
 
 /// Is the text being edited this frame a number field's? A touch shell shows the number pad

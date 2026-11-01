@@ -5410,7 +5410,7 @@ dependencies = [
 
 [[package]]
 name = "photocraft-android"
-version = "0.15.1"
+version = "0.18.0"
 dependencies = [
  "android_logger",
  "eframe",
@@ -5683,7 +5683,6 @@ dependencies = [
  "photocraft-text",
  "photocraft-vector",
  "proptest",
- "rayon",
  "resvg",
  "roxmltree 0.21.1",
  "serde_json",

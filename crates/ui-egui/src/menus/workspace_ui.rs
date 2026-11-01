@@ -408,110 +408,108 @@ fn dialog(app: &mut PhotocraftApp, ctx: &egui::Context) {
     let title = title(&kind);
     let names: Vec<String> = app.session.prefs().workspaces.keys().cloned().collect();
     let mut result: Option<bool> = None;
-    let window = egui::Window::new(title).id(egui::Id::unique("shell-dialog")).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0));
-    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx)).show(
-        ctx,
-        |ui| {
-            ui.label(RichText::new(tl!(&title)).color(t.text).size(13.0).strong());
-            crate::widgets::hairline(ui);
-            ui.add_space(6.0);
-            let text = |ui: &mut egui::Ui, f: &mut Map<String, Value>, key: &str, label: &str| {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(tl!(&label)).color(t.text_dim).size(11.0));
-                    let mut v = f.get(key).and_then(Value::as_str).unwrap_or("").to_string();
-                    if ui.add(egui::TextEdit::singleline(&mut v).desired_width(180.0)).accessible_name(tl!(label)).changed() {
-                        f.insert(key.into(), json!(v));
-                    }
-                });
-            };
-            let check = |ui: &mut egui::Ui, f: &mut Map<String, Value>, key: &str, label: &str| {
-                let mut on = f.get(key).and_then(Value::as_bool).unwrap_or(false);
-                if crate::widgets::checkbox(ui, &mut on, label).changed() {
-                    f.insert(key.into(), json!(on));
+    let window =
+        egui::Window::new(title).id(egui::Id::unique("shell-dialog")).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0));
+    crate::widgets::fit_window(window, ctx, crate::widgets::fit_small_screen(app.touch_ui, ctx)).show(ctx, |ui| {
+        ui.label(RichText::new(tl!(&title)).color(t.text).size(13.0).strong());
+        crate::widgets::hairline(ui);
+        ui.add_space(6.0);
+        let text = |ui: &mut egui::Ui, f: &mut Map<String, Value>, key: &str, label: &str| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(tl!(&label)).color(t.text_dim).size(11.0));
+                let mut v = f.get(key).and_then(Value::as_str).unwrap_or("").to_string();
+                if ui.add(egui::TextEdit::singleline(&mut v).desired_width(180.0)).accessible_name(tl!(label)).changed() {
+                    f.insert(key.into(), json!(v));
                 }
-            };
-            let number = |ui: &mut egui::Ui, f: &mut Map<String, Value>, key: &str, label: &str, range: std::ops::RangeInclusive<f32>| {
-                ui.horizontal(|ui| {
-                    ui.label(RichText::new(tl!(&label)).color(t.text_dim).size(11.0));
-                    let mut v = f.get(key).and_then(Value::as_f64).unwrap_or(0.0) as f32;
-                    if crate::widgets::slider(ui, &mut v, range.clone(), None).changed()
-                        | crate::widgets::value_field(ui, &mut v, range, "", 60.0).accessible_name(tl!(&label)).changed()
-                    {
-                        f.insert(key.into(), json!(v));
-                    }
-                });
-            };
-            match kind.as_str() {
-                "newWorkspace" => {
-                    text(ui, &mut f, "name", tl!("Name:"));
-                    ui.label(RichText::new(tl!("Capture")).color(t.text_dim).size(11.0));
-                    ui.label(
-                        RichText::new(tl!("Panel locations are saved in the workspace. Keyboard shortcuts, menus and toolbar are optional."))
-                            .color(t.text_faint)
-                            .size(10.5),
-                    );
-                    check(ui, &mut f, "keyboardShortcuts", tl!("Keyboard Shortcuts"));
-                    check(ui, &mut f, "menus", tl!("Menus"));
-                    check(ui, &mut f, "toolbar", tl!("Toolbar"));
+            });
+        };
+        let check = |ui: &mut egui::Ui, f: &mut Map<String, Value>, key: &str, label: &str| {
+            let mut on = f.get(key).and_then(Value::as_bool).unwrap_or(false);
+            if crate::widgets::checkbox(ui, &mut on, label).changed() {
+                f.insert(key.into(), json!(on));
+            }
+        };
+        let number = |ui: &mut egui::Ui, f: &mut Map<String, Value>, key: &str, label: &str, range: std::ops::RangeInclusive<f32>| {
+            ui.horizontal(|ui| {
+                ui.label(RichText::new(tl!(&label)).color(t.text_dim).size(11.0));
+                let mut v = f.get(key).and_then(Value::as_f64).unwrap_or(0.0) as f32;
+                if crate::widgets::slider(ui, &mut v, range.clone(), None).changed()
+                    | crate::widgets::value_field(ui, &mut v, range, "", 60.0).accessible_name(tl!(&label)).changed()
+                {
+                    f.insert(key.into(), json!(v));
                 }
-                "deleteWorkspace" => {
-                    let mut cur = f.get("name").and_then(Value::as_str).unwrap_or("").to_string();
-                    let opts: Vec<(String, &str)> = names.iter().map(|n| (n.clone(), n.as_str())).collect();
-                    if !opts.is_empty() && crate::widgets::dropdown(ui, "ws-delete", tl!("Workspace"), &mut cur, &opts, 180.0) {
-                        f.insert("name".into(), json!(cur));
-                    }
-                }
-                "customPar" => {
-                    text(ui, &mut f, "name", tl!("Name:"));
-                    number(ui, &mut f, "ratio", tl!("Factor:"), 0.1..=10.0);
-                }
-                "preview32" => {
-                    // A slider fills its available width. Keep its field above it, so the
-                    // field cannot grow an auto-sized window beyond that width each frame.
-                    ui.set_width((ctx.content_rect().width() - 32.0).clamp(0.0, 320.0));
-                    let mut m = f.get("method").and_then(Value::as_str).unwrap_or("exposureGamma").to_string();
-                    if crate::widgets::dropdown(
-                        ui,
-                        "p32-method",
-                        tl!("Mode"),
-                        &mut m,
-                        &[("exposureGamma".to_string(), tl!("Exposure and Gamma")), ("highlightCompression".to_string(), tl!("Highlight Compression"))],
-                        180.0,
-                    ) {
-                        f.insert("method".into(), json!(m));
-                    }
-                    ui.add_enabled_ui(m == "exposureGamma", |ui| {
-                        for (key, label, range) in [("exposure", tl!("Exposure:"), -20.0..=20.0), ("gamma", tl!("Gamma:"), 0.1..=9.99)] {
-                            let mut v = f.get(key).and_then(Value::as_f64).unwrap_or(0.0) as f32;
-                            if crate::widgets::slider_row(ui, label, &mut v, range, "", None).changed() {
-                                f.insert(key.into(), json!(v));
-                            }
-                        }
-                    });
-                }
-                _ => {
-                    for (k, label) in extras_options() {
-                        check(ui, &mut f, k, label);
-                    }
+            });
+        };
+        match kind.as_str() {
+            "newWorkspace" => {
+                text(ui, &mut f, "name", tl!("Name:"));
+                ui.label(RichText::new(tl!("Capture")).color(t.text_dim).size(11.0));
+                ui.label(
+                    RichText::new(tl!("Panel locations are saved in the workspace. Keyboard shortcuts, menus and toolbar are optional."))
+                        .color(t.text_faint)
+                        .size(10.5),
+                );
+                check(ui, &mut f, "keyboardShortcuts", tl!("Keyboard Shortcuts"));
+                check(ui, &mut f, "menus", tl!("Menus"));
+                check(ui, &mut f, "toolbar", tl!("Toolbar"));
+            }
+            "deleteWorkspace" => {
+                let mut cur = f.get("name").and_then(Value::as_str).unwrap_or("").to_string();
+                let opts: Vec<(String, &str)> = names.iter().map(|n| (n.clone(), n.as_str())).collect();
+                if !opts.is_empty() && crate::widgets::dropdown(ui, "ws-delete", tl!("Workspace"), &mut cur, &opts, 180.0) {
+                    f.insert("name".into(), json!(cur));
                 }
             }
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let ok = if kind == "deleteWorkspace" { tl!("Delete") } else { tl!("OK") };
-                    if let Some(role) = crate::widgets::dialog_buttons(
-                        ui,
-                        &[
-                            crate::widgets::DialogButton::new(crate::widgets::ButtonRole::Default, ok, 70.0),
-                            crate::widgets::DialogButton::new(crate::widgets::ButtonRole::Cancel, tl!("Cancel"), 70.0),
-                        ],
-                    ) {
-                        result = Some(role == crate::widgets::ButtonRole::Default);
+            "customPar" => {
+                text(ui, &mut f, "name", tl!("Name:"));
+                number(ui, &mut f, "ratio", tl!("Factor:"), 0.1..=10.0);
+            }
+            "preview32" => {
+                // A slider fills its available width. Keep its field above it, so the
+                // field cannot grow an auto-sized window beyond that width each frame.
+                ui.set_width((ctx.content_rect().width() - 32.0).clamp(0.0, 320.0));
+                let mut m = f.get("method").and_then(Value::as_str).unwrap_or("exposureGamma").to_string();
+                if crate::widgets::dropdown(
+                    ui,
+                    "p32-method",
+                    tl!("Mode"),
+                    &mut m,
+                    &[("exposureGamma".to_string(), tl!("Exposure and Gamma")), ("highlightCompression".to_string(), tl!("Highlight Compression"))],
+                    180.0,
+                ) {
+                    f.insert("method".into(), json!(m));
+                }
+                ui.add_enabled_ui(m == "exposureGamma", |ui| {
+                    for (key, label, range) in [("exposure", tl!("Exposure:"), -20.0..=20.0), ("gamma", tl!("Gamma:"), 0.1..=9.99)] {
+                        let mut v = f.get(key).and_then(Value::as_f64).unwrap_or(0.0) as f32;
+                        if crate::widgets::slider_row(ui, label, &mut v, range, "", None).changed() {
+                            f.insert(key.into(), json!(v));
+                        }
                     }
                 });
+            }
+            _ => {
+                for (k, label) in extras_options() {
+                    check(ui, &mut f, k, label);
+                }
+            }
+        }
+        ui.add_space(8.0);
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let ok = if kind == "deleteWorkspace" { tl!("Delete") } else { tl!("OK") };
+                if let Some(role) = crate::widgets::dialog_buttons(
+                    ui,
+                    &[
+                        crate::widgets::DialogButton::new(crate::widgets::ButtonRole::Default, ok, 70.0),
+                        crate::widgets::DialogButton::new(crate::widgets::ButtonRole::Cancel, tl!("Cancel"), 70.0),
+                    ],
+                ) {
+                    result = Some(role == crate::widgets::ButtonRole::Default);
+                }
             });
-        },
-    );
+        });
+    });
     match result {
         Some(true) => {
             app.ui.shell.dialog = Some((kind, f));
