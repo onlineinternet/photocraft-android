@@ -137,6 +137,7 @@ const RETOUCH: &[Tool] = &[
     Tool::CloneStamp,
     Tool::PatternStamp,
     Tool::HistoryBrush,
+    Tool::ArtHistoryBrush,
     Tool::Blur,
     Tool::Sharpen,
     Tool::Smudge,
@@ -155,7 +156,7 @@ const PEN: &[Tool] = &[
     Tool::DirectSelection,
 ];
 const TYPE: &[Tool] = &[Tool::Type, Tool::VerticalType, Tool::HorizontalTypeMask, Tool::VerticalTypeMask];
-const SHAPE: &[Tool] = &[Tool::Rectangle, Tool::EllipseShape, Tool::Triangle, Tool::Polygon, Tool::Line, Tool::CustomShape];
+const SHAPE: &[Tool] = &[Tool::Rectangle, Tool::EllipseShape, Tool::Triangle, Tool::Polygon, Tool::Star, Tool::Line, Tool::CustomShape];
 
 fn groups() -> &'static [ToolGroup] {
     const GROUPS: &[ToolGroup] = &[
@@ -1419,6 +1420,6 @@ mod tests {
     }
 
     fn drawn(h: &egui_kittest::Harness<'_, PhotocraftApp>, panel: &str) -> bool {
-        egui::containers::panel::PanelState::load(&h.ctx, Id::unique(panel)).is_some()
+        egui::containers::panel::PanelState::load(&h.ctx, crate::panels::panel_state_id(&h.ctx, panel)).is_some()
     }
 }
