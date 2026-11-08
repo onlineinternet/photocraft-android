@@ -5410,7 +5410,7 @@ dependencies = [
 
 [[package]]
 name = "photocraft-android"
-version = "0.18.0"
+version = "0.20.1"
 dependencies = [
  "android_logger",
  "eframe",

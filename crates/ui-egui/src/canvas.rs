@@ -447,6 +447,7 @@ fn paint_canvas(
                 !t.bevel && !t.pro && drop_shadow
             },
             pixel_grid,
+            pixel_art: doc.pixel_art,
             view_key: egui::Id::unique(("pc-canvas-pages", ctx.viewport_id(), doc.id.0)).value(),
             display: sync_display_lut(app, doc, key, output),
             output: output.unwrap_or(0),
