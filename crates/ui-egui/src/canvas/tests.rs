@@ -1612,6 +1612,41 @@ fn start_screen_buttons_stay_inside_a_narrow_canvas() {
     }
 }
 
+/// On a touch screen the start screen has one Open…: the drop boxes (the first-run box and the
+/// recent grid's last card) only open the same picker, and nothing is dropped there.
+#[test]
+fn a_touch_start_screen_has_one_open() {
+    use egui_kittest::kittest::Queryable;
+    for (touch, recent, size) in [
+        (true, false, egui::vec2(390.0, 760.0)),
+        (true, true, egui::vec2(390.0, 760.0)),
+        (true, true, egui::vec2(1280.0, 800.0)),
+        (false, true, egui::vec2(1280.0, 800.0)),
+    ] {
+        let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
+        app.touch_ui = touch;
+        app.ui.chrome.home_recent_grid = true;
+        if recent {
+            app.push_recent("/tmp/photocraft-touch-home/picture.png");
+        }
+        let mut h = egui_kittest::Harness::builder().with_size(size).build_ui_state(
+            |ui, (app, ready): &mut (PhotocraftApp, bool)| {
+                if *ready {
+                    egui::CentralPanel::default().frame(egui::Frame::NONE).show(ui, |ui| document_area(app, ui));
+                }
+            },
+            (app, false),
+        );
+        PhotocraftApp::setup_context(&h.ctx, crate::theme::ThemeKind::default());
+        h.state_mut().1 = true;
+        h.run_steps(3);
+        let opens = h.query_all_by_label("Open…").count();
+        let want = if touch { 1 } else { 2 };
+        assert_eq!(opens, want, "touch {touch}, recent {recent}, {size:?}: Open… buttons");
+        assert!(h.query_by_label("New file").is_some(), "touch {touch}, recent {recent}, {size:?}: New file");
+    }
+}
+
 /// #4382: Interface › Show home recent files off hides the Home screen's list, not the recents.
 #[test]
 fn home_recent_list_hides_when_the_preference_is_off() {

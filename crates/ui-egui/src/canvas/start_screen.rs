@@ -23,7 +23,8 @@ pub(super) fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 render_start_actions_row(app, ui, card.width());
                 ui.add_space(16.0);
-                render_start_content(app, ui, &recent, card.width());
+                // On a touch phone the command bar right above already names the app.
+                render_start_content(app, ui, &recent, card.width(), !app.touch_ui);
             });
         });
     } else {
@@ -39,7 +40,7 @@ pub(super) fn start_screen(app: &mut PhotocraftApp, ui: &mut egui::Ui) {
         // 2. Right Content Area (scrollable)
         ui.scope_builder(egui::UiBuilder::new().max_rect(content_rect), |ui| {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
-                render_start_content(app, ui, &recent, content_rect.width());
+                render_start_content(app, ui, &recent, content_rect.width(), true);
             });
         });
     }
@@ -199,10 +200,32 @@ fn render_rail_link(app: &mut PhotocraftApp, ui: &mut egui::Ui, rail_w: f32, lab
     }
 }
 
-fn render_start_content(app: &mut PhotocraftApp, ui: &mut egui::Ui, recent: &[String], content_w: f32) {
-    let t = crate::theme::Tokens::get(ui.ctx());
+fn render_start_content(app: &mut PhotocraftApp, ui: &mut egui::Ui, recent: &[String], content_w: f32, title: bool) {
     ui.add_space(8.0);
+    if title {
+        render_start_title(ui, content_w);
+    }
 
+    if recent.is_empty() {
+        if start_screen_drop_boxes(app) {
+            render_first_run_content(app, ui, content_w);
+        }
+    } else {
+        crate::home_recent_ui::show_home_recent(app, ui, recent, content_w);
+    }
+
+    ui.add_space(24.0);
+}
+
+/// Whether the start screen draws its drop boxes (the first-run box and the last card of the
+/// recent grid). Nothing is dropped onto a touch screen, and there a box would only be a second
+/// Open… beside the New file and Open… buttons.
+pub(crate) fn start_screen_drop_boxes(app: &PhotocraftApp) -> bool {
+    !app.touch_ui
+}
+
+fn render_start_title(ui: &mut egui::Ui, content_w: f32) {
+    let t = crate::theme::Tokens::get(ui.ctx());
     // Top Row: [01] PhotoCraft
     ui.horizontal(|ui| {
         let badge_size = egui::vec2(24.0, 19.0);
@@ -222,14 +245,6 @@ fn render_start_content(app: &mut PhotocraftApp, ui: &mut egui::Ui, recent: &[St
     // Hairline separator under header
     let (sep_r, _) = ui.allocate_exact_size(egui::vec2(content_w, 1.0), Sense::hover());
     ui.painter().line_segment([sep_r.min, egui::pos2(sep_r.max.x, sep_r.min.y)], egui::Stroke::new(1.0, t.separator));
-
-    ui.add_space(24.0);
-
-    if recent.is_empty() {
-        render_first_run_content(app, ui, content_w);
-    } else {
-        crate::home_recent_ui::show_home_recent(app, ui, recent, content_w);
-    }
 
     ui.add_space(24.0);
 }

@@ -831,13 +831,15 @@ pub(crate) fn show_home_recent(app: &mut PhotocraftApp, ui: &mut Ui, recent: &[S
             }
 
             // Inline drop card as the last card in the grid
-            let drop_idx = recent.len();
-            let drop_hint = crate::canvas::start_screen_drop_hint(app);
-            if render_inline_drop_card(ui, &drop_hint) {
-                action_to_take = Some(RecentAction::OpenDialog);
-            }
-            if (drop_idx + 1).is_multiple_of(cols) {
-                ui.end_row();
+            if crate::canvas::start_screen_drop_boxes(app) {
+                let drop_idx = recent.len();
+                let drop_hint = crate::canvas::start_screen_drop_hint(app);
+                if render_inline_drop_card(ui, &drop_hint) {
+                    action_to_take = Some(RecentAction::OpenDialog);
+                }
+                if (drop_idx + 1).is_multiple_of(cols) {
+                    ui.end_row();
+                }
             }
         });
     } else {
