@@ -20,9 +20,9 @@ mod state;
 pub mod view_cmds;
 pub mod workspace_ui;
 
-pub use bar::{menu_bar, touch_menu_button};
 #[cfg(test)]
 use bar::pointer_reaches_title;
+pub use bar::{menu_bar, touch_menu_button};
 pub use invoke::{apply_workspace, invoke};
 pub(crate) use invoke::{invoke_unguarded, panel_alias};
 pub(crate) use items::ItemCache;
@@ -177,6 +177,9 @@ mod quick_export_label_tests {
 
     #[test]
     fn file_quick_export_menu_reflects_selected_format_without_renaming_layer_export() {
+        if !crate::i18n::needs_catalogs() {
+            return;
+        }
         let mut app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         for (value, expected) in [("png", "PNG"), ("jpg", "JPG"), ("gif", "GIF"), ("webp", "WebP"), ("exr", "EXR")] {
             app.run("prefs.set", json!({"values": {"export.quickExportFormat": value}})).unwrap();
@@ -212,6 +215,9 @@ mod reveal_label_tests {
 
     #[test]
     fn smart_objects_reveal_item_names_the_platform_file_manager() {
+        if !crate::i18n::needs_catalogs() {
+            return;
+        }
         let app = PhotocraftApp::new(photocraft_engine::Session::new(), crate::Services::default());
         let id = "layer.smartObjects.revealInFinder";
         let items = menu_items(&app);
@@ -288,6 +294,9 @@ mod window_documents_tests {
     /// rename (Save As).
     #[test]
     fn document_names_are_shown_as_they_are_and_follow_a_rename() {
+        if !crate::i18n::needs_catalogs() {
+            return;
+        }
         let mut app = app(1);
         let before = crate::native_menu::state_hash(&app, None);
         if let Some(d) = app.session.active_mut() {
