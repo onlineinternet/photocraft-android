@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! Dependency layering rules (plan/architecture.md §3).
 //!
 //! The rule engine works on a small, metadata-independent model so it can be
@@ -57,6 +59,7 @@ pub const TABLE: &[(&str, Class)] = &[
     ("gpu", Class::Layer(3)),
     ("format", Class::Layer(3)),
     ("io", Class::Layer(4)),
+    ("aipixel", Class::Layer(4)),
     ("tools", Class::Layer(4)),
     ("viewport", Class::Layer(4)),
     ("ml", Class::Layer(4)),

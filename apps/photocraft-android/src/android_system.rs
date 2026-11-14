@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! The Android system calls the shell makes through JNI:
 //!
 //! - Android's own document, photo and "save to" pickers, through the app's one Java class
@@ -286,6 +288,60 @@ pub fn clipboard_image() -> Option<Vec<u8>> {
     .flatten()
 }
 
+/// Read one AI Pixel Studio key from the activity. `Ok(None)` means it was never saved.
+/// Off Android this is an error so the caller can use its private-file fallback.
+pub fn secret_get(name: &str) -> Result<Option<String>, String> {
+    let bytes = with_activity(|env, activity| {
+        let name = env.new_string(name)?;
+        let data = env.call_method(activity, jni_str!("secretGet"), jni_sig!("(Ljava/lang/String;)[B"), &[JValue::Object(&name)])?.l()?;
+        if data.is_null() {
+            return Ok(None);
+        }
+        let bytes = env.cast_local::<JByteArray>(data)?;
+        Ok(Some(env.convert_byte_array(&bytes)?))
+    })?;
+    match bytes {
+        None => Ok(None),
+        Some(bytes) => String::from_utf8(bytes).map(Some).map_err(|_| "the saved key isn't text".to_string()),
+    }
+}
+
+/// Store one AI Pixel Studio key. The activity seals it; this function never logs `value`.
+pub fn secret_put(name: &str, value: &[u8]) -> Result<(), String> {
+    let why = with_activity(|env, activity| {
+        let name = env.new_string(name)?;
+        let data = env.byte_array_from_slice(value)?;
+        let err = env
+            .call_method(
+                activity,
+                jni_str!("secretPut"),
+                jni_sig!("(Ljava/lang/String;[B)Ljava/lang/String;"),
+                &[JValue::Object(&name), JValue::Object(&data)],
+            )?
+            .l()?;
+        error_of(env, err)
+    })?;
+    match why {
+        None => Ok(()),
+        Some(err) if err.is_empty() => Err("couldn't save the key".into()),
+        Some(err) => Err(err),
+    }
+}
+
+/// Delete one AI Pixel Studio key.
+pub fn secret_clear(name: &str) -> Result<(), String> {
+    let why = with_activity(|env, activity| {
+        let name = env.new_string(name)?;
+        let err = env.call_method(activity, jni_str!("secretClear"), jni_sig!("(Ljava/lang/String;)Ljava/lang/String;"), &[JValue::Object(&name)])?.l()?;
+        error_of(env, err)
+    })?;
+    match why {
+        None => Ok(()),
+        Some(err) if err.is_empty() => Err("couldn't clear the key".into()),
+        Some(err) => Err(err),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -302,6 +358,9 @@ mod tests {
         assert!(set_clipboard_image(b"png").is_err());
         assert_eq!(clipboard_image(), None);
         assert!(write_uri("content://x", b"data").is_err());
+        assert!(secret_get("retro.token").is_err());
+        assert!(secret_put("retro.token", b"test-token").is_err());
+        assert!(secret_clear("retro.token").is_err());
         init(std::ptr::null_mut());
         assert!(read_uri("content://x").is_err(), "a null activity is never registered");
     }

@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! The menu bar from the keyboard (#4988), as Photoshop's on Windows: a tap on Alt (or F10)
 //! puts the keyboard on the bar (File lit; ← / → move along it, ↓ / ↩ open the lit menu,
 //! Esc, Space or a click leaves), Alt+letter opens the menu with that mnemonic straight away, and in an
@@ -466,7 +468,7 @@ impl Keys {
             // typed into a field in the menu: Help › Search took "S" for System Info (#5996). A zoom
             // field that kept the keyboard through the click on the menu title is not in the menu,
             // but while Help › Search is open the letters are still typing.
-            let typing = ctx.text_edit_focused() && !(crate::zoom_field::is_focused(ctx) && !super::search::shown(ctx));
+            let typing = ctx.text_edit_focused() && (!crate::zoom_field::is_focused(ctx) || super::search::shown(ctx));
             let letter = events.iter().filter(|_| !typing).find_map(|e| match e {
                 Event::Key { key, pressed: true, modifiers, .. } if !modifiers.command && !modifiers.ctrl && !modifiers.alt => {
                     key_char(*key).map(|c| (*key, c))

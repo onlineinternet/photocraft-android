@@ -1,3 +1,5 @@
+# Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+# Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 [package]
 name = "photocraft-android"
 description = "PhotoCraft on Android (eframe on NativeActivity, wgpu on Vulkan): an unofficial community port"
@@ -35,6 +37,7 @@ photocraft-codecs = { workspace = true }
 photocraft-format = { workspace = true }
 photocraft-raster = { workspace = true }
 photocraft-ui-egui = { workspace = true }
+photocraft-aipixel = { workspace = true }
 eframe = { workspace = true, features = ["wgpu", "persistence"] }
 egui = { workspace = true }
 log = { workspace = true }

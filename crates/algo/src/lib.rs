@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! # photocraft-algo
 //!
 //! CPU image filters (Photoshop's Filter menu): blur, sharpen, noise,
@@ -18,6 +20,7 @@
 #![forbid(unsafe_code)]
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+pub mod ai_pixel;
 pub mod art_history;
 mod artistic;
 mod artistic_fx;

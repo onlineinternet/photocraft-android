@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! The command registry. Ids follow Photoshop's menu structure (see the parity checklist).
 
 use photocraft_color::{BlendMode, Color, ColorMode, SampleType};
@@ -53,6 +55,7 @@ pub mod actions_cmds;
 pub mod actions_edit_cmds;
 pub mod adjust_cmds;
 mod adjust_params;
+pub mod ai_pixel_cmds;
 pub mod align_cmds;
 pub mod analysis_cmds;
 pub mod artboard_cmds;
@@ -340,10 +343,8 @@ fn build() -> Vec<CommandSpec> {
             |s, p| {
                 let i = p.get("document").and_then(Value::as_u64).map(|v| v as usize).or(s.active_index()).ok_or(EngineError::NoDocument)?;
                 match p.get("save").filter(|v| !v.is_null()) {
-                    Some(v) if v == "ask" => {
-                        if s.documents().get(i).ok_or(EngineError::NoDocument)?.is_dirty() {
-                            return Err(bad("file.close", "the document has unsaved changes; save it or explicitly discard them"));
-                        }
+                    Some(v) if v == "ask" && s.documents().get(i).ok_or(EngineError::NoDocument)?.is_dirty() => {
+                        return Err(bad("file.close", "the document has unsaved changes; save it or explicitly discard them"));
                     }
                     // `false` (don't save) is the older spelling of discard.
                     Some(Value::Bool(false)) => {}
@@ -1440,6 +1441,7 @@ fn build() -> Vec<CommandSpec> {
     v.extend(crate::automate_cmds::specs());
     v.extend(crate::print_cmds::specs());
     v.extend(crate::pixel_art_cmds::specs());
+    v.extend(crate::ai_pixel_cmds::specs());
     v.extend(crate::palette_cmds::specs());
     v.extend(crate::installed_profiles::specs());
     v.extend(crate::pick_cmds::specs());

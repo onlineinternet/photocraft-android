@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! The measured Scale Effects event and Make-from-layer-effects form.
 use super::descriptors::{PCT, class, class_ref, desc, get_ref, jstr, pct, ref_class};
 use super::fields::{Mapped, step};
@@ -86,10 +88,8 @@ fn has_style_reference(value: &D) -> bool {
     let mut pending = vec![value];
     while let Some(value) = pending.pop() {
         match value {
-            D::Reference(parts) => {
-                if parts.iter().any(|part| matches!(part, ReferenceItem::Property { key, .. } if key.is("Lefx"))) {
-                    return true;
-                }
+            D::Reference(parts) if parts.iter().any(|part| matches!(part, ReferenceItem::Property { key, .. } if key.is("Lefx"))) => {
+                return true;
             }
             D::Descriptor(d) | D::GlobalObject(d) => pending.extend(d.items.iter().map(|(_, value)| value)),
             D::List(values) => pending.extend(values),

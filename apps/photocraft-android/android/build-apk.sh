@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+# Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 # Build PhotoCraft's Android APK (arm64-v8a) without Gradle: cargo builds the native library,
 # javac and d8 build the one Java class (java/), then the SDK's own tools package and sign it
 # (aapt2, zipalign, apksigner).
@@ -73,7 +75,16 @@ javac -source 11 -target 11 -nowarn -Xlint:-options -classpath "$JAR" -d "$work/
 
 echo "==> Packaging"
 "$TC/llvm-strip" --strip-unneeded -o "$work/lib/arm64-v8a/libphotocraft_android.so" "$so"
+# The network security config (cleartext notes for a LAN ComfyUI server) is a real resource.
+# aapt2 will not resolve @xml/network_security_config from the manifest alone.
+res_flag=()
+if [ -d "$here/res" ]; then
+  echo "==> Compiling resources"
+  "$BT/aapt2" compile --dir "$here/res" -o "$work/resources.zip"
+  res_flag=(-R "$work/resources.zip")
+fi
 "$BT/aapt2" link -o "$work/unsigned.apk" -I "$JAR" --manifest "$here/AndroidManifest.xml" \
+  "${res_flag[@]}" \
   --min-sdk-version "$MIN_SDK" --target-sdk-version "$TARGET_SDK" \
   --version-code "$VERSION_CODE" --version-name "$VERSION_NAME" --replace-version
 (cd "$work" && zip -q -r unsigned.apk lib && cd dex && zip -q ../unsigned.apk classes.dex)
