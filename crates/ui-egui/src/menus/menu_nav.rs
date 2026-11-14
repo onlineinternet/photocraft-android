@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! Native-menu behaviour for the menu bar's menus (#138): a menu or submenu taller than the
 //! window scrolls (mouse wheel / trackpad, and the ▲ / ▼ arrows at its top and bottom that scroll
 //! while the pointer rests on them, like macOS and Windows menus on a small display), and the
@@ -354,7 +356,7 @@ impl Nav {
         // cursor and Space types a space. A zoom field keeps the keyboard while a menu title is
         // clicked (zoom_field.rs), but is not in the menu: the menu takes the keys, unless it has
         // a text field of its own (Help › Search, which the zoom field keeps out).
-        let typing = ctx.text_edit_focused() && !(crate::zoom_field::is_focused(ctx) && !super::search::shown(ctx));
+        let typing = ctx.text_edit_focused() && (!crate::zoom_field::is_focused(ctx) || super::search::shown(ctx));
         let press = |k: Key| !(typing && matches!(k, Key::ArrowLeft | Key::ArrowRight | Key::Space)) && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, k));
         let current = self.highlighted(level).and_then(|i| self.rows.get(level)?.get(i)).cloned();
         let switch = |by: usize| {

@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! Background jobs in the shell (#210): long commands and file opens run on worker threads (see
 //! `photocraft_engine::jobs`) while the window keeps drawing at full frame rate.
 //!
@@ -681,6 +683,11 @@ fn on_event(app: &mut PhotocraftApp, ctx: &egui::Context, e: JobEvent) {
             app.ui.status = crate::i18n::fmt(tl!("Canceled {label}"), &[("label", &e.label)]);
             app.ui.status_error = false;
         }
+        JobOutcome::Done(ref result) if e.command.starts_with("ai.pixel.") => {
+            app.sync_views();
+            app.ui.status = result.get("message").and_then(Value::as_str).unwrap_or(&e.label).to_string();
+            app.ui.status_error = false;
+        }
         JobOutcome::Done(_) => {
             app.sync_views();
             app.ui.status = e.label;
@@ -973,7 +980,12 @@ pub fn dialog(app: &mut PhotocraftApp, ctx: &egui::Context) {
                 &j.command,
                 !app.ui.view.hides_chrome() && app.ui.panels.status_bar && job_in_view(app).is_some_and(|shown| shown.id == j.id),
             );
-            if j.command == "file.automate.batch" || j.elapsed_ms < DIALOG_DELAY_MS || place || app.jobs.saves.iter().any(|s| s.job == j.id) {
+            if j.command == "file.automate.batch"
+                || j.command.starts_with("ai.pixel.")
+                || j.elapsed_ms < DIALOG_DELAY_MS
+                || place
+                || app.jobs.saves.iter().any(|s| s.job == j.id)
+            {
                 return;
             }
             j

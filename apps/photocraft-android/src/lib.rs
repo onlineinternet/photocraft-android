@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! PhotoCraft on Android: an unofficial community port.
 //!
 //! Runs the same [`photocraft_ui_egui::PhotocraftApp`] as the desktop and web builds, through
@@ -33,6 +35,7 @@ pub mod gestures;
 pub mod insets;
 pub mod pen;
 pub mod picker;
+mod secrets;
 pub mod services;
 
 use photocraft_doc::Document;
@@ -285,6 +288,13 @@ impl eframe::App for AndroidShell {
     }
 }
 
+/// Remember the AI Pixel Studio key store before any drawer can read a key.
+fn install_ai_secrets(dirs: &services::Dirs) {
+    let store = Arc::new(secrets::Store { dir: dirs.data.join("ai-secrets") });
+    photocraft_aipixel::secrets::install(store);
+    photocraft_aipixel::secrets::load_known();
+}
+
 /// eframe's options for Android (`android_app` is set by the caller on a device).
 pub fn native_options(dirs: &services::Dirs) -> eframe::NativeOptions {
     let mut options = eframe::NativeOptions {
@@ -310,6 +320,7 @@ pub fn create_app(
     keyboard: Option<KeyboardFn>,
     pen_queue: pen::Queue,
 ) -> AndroidShell {
+    install_ai_secrets(dirs);
     let picker: services::SharedPicker = Rc::new(RefCell::new(picker::Host::new(storage)));
     let mut app = PhotocraftApp::new(Session::new(), services::android(dirs, picker.clone()));
     // Long commands and file opens run as background jobs with progress and Cancel.

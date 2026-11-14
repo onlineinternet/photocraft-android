@@ -1,3 +1,8 @@
+<!--
+  Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+  Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
+-->
+
 # PhotoCraft Android: to-do
 
 What's planned for the Android port, in rough order. Tick items off as they land; add new ones
@@ -61,6 +66,10 @@ where they fit. Done items move to the bottom with the date.
 
 ## Done
 
+- 2026-11-14: AI Pixel Studio (`ai.pixel.generate`): a new layer from a prompt, or a refine of the
+  active layer or selection, through a user-supplied ComfyUI server or a Retro Diffusion key.
+  Batch animation frames stay disabled. Keys use the Android Keystore, with a private-file
+  fallback. Cleartext HTTP is limited to LAN and Tailscale in the Rust client.
 - 2026-10-27: Clip Studio touch chrome (`crates/ui-egui/src/studio_chrome.rs`), on for the Android
   shell. Studio dark theme the first time the stock dark theme is still selected. Long-press
   eyedropper on a brush tool. Onion skin, frame tags, materials and per-document rotation lock

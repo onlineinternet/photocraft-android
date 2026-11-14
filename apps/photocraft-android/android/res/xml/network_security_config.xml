@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+  Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
+
+  Cleartext HTTP is for a ComfyUI server on the same LAN, on link-local, or on Tailscale
+  (100.64.0.0/10). Android's domain rules cannot match those IP ranges, so this file permits
+  cleartext at the OS and the app refuses every other http:// address before it connects
+  (crates/aipixel/src/urlutil.rs). Public hosts, including the Retro Diffusion API, must be https.
+  System CAs are kept so those https calls can be verified.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

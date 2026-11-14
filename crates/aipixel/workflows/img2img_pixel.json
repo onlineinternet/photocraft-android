@@ -1,0 +1,65 @@
+{
+  "_comment": "Bundled ComfyUI API workflow for refining a layer. @image and @mask are uploaded PNG names. Transparent mask pixels are the area to repaint.",
+  "4": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": { "ckpt_name": "@checkpoint" }
+  },
+  "10": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "model": ["4", 0],
+      "clip": ["4", 1],
+      "lora_name": "@lora",
+      "strength_model": 0.6,
+      "strength_clip": 0.6
+    }
+  },
+  "6": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "@prompt", "clip": ["10", 1] }
+  },
+  "7": {
+    "class_type": "CLIPTextEncode",
+    "inputs": { "text": "@negative", "clip": ["10", 1] }
+  },
+  "5": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "@image" }
+  },
+  "9": {
+    "class_type": "LoadImage",
+    "inputs": { "image": "@mask" }
+  },
+  "11": {
+    "class_type": "VAEEncodeForInpaint",
+    "inputs": {
+      "pixels": ["5", 0],
+      "vae": ["4", 2],
+      "mask": ["9", 1],
+      "grow_mask_by": 0
+    }
+  },
+  "3": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": ["10", 0],
+      "positive": ["6", 0],
+      "negative": ["7", 0],
+      "latent_image": ["11", 0],
+      "seed": "@seed",
+      "steps": 20,
+      "cfg": 7.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": "@denoise"
+    }
+  },
+  "8": {
+    "class_type": "VAEDecode",
+    "inputs": { "samples": ["3", 0], "vae": ["4", 2] }
+  },
+  "1": {
+    "class_type": "SaveImage",
+    "inputs": { "images": ["8", 0], "filename_prefix": "layerwise" }
+  }
+}

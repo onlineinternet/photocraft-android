@@ -1,3 +1,6 @@
+# Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+# Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
+
 [package]
 name = "photocraft-ui-egui"
 version.workspace = true
@@ -24,6 +27,7 @@ photocraft-engine = { workspace = true }
 photocraft-io = { workspace = true }
 photocraft-plugins = { workspace = true }
 photocraft-algo = { workspace = true }
+photocraft-aipixel = { workspace = true }
 photocraft-text = { workspace = true }
 photocraft-vector = { workspace = true }
 # Only MAX_BRUSH_SIZE: `ui.set brushSize` validates against the Brush Settings range up front.
