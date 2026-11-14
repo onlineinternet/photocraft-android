@@ -1,0 +1,29 @@
+# AI Pixel Studio for the Layerwise Android port of PhotoCraft.
+# Licensed under the Apache License, Version 2.0 (LICENSE-APACHE),
+# also offered under the MIT License (LICENSE-MIT) like the rest of this tree.
+
+[package]
+name = "photocraft-aipixel"
+description = "AI Pixel Studio providers: a self-hosted ComfyUI server and the Retro Diffusion API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+photocraft-algo = { workspace = true }
+photocraft-codecs = { workspace = true }
+serde_json = { workspace = true }
+base64 = "0.22"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+getrandom = { workspace = true }
+ureq = { version = "2.12.1", default-features = false, features = ["tls"] }
+tungstenite = { version = "0.26", default-features = false, features = ["handshake", "rustls-tls-webpki-roots"] }
+
+[dev-dependencies]
+serde_json = { workspace = true }

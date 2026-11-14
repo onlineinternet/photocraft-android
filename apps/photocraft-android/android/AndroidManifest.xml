@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
+  Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+  Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
+
   PhotoCraft on Android (unofficial). PhotoCraftActivity (java/) is Android's NativeActivity,
   which loads libphotocraft_android.so where android-activity's glue calls `android_main`
   (src/lib.rs), plus the answers of Android's file pickers. Built into an APK by build-apk.sh;
@@ -18,9 +21,15 @@
          two only matter on Android 9 and 10, for the built-in folder picker. -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <!-- AI Pixel Studio: a ComfyUI server the user names, or the Retro Diffusion API.
+         Cleartext is still refused in Rust except for loopback, LAN, link-local and Tailscale
+         (crates/aipixel/src/urlutil.rs). Android cannot express that IP list, so the OS permit
+         in res/xml/network_security_config.xml is wider. The Rust check is what the app enforces. -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:label="PhotoCraft (unofficial)"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:hasCode="true"
         android:extractNativeLibs="true"
         android:requestLegacyExternalStorage="true"

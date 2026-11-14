@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! The menu bar from the keyboard (#4988), as Photoshop's on Windows: a tap on Alt (or F10)
 //! puts the keyboard on the bar (File lit; ← / → move along it, ↓ / ↩ open the lit menu,
 //! Esc, Space or a click leaves), Alt+letter opens the menu with that mnemonic straight away, and in an

@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! PhotoCraft's first UI shell, built on egui/eframe.
 //!
 //! This crate is deliberately thin. Every action goes through
@@ -24,6 +26,7 @@ macro_rules! tl {
         $crate::i18n::t($s)
     };
 }
+pub(crate) mod ai_pixel_ui;
 mod brush_mode_menu;
 pub mod canvas;
 pub mod control;

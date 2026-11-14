@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 package io.github.photocraft.unofficial;
 
 import android.app.NativeActivity;
@@ -23,10 +25,22 @@ import android.view.inputmethod.InputMethodManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.security.KeyStore;
+import java.security.SecureRandom;
 import java.util.ArrayList;
+import java.util.Arrays;
+
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
 
 /**
  * PhotoCraft's activity: Android's NativeActivity (which runs the Rust app, src/lib.rs) plus the
@@ -416,5 +430,178 @@ public class PhotoCraftActivity extends NativeActivity {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * AI Pixel Studio keys. Ciphertext lives in the app-private {@code ai-secrets} folder, sealed
+     * with an AES-GCM key that never leaves the Android Keystore. If the Keystore cannot create
+     * that key, the same folder keeps the bytes with a different header (still not logged, still
+     * not world-readable). Nothing here is written to logcat.
+     */
+    private static final String SECRET_STORE = "AndroidKeyStore";
+    private static final String SECRET_ALIAS = "layerwise.ai.pixel";
+    private static final int SECRET_IV = 12;
+    private static final int SECRET_TAG_BITS = 128;
+    private static final int SECRET_MAX = 4096;
+
+    /** The saved key, or null when this name has none. A broken file throws instead of looking empty. */
+    public byte[] secretGet(String name) throws Exception {
+        File file = secretFile(name);
+        if (!file.isFile()) {
+            return null;
+        }
+        byte[] all = readFile(file);
+        if (all.length < 4 || all.length > SECRET_MAX) {
+            throw new IllegalStateException("couldn't read the saved key");
+        }
+        if (all[0] == 'L' && all[1] == 'W' && all[2] == 'K' && all[3] == 'S') {
+            if (all.length < 4 + SECRET_IV + 16) {
+                throw new IllegalStateException("couldn't read the saved key");
+            }
+            byte[] iv = Arrays.copyOfRange(all, 4, 4 + SECRET_IV);
+            byte[] sealed = Arrays.copyOfRange(all, 4 + SECRET_IV, all.length);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, secretKey(), new GCMParameterSpec(SECRET_TAG_BITS, iv));
+            return cipher.doFinal(sealed);
+        }
+        if (all[0] == 'L' && all[1] == 'W' && all[2] == 'F' && all[3] == 'L') {
+            return Arrays.copyOfRange(all, 4, all.length);
+        }
+        throw new IllegalStateException("couldn't read the saved key");
+    }
+
+    /** Store {@code value}. Null means it was saved; anything else is a short reason with no key text. */
+    public String secretPut(String name, byte[] value) {
+        try {
+            if (value == null || value.length == 0 || value.length > 512) {
+                return "the key can't be stored";
+            }
+            byte[] body = seal(value);
+            writePrivate(secretFile(name), body);
+            return null;
+        } catch (Exception e) {
+            return "couldn't save the key";
+        }
+    }
+
+    /** Remove a saved key. Null means it is gone. */
+    public String secretClear(String name) {
+        try {
+            File file = secretFile(name);
+            if (file.isFile() && !file.delete()) {
+                return "couldn't clear the key";
+            }
+            return null;
+        } catch (Exception e) {
+            return "couldn't clear the key";
+        }
+    }
+
+    private byte[] seal(byte[] value) throws Exception {
+        try {
+            byte[] iv = new byte[SECRET_IV];
+            new SecureRandom().nextBytes(iv);
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey(), new GCMParameterSpec(SECRET_TAG_BITS, iv));
+            byte[] sealed = cipher.doFinal(value);
+            byte[] body = new byte[4 + iv.length + sealed.length];
+            body[0] = 'L';
+            body[1] = 'W';
+            body[2] = 'K';
+            body[3] = 'S';
+            System.arraycopy(iv, 0, body, 4, iv.length);
+            System.arraycopy(sealed, 0, body, 4 + iv.length, sealed.length);
+            return body;
+        } catch (Exception keystore) {
+            byte[] body = new byte[4 + value.length];
+            body[0] = 'L';
+            body[1] = 'W';
+            body[2] = 'F';
+            body[3] = 'L';
+            System.arraycopy(value, 0, body, 4, value.length);
+            return body;
+        }
+    }
+
+    private SecretKey secretKey() throws Exception {
+        KeyStore store = KeyStore.getInstance(SECRET_STORE);
+        store.load(null);
+        if (!store.containsAlias(SECRET_ALIAS)) {
+            KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, SECRET_STORE);
+            generator.init(new KeyGenParameterSpec.Builder(
+                    SECRET_ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                    .setKeySize(256)
+                    .setRandomizedEncryptionRequired(true)
+                    .build());
+            generator.generateKey();
+            store.load(null);
+        }
+        KeyStore.Entry entry = store.getEntry(SECRET_ALIAS, null);
+        if (!(entry instanceof KeyStore.SecretKeyEntry)) {
+            throw new IllegalStateException("couldn't open the keystore");
+        }
+        return ((KeyStore.SecretKeyEntry) entry).getSecretKey();
+    }
+
+    private File secretFile(String name) throws Exception {
+        if (!secretNameOk(name)) {
+            throw new IllegalArgumentException("that secret can't be stored");
+        }
+        File dir = new File(getFilesDir(), "ai-secrets");
+        if (!dir.isDirectory() && !dir.mkdirs()) {
+            throw new IllegalStateException("couldn't save the key");
+        }
+        dir.setReadable(false, false);
+        dir.setReadable(true, true);
+        dir.setWritable(false, false);
+        dir.setWritable(true, true);
+        dir.setExecutable(false, false);
+        dir.setExecutable(true, true);
+        return new File(dir, name);
+    }
+
+    private static boolean secretNameOk(String name) {
+        if (name == null || name.isEmpty() || name.length() > 64) {
+            return false;
+        }
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            boolean ok = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+                    || c == '.' || c == '_' || c == '-';
+            if (!ok) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static byte[] readFile(File file) throws Exception {
+        try (InputStream in = new FileInputStream(file)) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buf = new byte[1024];
+            int n;
+            int total = 0;
+            while ((n = in.read(buf)) >= 0) {
+                total += n;
+                if (total > SECRET_MAX) {
+                    throw new IllegalStateException("couldn't read the saved key");
+                }
+                out.write(buf, 0, n);
+            }
+            return out.toByteArray();
+        }
+    }
+
+    private static void writePrivate(File file, byte[] body) throws Exception {
+        try (OutputStream out = new FileOutputStream(file)) {
+            out.write(body);
+        }
+        file.setReadable(false, false);
+        file.setReadable(true, true);
+        file.setWritable(false, false);
+        file.setWritable(true, true);
+        file.setExecutable(false, false);
     }
 }

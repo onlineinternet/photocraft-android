@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 use super::display::{canvas_display, display_image};
 use super::drag::Drag;
 use super::paint_thread::{PaintThread, Step};
@@ -600,6 +602,9 @@ pub(super) fn offer_live_retouch(app: &mut PhotocraftApp, d: &Drag) {
     }
     let rest: Vec<_> = d.points.get(fed..).unwrap_or_default().iter().map(|q| photocraft_engine::paint::StrokePoint::new(q[0], q[1], q[2] as f32)).collect();
     // A refused offer (the brush changed mid-stroke, say) leaves the commit to render the stroke.
+    // The extra points are pushed only when the offer can take them. A pattern guard cannot
+    // borrow `live` mutably, so this stays an `if` inside the arm.
+    #[allow(clippy::collapsible_match)]
     match stroke {
         EngineStroke::Retouch(live) if !dab => offer_retouch(app, live, &rest),
         EngineStroke::Dab(live) if dab => offer_dab(app, live, &rest),

@@ -1,3 +1,8 @@
+<!--
+  Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+  Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
+-->
+
 # PhotoCraft on Android (unofficial)
 
 An unofficial community port: the same PhotoCraft app as the desktop and web builds, as a
@@ -73,6 +78,24 @@ The APK lands in `target/android/photocraft-android-arm64.apk`.
 - The font list leaves out the Noto fonts Android ships for other writing systems (Myanmar,
   Ogham, …); fonts in your own `Fonts` folder are always listed.
 
+## AI Pixel Studio
+
+The **AI** button on the command bar opens AI Pixel Studio. It asks a ComfyUI server you name
+(a LAN address such as `http://192.168.x.x:8188`, a Tailscale address, or an `https` URL) or the
+Retro Diffusion API, then inserts the picture as a **new layer** above the one you were painting.
+It does not replace those pixels. Undo removes only that new layer.
+
+The Retro Diffusion key, and an optional ComfyUI bearer token or basic-auth password, are not
+written into preferences or the log. On a device they are sealed with the Android Keystore
+(AES-GCM). If the Keystore cannot create a key, they stay in the app-private `ai-secrets`
+folder. The field never shows a key that is already saved.
+
+Cleartext `http://` is refused unless the host is loopback, private LAN (`10/8`, `172.16/12`,
+`192.168/16`), link-local, or Tailscale (`100.64/10`). Android's network security config cannot
+name those IP ranges, so the manifest permits cleartext and this check (in
+`crates/aipixel/src/urlutil.rs`) is the one that runs. The Retro Diffusion API is always
+`https://api.retrodiffusion.ai`. The app needs the `INTERNET` permission for both.
+
 ## Pixel Art Mode
 
 View › Pixel Art Mode (or **Pixel art** in tool properties, and on a wide screen the **Px** button) switches the open document to pixel work
@@ -123,7 +146,8 @@ that starts in the mode, and a **Pixel Art Mode** checkbox for any size.
   backend) for Choose Folder and as the fallback. A file saved through Android's picker is a
   `content://` URI, carried as `<uri>/<name>` so its extension still picks the format.
 - `src/android_system.rs`: the Android calls made through JNI (the pickers, writing a picked
-  file, the clipboard, the share sheet, the on-screen keyboard).
+  file, the clipboard, the share sheet, the on-screen keyboard, AI Pixel Studio keys).
+- `src/secrets.rs`: Keystore when the activity can answer, otherwise a private `0600` file.
 - `android/java/.../PhotoCraftActivity.java`: Android's NativeActivity plus what it can't do
   on its own: receiving the pickers' answers, the clipboard and the share sheet.
 - `android/java/.../ImageProvider.java`: serves copied and shared images to other apps

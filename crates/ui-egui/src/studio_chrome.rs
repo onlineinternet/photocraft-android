@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! Clip Studio-style touch chrome for a phone or tablet.
 //!
 //! The desktop menu bar, toolbar, options bar and dock stay in place for a mouse. When
@@ -393,6 +395,7 @@ pub(crate) fn overlays(app: &mut PhotocraftApp, ctx: &egui::Context) {
         phone_sheets(app, ctx);
     }
     sample_ring(ctx);
+    crate::ai_pixel_ui::show(app, ctx);
 }
 
 fn phone_sheets(app: &mut PhotocraftApp, ctx: &egui::Context) {
@@ -501,6 +504,15 @@ fn command_bar(app: &mut PhotocraftApp, ui: &mut egui::Ui, wide: bool) {
         let redo = tl!("Redo");
         if hit_button(ui, 44.0, redo, false, |ui, rect, color| paint_hook(ui, rect, color, true)).clicked() {
             run(app, ui.ctx(), "edit.redo");
+        }
+        let ai = tl!("AI Pixel Studio");
+        let ai_open = crate::ai_pixel_ui::is_open(ui.ctx());
+        if hit_button(ui, 44.0, ai, ai_open, |ui, rect, color| {
+            ui.painter().text(rect.center(), Align2::CENTER_CENTER, "AI", FontId::proportional(14.0), color);
+        })
+        .clicked()
+        {
+            crate::ai_pixel_ui::toggle(ui.ctx());
         }
 
         let name = app.session.active().map(|d| d.doc.name.clone()).unwrap_or_else(|| tl!("PhotoCraft").to_string());

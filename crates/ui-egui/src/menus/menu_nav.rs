@@ -1,3 +1,5 @@
+// Modified from PhotoCraft for the Layerwise Android port (AI Pixel Studio).
+// Licensed under the Apache License, Version 2.0. See LICENSE-APACHE.
 //! Native-menu behaviour for the menu bar's menus (#138): a menu or submenu taller than the
 //! window scrolls (mouse wheel / trackpad, and the ▲ / ▼ arrows at its top and bottom that scroll
 //! while the pointer rests on them, like macOS and Windows menus on a small display), and the
