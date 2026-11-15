@@ -15,6 +15,7 @@ on:
       - "crates/**"
       - "Cargo.toml"
       - "Cargo.lock"
+      - "craft-i18n.rev"
       - ".github/workflows/android.yml"
 
 permissions:
@@ -35,6 +36,11 @@ jobs:
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+
+      # The translations now live in storytold/craft-i18n: check out the commit craft-i18n.rev pins
+      # and embed it, as upstream's CI and releases do (sets CRAFT_I18N_DIR and CRAFT_I18N_REQUIRED=1).
+      - name: Check out craft-i18n
+        uses: storytold/craft-common-actions/actions/checkout-craft-i18n@main
 
       - uses: dtolnay/rust-toolchain@stable
         with:

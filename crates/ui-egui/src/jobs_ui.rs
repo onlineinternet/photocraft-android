@@ -307,15 +307,23 @@ fn track_open(app: &mut PhotocraftApp, tab: OpenTab) {
 /// the result goes through File › Open's completion ([`finish_open`]: the profile prompt, the
 /// Camera Raw open dialog for a raw, the import warnings). The document is untitled, so
 /// Open Recent is untouched. Inline (background jobs off, or the web) it finishes at once.
-pub(crate) fn start_open_as_smart_object(app: &mut PhotocraftApp, path: &str, order: Option<OpenOrder>) -> Result<(), String> {
+/// `bytes` is the file's contents when the picker answered with them (Android, the web) rather
+/// than a path the command can read.
+pub(crate) fn start_open_as_smart_object(app: &mut PhotocraftApp, path: &str, bytes: Option<Vec<u8>>, order: Option<OpenOrder>) -> Result<(), String> {
     let name = crate::file_open::display_name(path);
     // `confirmDamage`: a damaged PSD waits for the user's answer, as in File › Open.
     let params = json!({"path": path, "confirmDamage": true});
+    if let Some(bytes) = bytes {
+        app.session.provide_open_bytes(path, Arc::new(bytes));
+    }
     let started = if app.background_jobs {
-        app.session.start("file.openAsSmartObject", params).map_err(|e| e.to_string())?
+        app.session.start("file.openAsSmartObject", params)
     } else {
-        Started::Done(app.session.execute("file.openAsSmartObject", params).map_err(|e| e.to_string())?)
+        app.session.execute("file.openAsSmartObject", params).map(Started::Done)
     };
+    // Bytes the command refused before taking them are not kept for a later open.
+    app.session.clear_open_bytes();
+    let started = started.map_err(|e| e.to_string())?;
     match started {
         Started::Done(v) => finish_open(app, &name, None, &v, None, order),
         Started::Job(job) => {

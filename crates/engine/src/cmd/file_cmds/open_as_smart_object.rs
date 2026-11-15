@@ -26,13 +26,18 @@ pub(super) fn open_as_smart_object(s: &mut Session, p: &Value) -> Result<Value> 
     let opts = crate::jobs::import_options(s.prefs());
     // An interactive caller (the app) asks before opening a PSD that had damaged data, as File > Open does.
     let confirm_damage = p.get("confirmDamage").and_then(Value::as_bool).unwrap_or(false);
+    // Bytes the caller already read for this path (a picker that answers with contents).
+    let given = s.open_bytes.take().filter(|(at, _)| *at == path).map(|(_, bytes)| bytes);
     crate::jobs::run(
         s,
         &format!("Opening {name}"),
         false,
         move |ctx| {
             ctx.progress(0.0, "Reading");
-            let bytes = read_file(&path)?;
+            let bytes = match given {
+                Some(bytes) => bytes,
+                None => Arc::new(read_file(&path)?),
+            };
             ctx.check()?;
             ctx.progress(0.05, "Decoding");
             let (r, damaged) = import_result_for_open(&name, &bytes, &opts)?;
@@ -40,7 +45,7 @@ pub(super) fn open_as_smart_object(s: &mut Session, p: &Value) -> Result<Value> 
             ctx.progress(0.9, "Flattening");
             // The file as one image: the smart object's rendered contents.
             let pixels = flattened_checked(&r.document, r.document.pixel_format(), CMD)?;
-            Ok((path, name, Arc::new(bytes), r, pixels, confirm_damage && damaged))
+            Ok((path, name, bytes, r, pixels, confirm_damage && damaged))
         },
         |s, (path, name, bytes, r, pixels, damaged)| apply(s, &path, &name, bytes, r, pixels, damaged),
     )
@@ -112,4 +117,19 @@ pub fn admit_as_smart_object(s: &mut Session, mut doc: Document) -> usize {
         st.history.set_current_label(LABEL);
     }
     index
+}
+
+impl Session {
+    /// Hands `file.openAsSmartObject` the bytes of `path` for its next run on that path, for a
+    /// file picked as contents rather than a path it can read: Android's picker answers with a
+    /// `content://` URI and the bytes, the web with a name and the bytes. A later call replaces
+    /// it; [`Self::clear_open_bytes`] drops one the command did not take.
+    pub fn provide_open_bytes(&mut self, path: &str, bytes: Arc<Vec<u8>>) {
+        self.open_bytes = Some((path.to_string(), bytes));
+    }
+
+    /// Drops bytes given by [`Self::provide_open_bytes`] that no command took.
+    pub fn clear_open_bytes(&mut self) {
+        self.open_bytes = None;
+    }
 }

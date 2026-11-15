@@ -993,7 +993,7 @@ fn confirmed_damaged_smart_object_opens_are_admitted_as_smart_objects_with_disti
         paths.push(path.to_string_lossy().into_owned());
     }
     for path in &paths {
-        crate::jobs_ui::start_open_as_smart_object(&mut app, path, None).unwrap();
+        crate::jobs_ui::start_open_as_smart_object(&mut app, path, None, None).unwrap();
     }
     assert!(app.session.documents().is_empty());
     for _ in 0..2 {

@@ -20,9 +20,9 @@ mod state;
 pub mod view_cmds;
 pub mod workspace_ui;
 
-pub use bar::{menu_bar, touch_menu_button};
 #[cfg(test)]
 use bar::pointer_reaches_title;
+pub use bar::{menu_bar, touch_menu_button};
 pub use invoke::{apply_workspace, invoke};
 pub(crate) use invoke::{invoke_unguarded, panel_alias};
 pub(crate) use items::ItemCache;

@@ -2055,3 +2055,24 @@ fn a_file_read_from_a_uri_keeps_it_as_its_path_and_reopens_from_recent() {
     assert_eq!(app.session.documents().len(), before + 1, "reopened from its URI, not a made-up file path");
     assert!(app.open_path("content://x/y/Missing.png").unwrap_err().contains("gone"));
 }
+
+/// Android's picker answers File › Open as Smart Object… with each file's `content://` URI and
+/// bytes, not a path: each still opens as its own untitled document holding one smart object,
+/// named after the file, in name order, with an unreadable one reported.
+#[test]
+fn open_as_smart_object_opens_files_the_picker_answered_with_contents() {
+    let uri = |name: &str| format!("content://com.android.providers.media.documents/document/image%3A7/{name}");
+    let files = vec![(uri("two.png"), png_bytes(8, 6)), (uri("one.png"), png_bytes(8, 6)), (uri("bad.png"), b"not an image".to_vec())];
+    let (mut app, _) = app_with(vec![Some(FileDialogAnswer::ContentsMany(files))]);
+    menus::invoke(&mut app, &egui::Context::default(), "file.openAsSmartObject", json!({})).unwrap();
+    answer(&mut app);
+    assert_eq!(app.session.documents().iter().map(|d| d.doc.name.as_str()).collect::<Vec<_>>(), ["one-1", "two-1"]);
+    assert!(app.session.documents().iter().all(|d| d.path.is_none() && d.doc.layers.len() == 1));
+    assert!(app.ui.notices.iter().any(|n| n.error && n.title.starts_with("Couldn't open bad.png")), "the unreadable file is reported");
+
+    // One file (a single pick) answers as Contents.
+    let (mut app, _) = app_with(vec![Some(FileDialogAnswer::Contents(uri("solo.png"), png_bytes(4, 4)))]);
+    menus::invoke(&mut app, &egui::Context::default(), "file.openAsSmartObject", json!({})).unwrap();
+    answer(&mut app);
+    assert_eq!(app.session.documents().iter().map(|d| d.doc.name.as_str()).collect::<Vec<_>>(), ["solo-1"]);
+}

@@ -212,6 +212,10 @@ pub struct Session {
     pub(crate) batch_open: Option<file_cmds::BatchOpen>,
     /// Import diagnostics retained by a Batch scratch that suppresses only profile prompts.
     pub(crate) batch_open_notices: Option<Vec<Value>>,
+    /// A picked file's bytes for the next `file.openAsSmartObject` of that path: a platform
+    /// picker that answers with contents (Android's `content://` documents, the web) has no file
+    /// the command could read. Taken by that command; see [`Session::provide_open_bytes`].
+    pub(crate) open_bytes: Option<(String, Arc<Vec<u8>>)>,
     /// Frozen RAW workflow settings for one noninteractive Batch input.
     pub(crate) batch_raw_open: Option<prefs::RawDefaults>,
     /// Admitted document identities in opening order, independent of visual-tab reordering.
