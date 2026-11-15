@@ -35,6 +35,7 @@ fn view(doc: u64, doc_size: [u32; 2], zoom: f32) -> ViewParams {
         rotation: 0.0,
         shadow: false,
         pixel_grid: false,
+        pixel_art: false,
         view_key: doc,
         display: 0,
         output: 0,

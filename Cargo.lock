@@ -5492,6 +5492,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "photocraft-aipixel"
+version = "0.23.1"
+dependencies = [
+ "base64 0.22.1",
+ "craft-image-codecs",
+ "getrandom 0.3.4",
+ "photocraft-algo",
+ "serde_json",
+ "tungstenite",
+ "ureq 2.12.1",
+]
+
+[[package]]
 name = "photocraft-algo"
 version = "0.23.1"
 dependencies = [
@@ -5508,15 +5521,15 @@ dependencies = [
 
 [[package]]
 name = "photocraft-android"
-version = "0.20.1"
+version = "0.23.1"
 dependencies = [
  "android_logger",
+ "craft-image-codecs",
  "eframe",
  "egui",
  "jni",
  "log",
  "photocraft-aipixel",
- "photocraft-codecs",
  "photocraft-doc",
  "photocraft-engine",
  "photocraft-format",
@@ -5639,6 +5652,7 @@ dependencies = [
  "craft-xml",
  "exr",
  "flate2",
+ "photocraft-aipixel",
  "photocraft-algo",
  "photocraft-color",
  "photocraft-compose",

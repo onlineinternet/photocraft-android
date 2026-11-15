@@ -416,15 +416,10 @@ fn apply_auto_erase(brush: &mut BrushSettings, surf: &Surface, start: Option<&St
 /// The Pencil's brush: the session brush made aliased (every pixel fully painted or untouched,
 /// dabs on the pixel grid), hard and at full flow, with the options-bar mode.
 fn pencil_brush(s: &Session, p: &Value) -> Result<BrushSettings> {
-    pencil_shape(with_blend_mode(resolve_brush(s, p, "paint.pencil")?, p), p)
-}
-
-/// `brush` with the Pencil's hard, aliased tip, or the Eraser's Block (`"block": true`).
-pub(crate) fn pencil_shape(mut brush: BrushSettings, p: &Value) -> Result<BrushSettings> {
+    let mut brush = pencil_shape(with_blend_mode(resolve_brush(s, p, "paint.pencil")?, p), p)?;
     if flag(p, "block", false) {
-        return block_brush(brush, p);
+        return Ok(brush);
     }
-    brush.aliased = true;
     if let Some(shade) = Shade::of(s, p)? {
         // A plain, solid marker stroke: the shading replaces every pixel it covers.
         let [r, g, b] = shade.marker;
@@ -449,6 +444,15 @@ pub(crate) fn pencil_shape(mut brush: BrushSettings, p: &Value) -> Result<BrushS
     // line. On by default in a pixel-art document.
     let pixel_art = s.active().is_some_and(|d| d.doc.pixel_art);
     brush.pixel_perfect = flag(p, "pixelPerfect", pixel_art);
+    Ok(brush)
+}
+
+/// `brush` with the Pencil's hard, aliased tip, or the Eraser's Block (`"block": true`).
+pub(crate) fn pencil_shape(mut brush: BrushSettings, p: &Value) -> Result<BrushSettings> {
+    if flag(p, "block", false) {
+        return block_brush(brush, p);
+    }
+    brush.aliased = true;
     if num(p, "hardness").is_none() {
         brush.hardness = 1.0;
     }

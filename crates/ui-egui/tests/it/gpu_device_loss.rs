@@ -407,6 +407,7 @@ fn tiled_canvas_keeps_tiles_in_place() {
                 rotation: 0.0,
                 shadow: false,
                 pixel_grid: false,
+                pixel_art: false,
                 view_key: 1,
                 display: 0,
                 output: 0,
